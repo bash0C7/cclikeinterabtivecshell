@@ -119,12 +119,77 @@ module Cclikesh
       candidates
     end
 
+    def snapshot_info_bar(ctx)
+      log = @builder.logger
+
+      label = compute_spinner_label(ctx, log)
+      frame = label ? next_spinner_frame : nil
+      segments = compute_info_segments(ctx, log)
+
+      { spinner_frame: frame, spinner_label: label, segments: segments }
+    end
+
+    def slash_names_starting_with(prefix)
+      @builder.slash_handlers.keys
+        .map(&:to_s)
+        .select { |n| n.start_with?(prefix) }
+        .sort
+        .map { |n| "/#{n}" }
+    end
+
     def style_definition(name)
       @builder.style_definition(name)
     end
 
     def logger
       @builder.logger
+    end
+
+    private
+
+    def compute_spinner_label(ctx, log)
+      proc_obj = @builder.spinner_label_proc
+      return nil unless proc_obj
+      begin
+        result = proc_obj.call(ctx)
+      rescue => e
+        log.error("spinner_label error: #{e.full_message}")
+        return nil
+      end
+      case result
+      when nil   then nil
+      when :auto then next_idle_phrase
+      else result.to_s
+      end
+    end
+
+    def next_spinner_frame
+      frames = @builder.spinner_frames
+      return nil if frames.nil? || frames.empty?
+      @spinner_idx = ((@spinner_idx || -1) + 1) % frames.size
+      frames[@spinner_idx]
+    end
+
+    def next_idle_phrase
+      phrases = @builder.idle_phrases
+      return nil if phrases.nil? || phrases.empty?
+      @idle_idx = ((@idle_idx || -1) + 1) % phrases.size
+      phrases[@idle_idx]
+    end
+
+    def compute_info_segments(ctx, log)
+      out = []
+      @builder.info_segments.each do |name, _order, block|
+        begin
+          value = block.call(ctx)
+        rescue => e
+          log.error("info(:#{name}) error: #{e.full_message}")
+          next
+        end
+        next if value.nil? || value.to_s.empty?
+        out << value.to_s
+      end
+      out
     end
   end
 end

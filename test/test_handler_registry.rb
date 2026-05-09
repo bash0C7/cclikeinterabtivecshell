@@ -270,4 +270,82 @@ class TestHandlerRegistry < Test::Unit::TestCase
     assert_equal [], captured
     assert_match(/main-boom/, io.string)
   end
+
+  def test_snapshot_info_bar_returns_segments_in_order
+    builder = Cclikesh::Builder.new
+    builder.info(:elapsed, order: 10) { |_| "1s" }
+    builder.info(:tokens,  order: 20) { |_| "↓ 1k" }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    snap = registry.snapshot_info_bar(:ctx)
+    assert_equal ["1s", "↓ 1k"], snap[:segments]
+  end
+
+  def test_snapshot_info_bar_skips_nil_and_empty_segments
+    builder = Cclikesh::Builder.new
+    builder.info(:a) { |_| nil }
+    builder.info(:b) { |_| "" }
+    builder.info(:c) { |_| "ok" }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    snap = registry.snapshot_info_bar(:ctx)
+    assert_equal ["ok"], snap[:segments]
+  end
+
+  def test_snapshot_info_bar_with_explicit_label_returns_string
+    builder = Cclikesh::Builder.new
+    builder.spinner_label { |_ctx| "Awaiting" }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    snap = registry.snapshot_info_bar(:ctx)
+    assert_equal "Awaiting", snap[:spinner_label]
+    assert_includes builder.spinner_frames, snap[:spinner_frame]
+  end
+
+  def test_snapshot_info_bar_auto_label_picks_idle_phrase
+    builder = Cclikesh::Builder.new
+    builder.idle_phrases = %w[ZeroPhrase]
+    builder.spinner_label { |_| :auto }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    snap = registry.snapshot_info_bar(:ctx)
+    assert_equal "ZeroPhrase", snap[:spinner_label]
+  end
+
+  def test_snapshot_info_bar_nil_label_means_spinner_off
+    builder = Cclikesh::Builder.new
+    builder.spinner_label { |_| nil }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    snap = registry.snapshot_info_bar(:ctx)
+    assert_nil snap[:spinner_label]
+    assert_nil snap[:spinner_frame]
+  end
+
+  def test_snapshot_info_bar_advances_spinner_frame
+    builder = Cclikesh::Builder.new
+    builder.spinner_label { |_| "Active" }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    s1 = registry.snapshot_info_bar(:ctx)[:spinner_frame]
+    s2 = registry.snapshot_info_bar(:ctx)[:spinner_frame]
+    refute_equal s1, s2
+  end
+
+  def test_snapshot_info_bar_logs_segment_error_and_continues
+    io = StringIO.new
+    builder = Cclikesh::Builder.new
+    builder.log_to(io)
+    builder.info(:bad)  { |_| raise "seg-boom" }
+    builder.info(:good) { |_| "ok" }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    snap = registry.snapshot_info_bar(:ctx)
+    assert_equal ["ok"], snap[:segments]
+    assert_match(/seg-boom/, io.string)
+  end
+
+  def test_slash_names_starting_with_prefix
+    builder = Cclikesh::Builder.new
+    builder.slash(:reset) { |_, _| }
+    builder.slash(:quit)  { |_, _| }
+    builder.slash(:q)     { |_, _| }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    assert_equal ["/q", "/quit"], registry.slash_names_starting_with("q").sort
+    assert_equal ["/reset"],      registry.slash_names_starting_with("re")
+    assert_equal [],              registry.slash_names_starting_with("zz")
+  end
 end
