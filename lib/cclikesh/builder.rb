@@ -1,13 +1,23 @@
 # frozen_string_literal: true
 
+require "logger"
+
 module Cclikesh
   class Builder
-    attr_reader :on_submit_handler, :slash_handlers
+    LOG_LEVELS = {
+      debug: Logger::DEBUG, info: Logger::INFO,
+      warn: Logger::WARN, error: Logger::ERROR, fatal: Logger::FATAL
+    }.freeze
+
+    attr_reader :on_submit_handler, :slash_handlers, :logger
 
     def initialize
       @on_submit_handler = nil
       @slash_handlers = {}
       @styles = {}
+      @logger = Logger.new($stderr)
+      @logger.level = Logger::INFO
+      @logger.progname = "cclikesh"
     end
 
     def on_submit(&block)
@@ -28,6 +38,26 @@ module Cclikesh
 
     def style_definition(name)
       @styles[name.to_sym]
+    end
+
+    def logger=(other)
+      @logger = other
+    end
+
+    def log_level=(sym)
+      level = LOG_LEVELS[sym.to_sym]
+      raise ArgumentError, "unknown log level: #{sym.inspect}" unless level
+      @logger.level = level
+    end
+
+    def log_to(target)
+      @logger = case target
+                when IO, StringIO then Logger.new(target)
+                when String       then Logger.new(target)
+                else raise ArgumentError, "log_to expects IO or path String, got #{target.class}"
+                end
+      @logger.level = Logger::INFO
+      @logger.progname = "cclikesh"
     end
   end
 end

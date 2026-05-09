@@ -15,6 +15,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "rinda", "~> 0.2"
   spec.add_dependency "reline", "~> 0.5"
+  spec.add_dependency "logger"
 
   spec.add_development_dependency "test-unit", "~> 3.6"
   spec.add_development_dependency "rake", "~> 13.0"

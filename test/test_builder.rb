@@ -2,6 +2,8 @@
 
 require_relative "test_helper"
 require "cclikesh/builder"
+require "logger"
+require "stringio"
 
 class TestBuilder < Test::Unit::TestCase
   def test_on_submit_stores_block
@@ -54,5 +56,29 @@ class TestBuilder < Test::Unit::TestCase
     b.define_style(:x, fg: :red)
     b.define_style(:x, fg: :green)
     assert_equal({ fg: :green }, b.style_definition(:x))
+  end
+
+  def test_logger_defaults_to_info_level_stderr_progname
+    builder = Cclikesh::Builder.new
+    logger = builder.logger
+    assert_kind_of Logger, logger
+    assert_equal Logger::INFO, logger.level
+    assert_equal "cclikesh", logger.progname
+  end
+
+  def test_log_level_setter_accepts_symbols
+    builder = Cclikesh::Builder.new
+    builder.log_level = :debug
+    assert_equal Logger::DEBUG, builder.logger.level
+    builder.log_level = :warn
+    assert_equal Logger::WARN, builder.logger.level
+  end
+
+  def test_log_to_redirects_output
+    io = StringIO.new
+    builder = Cclikesh::Builder.new
+    builder.log_to(io)
+    builder.logger.info("hello")
+    assert_match(/hello/, io.string)
   end
 end
