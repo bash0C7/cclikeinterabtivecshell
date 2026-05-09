@@ -32,8 +32,8 @@ class TestE2EPTY < Test::Unit::TestCase
       pid = nil
     end
 
-    assert_match(/you said: hello/, output,
-                 "expected echoed line in PTY output. Got:\n#{output.inspect}")
+    assert_match(/\e\[32myou said: hello\e\[0m/, output,
+                 "expected green-styled echoed line in PTY output. Got:\n#{output.inspect}")
   ensure
     if pid
       begin

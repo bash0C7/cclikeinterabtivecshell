@@ -4,7 +4,7 @@ require "cclikesh"
 
 Cclikesh.run do |shell|
   shell.on_submit do |line, ctx|
-    ctx.display.append("you said: #{line}")
+    ctx.display.append("you said: #{line}", style: :result)
   end
 
   shell.slash(:quit) do |_args, ctx|
