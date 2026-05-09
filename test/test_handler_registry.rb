@@ -426,8 +426,10 @@ class TestHandlerRegistry < Test::Unit::TestCase
     builder.slash(:quit) { |_, _| }
     registry = Cclikesh::HandlerRegistry.new(builder)
     items = registry.slash_menu_items_starting_with("")
-    assert_equal({ name: "/quit",  description: nil },              items[0])
-    assert_equal({ name: "/reset", description: "reset session" },  items[1])
+    # /focus is auto-registered by the framework
+    assert_equal "/focus", items[0][:name]
+    assert_equal({ name: "/quit",  description: nil },              items[1])
+    assert_equal({ name: "/reset", description: "reset session" },  items[2])
   end
 
   def test_btw_dsl_auto_registers_btw_slash
@@ -465,6 +467,29 @@ class TestHandlerRegistry < Test::Unit::TestCase
   def test_btw_not_registered_when_dsl_not_called
     builder = Cclikesh::Builder.new
     assert_nil builder.slash_handler(:btw)
+  end
+
+  def test_focus_slash_is_auto_registered
+    builder = Cclikesh::Builder.new
+    assert_not_nil builder.slash_handler(:focus)
+    assert_match(/focus/, builder.slash_description(:focus))
+  end
+
+  def test_focus_slash_toggles_state_focus_mode
+    builder = Cclikesh::Builder.new
+
+    # ctx with state-like Hash and display stub
+    state = {}
+    display = StubDisplay.new([], [], 0)
+    ctx = Object.new
+    ctx.define_singleton_method(:state)   { state }
+    ctx.define_singleton_method(:display) { display }
+
+    builder.slash_handler(:focus).call([], ctx)
+    assert_equal true, state[:focus_mode]
+
+    builder.slash_handler(:focus).call([], ctx)
+    assert_equal false, state[:focus_mode]
   end
 
   def test_registry_exposes_builder_tick_interval

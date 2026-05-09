@@ -45,6 +45,17 @@ module Cclikesh
       @status_row_registry = []
       @status_row_registration_counter = 0
       @editor_mode = :emacs
+
+      register_focus_slash
+    end
+
+    def register_focus_slash
+      @slash_handlers[:focus] = lambda do |_args, ctx|
+        current = ctx.state[:focus_mode]
+        ctx.state[:focus_mode] = !current
+        ctx.display.append("focus mode: #{ctx.state[:focus_mode] ? "on" : "off"}", style: :dim)
+      end
+      @slash_descriptions[:focus] = "toggle compact (focus) display mode"
     end
 
     def editor_mode=(mode)
