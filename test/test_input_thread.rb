@@ -62,6 +62,77 @@ class TestInputThread < Test::Unit::TestCase
     assert_equal [["foo", 3, :ctx_x]], recorded
   end
 
+  def test_completion_proc_returns_slash_names_when_buffer_starts_with_slash
+    ts = Cclikesh::TupleSpace.new
+    fake_registry = Object.new
+    recorded_dispatch_tab = []
+    fake_registry.define_singleton_method(:dispatch_tab) do |buf, pos, ctx|
+      recorded_dispatch_tab << [buf, pos, ctx]
+      ["should-not-see"]
+    end
+    fake_registry.define_singleton_method(:slash_names_starting_with) do |prefix|
+      case prefix
+      when "" then ["/quit", "/reset"]
+      when "q" then ["/quit"]
+      else []
+      end
+    end
+
+    proc_returned = nil
+    Cclikesh::InputThread.install_completion_proc(
+      registry: fake_registry, ctx: :ctx,
+      apply: ->(p) { proc_returned = p }
+    )
+
+    assert_equal ["/quit", "/reset"], proc_returned.call("/")
+    assert_equal ["/quit"],           proc_returned.call("/q")
+    assert_empty recorded_dispatch_tab
+  end
+
+  def test_completion_proc_routes_to_dispatch_tab_when_buffer_has_space_after_slash
+    fake_registry = Object.new
+    recorded = []
+    fake_registry.define_singleton_method(:dispatch_tab) do |buf, pos, ctx|
+      recorded << [buf, pos, ctx]
+      ["arg-cand"]
+    end
+    fake_registry.define_singleton_method(:slash_names_starting_with) do |_|
+      flunk "should not be called when buffer has space"
+    end
+
+    proc_returned = nil
+    Cclikesh::InputThread.install_completion_proc(
+      registry: fake_registry, ctx: :ctx_x,
+      apply: ->(p) { proc_returned = p }
+    )
+
+    result = proc_returned.call("/load file")
+    assert_equal ["arg-cand"], result
+    assert_equal [["/load file", 10, :ctx_x]], recorded
+  end
+
+  def test_completion_proc_non_slash_buffer_routes_to_dispatch_tab
+    fake_registry = Object.new
+    recorded = []
+    fake_registry.define_singleton_method(:dispatch_tab) do |buf, pos, ctx|
+      recorded << [buf, pos, ctx]
+      ["non-slash-cand"]
+    end
+    fake_registry.define_singleton_method(:slash_names_starting_with) do |_|
+      flunk "should not be called for non-slash buffer"
+    end
+
+    proc_returned = nil
+    Cclikesh::InputThread.install_completion_proc(
+      registry: fake_registry, ctx: :c,
+      apply: ->(p) { proc_returned = p }
+    )
+
+    result = proc_returned.call("foo")
+    assert_equal ["non-slash-cand"], result
+    assert_equal [["foo", 3, :c]], recorded
+  end
+
   def test_compose_prompt_returns_base_when_no_info_bar
     fake_registry = Object.new
     fake_registry.define_singleton_method(:snapshot_info_bar) do |_|

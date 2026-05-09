@@ -7,7 +7,11 @@ module Cclikesh
   class InputThread
     def self.install_completion_proc(registry:, ctx:, apply: ->(p) { Reline.completion_proc = p })
       proc = ->(buf) {
-        registry.dispatch_tab(buf, buf.bytesize, ctx)
+        if buf.start_with?("/") && !buf.include?(" ")
+          registry.slash_names_starting_with(buf[1..])
+        else
+          registry.dispatch_tab(buf, buf.bytesize, ctx)
+        end
       }
       apply.call(proc)
       proc
