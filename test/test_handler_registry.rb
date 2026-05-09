@@ -139,4 +139,53 @@ class TestHandlerRegistry < Test::Unit::TestCase
     assert_equal [:ran], seq
     assert_match(/quit-boom/, io.string)
   end
+
+  def test_dispatch_submit_runs_before_main_after_in_order
+    builder = Cclikesh::Builder.new
+    seq = []
+    builder.before_submit { |line, _ctx| seq << [:before, line] }
+    builder.on_submit     { |line, _ctx| seq << [:main,   line] }
+    builder.after_submit  { |line, _ctx| seq << [:after,  line] }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    registry.dispatch_submit("hi", :ctx)
+    assert_equal [[:before, "hi"], [:main, "hi"], [:after, "hi"]], seq
+  end
+
+  def test_before_submit_exception_aborts_chain_main_continues
+    io = StringIO.new
+    builder = Cclikesh::Builder.new
+    builder.log_to(io)
+    seq = []
+    builder.before_submit { |_, _| seq << :before_a; raise "boom" }
+    builder.before_submit { |_, _| seq << :before_b }
+    builder.on_submit     { |_, _| seq << :main }
+    builder.after_submit  { |_, _| seq << :after }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    registry.dispatch_submit("hi", :ctx)
+    assert_equal [:before_a, :main, :after], seq
+    assert_match(/boom/, io.string)
+  end
+
+  def test_main_submit_exception_logged_does_not_break_loop
+    io = StringIO.new
+    builder = Cclikesh::Builder.new
+    builder.log_to(io)
+    builder.on_submit { |_, _| raise "main-boom" }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    assert_nothing_raised { registry.dispatch_submit("hi", :ctx) }
+    assert_match(/main-boom/, io.string)
+  end
+
+  def test_after_submit_exception_aborts_chain
+    io = StringIO.new
+    builder = Cclikesh::Builder.new
+    builder.log_to(io)
+    seq = []
+    builder.after_submit { |_, _| seq << :a; raise "after-boom" }
+    builder.after_submit { |_, _| seq << :b }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    registry.dispatch_submit("hi", :ctx)
+    assert_equal [:a], seq
+    assert_match(/after-boom/, io.string)
+  end
 end

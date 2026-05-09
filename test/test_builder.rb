@@ -134,4 +134,17 @@ class TestBuilder < Test::Unit::TestCase
     builder.on_quit { |_| 2 }
     assert_equal 2, builder.on_quit_handlers.size
   end
+
+  def test_before_submit_collects_handlers
+    builder = Cclikesh::Builder.new
+    builder.before_submit { |_, _| 1 }
+    builder.before_submit { |_, _| 2 }
+    assert_equal 2, builder.before_submit_handlers.size
+  end
+
+  def test_after_submit_collects_handlers
+    builder = Cclikesh::Builder.new
+    builder.after_submit { |_, _| 1 }
+    assert_equal 1, builder.after_submit_handlers.size
+  end
 end

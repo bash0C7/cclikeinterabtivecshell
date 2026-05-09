@@ -11,8 +11,33 @@ module Cclikesh
     end
 
     def dispatch_submit(line, ctx)
-      handler = @builder.on_submit_handler
-      handler.call(line, ctx) if handler
+      log = @builder.logger
+
+      @builder.before_submit_handlers.each do |h|
+        begin
+          h.call(line, ctx)
+        rescue => e
+          log.error("before_submit error: #{e.full_message}")
+          break
+        end
+      end
+
+      if (main = @builder.on_submit_handler)
+        begin
+          main.call(line, ctx)
+        rescue => e
+          log.error("on_submit error: #{e.full_message}")
+        end
+      end
+
+      @builder.after_submit_handlers.each do |h|
+        begin
+          h.call(line, ctx)
+        rescue => e
+          log.error("after_submit error: #{e.full_message}")
+          break
+        end
+      end
       nil
     end
 
