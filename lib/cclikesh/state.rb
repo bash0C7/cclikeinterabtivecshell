@@ -1,7 +1,11 @@
 # frozen_string_literal: true
 
+require "drb/drb"
+
 module Cclikesh
   class State
+    include DRb::DRbUndumped
+
     def initialize(tuple_space)
       @ts = tuple_space
       @cache = {}

@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
+require "drb/drb"
 require_relative "display"
 require_relative "state"
 
 module Cclikesh
   class Context
+    include DRb::DRbUndumped
+
     def initialize(tuple_space)
       @ts = tuple_space
     end
