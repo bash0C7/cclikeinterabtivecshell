@@ -1,0 +1,7 @@
+/.bundle/
+/vendor/bundle
+/Gemfile.lock
+/tmp/
+*.gem
+*.rbc
+.DS_Store
