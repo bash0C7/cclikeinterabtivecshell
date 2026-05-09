@@ -46,6 +46,8 @@ module Cclikesh
         break if dispatcher.dispatch_one == :quit
       end
 
+      registry_remote.dispatch_quit(ctx)
+
       ts.write([:cmd, :quit])
       render_thread.join(2)
       input_thread.join(2)

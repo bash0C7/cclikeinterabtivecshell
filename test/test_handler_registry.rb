@@ -116,4 +116,27 @@ class TestHandlerRegistry < Test::Unit::TestCase
     assert_equal [:ran], seq
     assert_match(/boom/, io.string)
   end
+
+  def test_dispatch_quit_runs_in_reverse_order
+    builder = Cclikesh::Builder.new
+    seq = []
+    builder.on_quit { |_| seq << :first }
+    builder.on_quit { |_| seq << :second }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    registry.dispatch_quit(:ctx)
+    assert_equal [:second, :first], seq
+  end
+
+  def test_dispatch_quit_logs_and_continues_on_error
+    io = StringIO.new
+    builder = Cclikesh::Builder.new
+    builder.log_to(io)
+    seq = []
+    builder.on_quit { |_| seq << :ran }
+    builder.on_quit { |_| raise "quit-boom" }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    registry.dispatch_quit(:ctx)
+    assert_equal [:ran], seq
+    assert_match(/quit-boom/, io.string)
+  end
 end

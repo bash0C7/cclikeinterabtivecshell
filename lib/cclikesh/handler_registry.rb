@@ -48,6 +48,18 @@ module Cclikesh
       nil
     end
 
+    def dispatch_quit(ctx)
+      log = @builder.logger
+      @builder.on_quit_handlers.reverse_each do |h|
+        begin
+          h.call(ctx)
+        rescue => e
+          log.error("on_quit error: #{e.full_message}")
+        end
+      end
+      nil
+    end
+
     def style_definition(name)
       @builder.style_definition(name)
     end

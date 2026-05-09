@@ -127,4 +127,11 @@ class TestBuilder < Test::Unit::TestCase
     builder.on_start { |_| 2 }
     assert_equal 2, builder.on_start_handlers.size
   end
+
+  def test_on_quit_collects_handlers
+    builder = Cclikesh::Builder.new
+    builder.on_quit { |_| 1 }
+    builder.on_quit { |_| 2 }
+    assert_equal 2, builder.on_quit_handlers.size
+  end
 end
