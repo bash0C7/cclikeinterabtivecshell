@@ -51,12 +51,13 @@ module Cclikesh
     end
 
     def log_to(target)
+      prev_level = @logger.level
       @logger = case target
                 when IO, StringIO then Logger.new(target)
                 when String       then Logger.new(target)
                 else raise ArgumentError, "log_to expects IO or path String, got #{target.class}"
                 end
-      @logger.level = Logger::INFO
+      @logger.level    = prev_level
       @logger.progname = "cclikesh"
     end
   end

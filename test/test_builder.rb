@@ -81,4 +81,35 @@ class TestBuilder < Test::Unit::TestCase
     builder.logger.info("hello")
     assert_match(/hello/, io.string)
   end
+
+  def test_log_to_accepts_file_path_string
+    require "tempfile"
+    Tempfile.create("cclikesh-log-test") do |f|
+      builder = Cclikesh::Builder.new
+      builder.log_to(f.path)
+      builder.logger.info("path-write")
+      f.rewind
+      assert_match(/path-write/, File.read(f.path))
+    end
+  end
+
+  def test_log_to_raises_on_unsupported_target
+    builder = Cclikesh::Builder.new
+    assert_raise(ArgumentError) { builder.log_to(42) }
+  end
+
+  def test_log_level_raises_on_unknown_symbol
+    builder = Cclikesh::Builder.new
+    assert_raise(ArgumentError) { builder.log_level = :nonsense }
+  end
+
+  def test_log_to_preserves_previously_set_log_level
+    builder = Cclikesh::Builder.new
+    builder.log_level = :debug
+    io = StringIO.new
+    builder.log_to(io)
+    assert_equal Logger::DEBUG, builder.logger.level
+    builder.logger.debug("debug-msg")
+    assert_match(/debug-msg/, io.string)
+  end
 end
