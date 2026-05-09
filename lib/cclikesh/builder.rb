@@ -2,7 +2,7 @@
 
 module Cclikesh
   class Builder
-    attr_reader :on_submit_handler
+    attr_reader :on_submit_handler, :slash_handlers
 
     def initialize
       @on_submit_handler = nil
