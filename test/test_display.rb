@@ -94,4 +94,25 @@ class TestDisplay < Test::Unit::TestCase
     discard = ts.take([:render, :live_discard, captured.id], 0)
     assert_equal [:render, :live_discard, captured.id], discard
   end
+
+  def test_open_live_block_form_discards_on_non_standard_error
+    ts = Cclikesh::TupleSpace.new
+    d = Cclikesh::Display.new(ts)
+
+    captured = nil
+    raised = nil
+    begin
+      d.open_live do |slot|
+        captured = slot
+        raise Interrupt, "ctrl-c"
+      end
+    rescue Interrupt => e
+      raised = e
+    end
+
+    assert_kind_of Interrupt, raised
+    assert_equal false, captured.open?
+    discard = ts.take([:render, :live_discard, captured.id], 0)
+    assert_equal [:render, :live_discard, captured.id], discard
+  end
 end

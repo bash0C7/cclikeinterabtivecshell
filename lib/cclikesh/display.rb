@@ -31,12 +31,13 @@ module Cclikesh
       end
       return slot unless block
 
+      committed = false
       begin
         block.call(slot)
         slot.commit
-      rescue
-        slot.discard
-        raise
+        committed = true
+      ensure
+        slot.discard unless committed
       end
       slot
     end
