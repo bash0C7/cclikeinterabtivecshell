@@ -85,6 +85,19 @@ module Cclikesh
       nil
     end
 
+    def dispatch_tab(buf, pos, ctx)
+      log = @builder.logger
+      handler = @builder.on_tab_handler
+      return [] unless handler
+      begin
+        result = handler.call(buf, pos, ctx)
+        result.is_a?(Array) ? result : []
+      rescue => e
+        log.error("on_tab error: #{e.full_message}")
+        []
+      end
+    end
+
     def style_definition(name)
       @builder.style_definition(name)
     end

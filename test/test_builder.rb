@@ -147,4 +147,10 @@ class TestBuilder < Test::Unit::TestCase
     builder.after_submit { |_, _| 1 }
     assert_equal 1, builder.after_submit_handlers.size
   end
+
+  def test_on_tab_registers_block
+    builder = Cclikesh::Builder.new
+    builder.on_tab { |buf, pos, _| [buf, pos] }
+    assert_equal ["x", 1], builder.on_tab_handler.call("x", 1, nil)
+  end
 end

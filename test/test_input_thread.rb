@@ -41,4 +41,24 @@ class TestInputThread < Test::Unit::TestCase
     assert_false thread.alive?
     assert_equal 0, reader_calls, "reader should not be invoked when quit is already pending"
   end
+
+  def test_completion_proc_forwards_to_registry_dispatch_tab
+    ts = Cclikesh::TupleSpace.new
+    fake_registry = Object.new
+    recorded = []
+    fake_registry.define_singleton_method(:dispatch_tab) do |buf, pos, ctx|
+      recorded << [buf, pos, ctx]
+      ["alpha", "beta"]
+    end
+
+    ctx_sentinel = :ctx_x
+    proc_returned = nil
+    Cclikesh::InputThread.install_completion_proc(
+      registry: fake_registry, ctx: ctx_sentinel,
+      apply: ->(p) { proc_returned = p }
+    )
+    candidates = proc_returned.call("foo")
+    assert_equal ["alpha", "beta"], candidates
+    assert_equal [["foo", 3, :ctx_x]], recorded
+  end
 end

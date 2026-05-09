@@ -188,4 +188,35 @@ class TestHandlerRegistry < Test::Unit::TestCase
     assert_equal [:a], seq
     assert_match(/after-boom/, io.string)
   end
+
+  def test_dispatch_tab_returns_candidates_from_handler
+    builder = Cclikesh::Builder.new
+    builder.on_tab { |buf, pos, _ctx| ["#{buf}_a", "#{buf}_b", pos.to_s] }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    result = registry.dispatch_tab("foo", 3, :ctx)
+    assert_equal ["foo_a", "foo_b", "3"], result
+  end
+
+  def test_dispatch_tab_no_handler_returns_empty
+    builder = Cclikesh::Builder.new
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    assert_equal [], registry.dispatch_tab("buf", 0, :ctx)
+  end
+
+  def test_dispatch_tab_exception_logs_and_returns_empty
+    io = StringIO.new
+    builder = Cclikesh::Builder.new
+    builder.log_to(io)
+    builder.on_tab { |_, _, _| raise "tab-boom" }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    assert_equal [], registry.dispatch_tab("buf", 0, :ctx)
+    assert_match(/tab-boom/, io.string)
+  end
+
+  def test_dispatch_tab_non_array_return_coerced_to_empty
+    builder = Cclikesh::Builder.new
+    builder.on_tab { |_, _, _| "not an array" }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    assert_equal [], registry.dispatch_tab("buf", 0, :ctx)
+  end
 end
