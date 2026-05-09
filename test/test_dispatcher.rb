@@ -51,4 +51,34 @@ class TestDispatcher < Test::Unit::TestCase
     assert_equal :display_append, tuple[1]
     assert_match(/\/unknown.*not registered/, tuple[2])
   end
+
+  def test_bang_payload_runs_shell_command_and_appends_output
+    @ts.write([:key, "!echo hello-from-shell"])
+
+    @dispatcher.dispatch_one
+
+    # tag line first
+    @ts.take([:render, :display_append, "$ echo hello-from-shell", nil], 1)
+    # output line (with indent prefix from begin_indent_block)
+    out_tuple = @ts.take([:render, :display_append, "  └ hello-from-shell", nil], 1)
+    assert_equal :display_append, out_tuple[1]
+  end
+
+  def test_bang_payload_with_empty_command_is_noop
+    @ts.write([:key, "!   "])
+
+    assert_nothing_raised { @dispatcher.dispatch_one }
+    assert_raises(Rinda::RequestExpiredError) do
+      @ts.take([:render, :display_append, nil, nil], 0)
+    end
+  end
+
+  def test_bang_payload_with_failing_command_logs_exit_status
+    @ts.write([:key, "!ruby -e 'exit 7'"])
+
+    @dispatcher.dispatch_one
+
+    @ts.take([:render, :display_append, "$ ruby -e 'exit 7'", nil], 1)
+    @ts.take([:render, :display_append, "  └ (exit 7)", nil], 1)
+  end
 end

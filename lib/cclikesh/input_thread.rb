@@ -9,6 +9,8 @@ module Cclikesh
       proc = ->(buf) {
         if buf.start_with?("/") && !buf.include?(" ")
           registry.slash_names_starting_with(buf[1..])
+        elsif (m = buf.match(/\A(.*)@(\S*)\z/m))
+          file_path_candidates(m[1], m[2])
         else
           registry.dispatch_tab(buf, buf.bytesize, ctx)
         end
@@ -20,6 +22,14 @@ module Cclikesh
         Reline.completion_proc = proc
       end
       proc
+    end
+
+    def self.file_path_candidates(prefix, query)
+      pattern = query.empty? ? "*" : "#{query}*"
+      paths = Dir.glob(pattern).select { |p| File.exist?(p) }.sort.first(50)
+      paths.map { |p| "#{prefix}@#{p}" }
+    rescue StandardError
+      []
     end
 
     def self.start(ts, reader:, prompt: "> ", registry: nil, ctx: nil)

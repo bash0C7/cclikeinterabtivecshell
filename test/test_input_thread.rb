@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
+require "tmpdir"
 require "cclikesh/tuple_space"
 require "cclikesh/input_thread"
 
@@ -131,6 +132,37 @@ class TestInputThread < Test::Unit::TestCase
     result = proc_returned.call("foo")
     assert_equal ["non-slash-cand"], result
     assert_equal [["foo", 3, :c]], recorded
+  end
+
+  def test_completion_proc_at_mention_returns_file_paths
+    fake_registry = Object.new
+    fake_registry.define_singleton_method(:slash_names_starting_with) { |_| [] }
+    fake_registry.define_singleton_method(:dispatch_tab) { |_, _, _| flunk "should not call dispatch_tab" }
+
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "alpha.rb"),  "")
+      File.write(File.join(dir, "beta.rb"),   "")
+      File.write(File.join(dir, "other.txt"), "")
+
+      proc_returned = nil
+      Cclikesh::InputThread.install_completion_proc(
+        registry: fake_registry, ctx: :ctx,
+        apply: ->(p) { proc_returned = p }
+      )
+
+      Dir.chdir(dir) do
+        result = proc_returned.call("@alp")
+        assert_equal ["@alpha.rb"], result
+
+        result = proc_returned.call("@")
+        assert_includes result, "@alpha.rb"
+        assert_includes result, "@beta.rb"
+        assert_includes result, "@other.txt"
+
+        result = proc_returned.call("hello @b")
+        assert_equal ["hello @beta.rb"], result
+      end
+    end
   end
 
   def test_install_completion_proc_clears_word_break_characters
