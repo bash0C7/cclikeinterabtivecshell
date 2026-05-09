@@ -20,6 +20,7 @@ module Cclikesh
       @on_submit_handler = nil
       @on_state_change_handler = nil
       @slash_handlers = {}
+      @slash_descriptions = {}
       @on_start_handlers = []
       @on_quit_handlers = []
       @before_submit_handlers = []
@@ -97,12 +98,22 @@ module Cclikesh
       @after_tab_handlers << block
     end
 
-    def slash(name, &block)
-      @slash_handlers[name.to_sym] = block
+    def slash(name, description: nil, &block)
+      sym = name.to_sym
+      @slash_handlers[sym] = block
+      @slash_descriptions[sym] = description if description
     end
 
     def slash_handler(name)
       @slash_handlers[name.to_sym]
+    end
+
+    def slash_description(name)
+      @slash_descriptions[name.to_sym]
+    end
+
+    def slash_descriptions
+      @slash_descriptions
     end
 
     def define_style(name, **opts)

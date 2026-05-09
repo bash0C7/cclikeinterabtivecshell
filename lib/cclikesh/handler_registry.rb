@@ -148,6 +148,14 @@ module Cclikesh
         .map { |n| "/#{n}" }
     end
 
+    def slash_menu_items_starting_with(prefix)
+      @builder.slash_handlers.keys
+        .map(&:to_s)
+        .select { |n| n.start_with?(prefix) }
+        .sort
+        .map { |n| { name: "/#{n}", description: @builder.slash_description(n.to_sym) } }
+    end
+
     def style_definition(name)
       @builder.style_definition(name)
     end

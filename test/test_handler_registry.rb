@@ -414,6 +414,22 @@ class TestHandlerRegistry < Test::Unit::TestCase
     assert_equal [],              registry.slash_names_starting_with("zz")
   end
 
+  def test_slash_accepts_description_kwarg_and_exposes_it
+    builder = Cclikesh::Builder.new
+    builder.slash(:reset, description: "reset session") { |_, _| }
+    assert_equal "reset session", builder.slash_description(:reset)
+  end
+
+  def test_slash_menu_items_pairs_name_and_description
+    builder = Cclikesh::Builder.new
+    builder.slash(:reset, description: "reset session") { |_, _| }
+    builder.slash(:quit) { |_, _| }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    items = registry.slash_menu_items_starting_with("")
+    assert_equal({ name: "/quit",  description: nil },              items[0])
+    assert_equal({ name: "/reset", description: "reset session" },  items[1])
+  end
+
   def test_registry_exposes_builder_tick_interval
     builder = Cclikesh::Builder.new
     builder.tick_interval = 0.02

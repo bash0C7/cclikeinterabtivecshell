@@ -24,6 +24,7 @@ module Cclikesh
 
     def self.start(ts, reader:, prompt: "> ", registry: nil, ctx: nil)
       install_completion_proc(registry: registry, ctx: ctx) if registry && ctx
+      enable_autocompletion
 
       Thread.new do
         loop do
@@ -48,6 +49,12 @@ module Cclikesh
       Layout.position($stdout, Layout.input_top)
       Layout.clear_line($stdout)
       $stdout.flush
+    end
+
+    def self.enable_autocompletion
+      Reline.autocompletion = true if Reline.respond_to?(:autocompletion=)
+    rescue StandardError
+      # older Reline; fall back to no autocompletion popup
     end
   end
 end
