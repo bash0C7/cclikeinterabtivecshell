@@ -26,12 +26,15 @@ module Cclikesh
 
     # Some live tuples have 3 fields (e.g. [:render, :live_discard, id]).
     # They won't match the 4-arity pattern above; drain them too.
+    # Prepend into the front of the array so that after reverse_each they
+    # are processed after the 4-arity tuples (preserving write-time order).
     def retry_three_arg(into)
+      three_arg = []
       loop do
-        into << @ts.take([:render, nil, nil], 0)
+        three_arg << @ts.take([:render, nil, nil], 0)
       end
     rescue Rinda::RequestExpiredError
-      # done
+      into.unshift(*three_arg)
     end
 
     def process(tuple)
@@ -42,6 +45,10 @@ module Cclikesh
         process_live_open(tuple)
       when :live_update
         process_live_update(tuple)
+      when :live_commit
+        process_live_commit(tuple)
+      when :live_discard
+        process_live_discard(tuple)
       end
     end
 
@@ -65,6 +72,23 @@ module Cclikesh
       styled = Style.wrap(text, style_name, custom: resolve_custom_style(style_name))
       @out.write("\r\e[2K#{styled}")
       @live_state[:last_text] = text
+    end
+
+    def process_live_commit(tuple)
+      _, _, id, final_text = tuple
+      return unless @live_state && @live_state[:id] == id
+      style_name = @live_state[:style]
+      text = final_text || @live_state[:last_text] || ""
+      styled = Style.wrap(text, style_name, custom: resolve_custom_style(style_name))
+      @out.write("\r\e[2K#{styled}\n")
+      @live_state = nil
+    end
+
+    def process_live_discard(tuple)
+      _, _, id = tuple
+      return unless @live_state && @live_state[:id] == id
+      @out.write("\r\e[2K")
+      @live_state = nil
     end
 
     def resolve_custom_style(name)

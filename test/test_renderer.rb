@@ -151,4 +151,57 @@ class TestRenderer < Test::Unit::TestCase
 
     assert_equal "", out.string
   end
+
+  def test_render_pending_live_commit_with_nil_uses_last_text_and_newline
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :live_open, 1, { style: nil }])
+    ts.write([:render, :live_update, 1, "final"])
+    ts.write([:render, :live_commit, 1, nil])
+    r.render_pending
+
+    assert_equal "\r\e[2Kfinal\r\e[2Kfinal\n", out.string
+  end
+
+  def test_render_pending_live_commit_with_final_overrides
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :live_open, 1, { style: nil }])
+    ts.write([:render, :live_update, 1, "tmp"])
+    ts.write([:render, :live_commit, 1, "DONE"])
+    r.render_pending
+
+    assert_equal "\r\e[2Ktmp\r\e[2KDONE\n", out.string
+  end
+
+  def test_render_pending_live_discard_clears_line_no_newline
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :live_open, 1, { style: nil }])
+    ts.write([:render, :live_update, 1, "abc"])
+    ts.write([:render, :live_discard, 1])
+    r.render_pending
+
+    assert_equal "\r\e[2Kabc\r\e[2K", out.string
+  end
+
+  def test_render_pending_live_commit_clears_state_so_subsequent_update_ignored
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :live_open, 1, { style: nil }])
+    ts.write([:render, :live_update, 1, "a"])
+    ts.write([:render, :live_commit, 1, nil])
+    ts.write([:render, :live_update, 1, "ignored"])
+    r.render_pending
+
+    assert_equal "\r\e[2Ka\r\e[2Ka\n", out.string
+  end
 end
