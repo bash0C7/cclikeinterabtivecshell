@@ -33,7 +33,9 @@ module Cclikesh
       ctx = Context.new(ts)
       dispatcher = Dispatcher.new(ts, registry_remote, ctx)
 
-      render_thread = RenderThread.start(ts, $stdout, tick_interval: tick_interval)
+      render_thread = RenderThread.start(ts, $stdout,
+                                         tick_interval: tick_interval,
+                                         registry: registry_remote)
       input_thread  = InputThread.start(ts, reader: Reline.method(:readline), prompt: "> ")
 
       loop do

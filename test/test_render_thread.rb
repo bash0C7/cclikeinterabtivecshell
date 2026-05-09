@@ -34,4 +34,19 @@ class TestRenderThread < Test::Unit::TestCase
 
     assert_false thread.alive?
   end
+
+  def test_render_thread_passes_registry_to_renderer
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    fake_reg = Object.new
+    def fake_reg.style_definition(name); name == :ok ? { fg: :green } : nil; end
+
+    th = Cclikesh::RenderThread.start(ts, out, tick_interval: 0.02, registry: fake_reg)
+    ts.write([:render, :display_append, "yo", { style: :ok }])
+    sleep 0.1
+    ts.write([:cmd, :quit])
+    th.join(2)
+
+    assert_match(/\e\[32myo\e\[0m/, out.string)
+  end
 end

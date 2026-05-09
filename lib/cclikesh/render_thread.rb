@@ -4,9 +4,9 @@ require_relative "renderer"
 
 module Cclikesh
   class RenderThread
-    def self.start(ts, output_io, tick_interval: 0.06)
+    def self.start(ts, output_io, tick_interval: 0.06, registry: nil)
       Thread.new do
-        renderer = Renderer.new(ts, output_io)
+        renderer = Renderer.new(ts, output_io, registry: registry)
         stopping = false
         watcher = Thread.new do
           ts.read([:cmd, :quit])
