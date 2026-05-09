@@ -11,6 +11,8 @@ module Cclikesh
           registry.slash_names_starting_with(buf[1..])
         elsif (m = buf.match(/\A(.*)@(\S*)\z/m))
           file_path_candidates(m[1], m[2])
+        elsif buf.empty?
+          suggestion_or_tab(registry, ctx, buf)
         else
           registry.dispatch_tab(buf, buf.bytesize, ctx)
         end
@@ -22,6 +24,13 @@ module Cclikesh
         Reline.completion_proc = proc
       end
       proc
+    end
+
+    def self.suggestion_or_tab(registry, ctx, buf)
+      return registry.dispatch_tab(buf, 0, ctx) unless registry.respond_to?(:current_prompt_suggestion)
+      suggestion = registry.current_prompt_suggestion(ctx)
+      return [suggestion] if suggestion
+      registry.dispatch_tab(buf, 0, ctx)
     end
 
     def self.file_path_candidates(prefix, query)
@@ -47,7 +56,7 @@ module Cclikesh
 
           park_cursor_in_input
           line = reader.call(prompt)
-          payload = line.nil? ? nil : line.chomp
+          payload = normalize_payload(line)
           ts.write([:key, payload])
           break if payload.nil?
         end
@@ -65,6 +74,11 @@ module Cclikesh
       Reline.autocompletion = true if Reline.respond_to?(:autocompletion=)
     rescue StandardError
       # older Reline; fall back to no autocompletion popup
+    end
+
+    def self.normalize_payload(raw)
+      return nil if raw.nil?
+      raw.gsub(/\\\n/, "\n").chomp
     end
   end
 end

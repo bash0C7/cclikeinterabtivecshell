@@ -148,6 +148,16 @@ module Cclikesh
         .map { |n| "/#{n}" }
     end
 
+    def current_prompt_suggestion(ctx)
+      block = @builder.prompt_suggestion_block
+      return nil unless block
+      result = block.call(ctx)
+      result.nil? || result.to_s.empty? ? nil : result.to_s
+    rescue StandardError => e
+      @builder.logger.error("prompt_suggestion error: #{e.full_message}")
+      nil
+    end
+
     def slash_menu_items_starting_with(prefix)
       @builder.slash_handlers.keys
         .map(&:to_s)

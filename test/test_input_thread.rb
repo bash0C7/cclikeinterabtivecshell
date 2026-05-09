@@ -165,6 +165,52 @@ class TestInputThread < Test::Unit::TestCase
     end
   end
 
+  def test_normalize_payload_passes_eof_through
+    assert_nil Cclikesh::InputThread.normalize_payload(nil)
+  end
+
+  def test_normalize_payload_strips_trailing_newline
+    assert_equal "hello", Cclikesh::InputThread.normalize_payload("hello\n")
+  end
+
+  def test_normalize_payload_collapses_backslash_continuations_to_newlines
+    assert_equal "x = 1\nx + 1",
+                 Cclikesh::InputThread.normalize_payload("x = 1\\\nx + 1\n")
+  end
+
+  def test_completion_proc_empty_buf_returns_prompt_suggestion
+    fake_registry = Object.new
+    fake_registry.define_singleton_method(:slash_names_starting_with) { |_| [] }
+    fake_registry.define_singleton_method(:current_prompt_suggestion) { |_| "make me a sandwich" }
+    fake_registry.define_singleton_method(:dispatch_tab) { |_, _, _| flunk "should not call dispatch_tab" }
+
+    proc_returned = nil
+    Cclikesh::InputThread.install_completion_proc(
+      registry: fake_registry, ctx: :ctx,
+      apply: ->(p) { proc_returned = p }
+    )
+    assert_equal ["make me a sandwich"], proc_returned.call("")
+  end
+
+  def test_completion_proc_empty_buf_falls_back_to_dispatch_tab_when_no_suggestion
+    fake_registry = Object.new
+    fake_registry.define_singleton_method(:slash_names_starting_with) { |_| [] }
+    fake_registry.define_singleton_method(:current_prompt_suggestion) { |_| nil }
+    recorded = []
+    fake_registry.define_singleton_method(:dispatch_tab) do |b, p, c|
+      recorded << [b, p, c]
+      ["fallback"]
+    end
+
+    proc_returned = nil
+    Cclikesh::InputThread.install_completion_proc(
+      registry: fake_registry, ctx: :ctx,
+      apply: ->(p) { proc_returned = p }
+    )
+    assert_equal ["fallback"], proc_returned.call("")
+    assert_equal [["", 0, :ctx]], recorded
+  end
+
   def test_install_completion_proc_clears_word_break_characters
     fake_registry = Object.new
     fake_registry.define_singleton_method(:slash_names_starting_with) { |_| [] }

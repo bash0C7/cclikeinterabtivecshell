@@ -57,7 +57,7 @@ module Cclikesh
                                          tick_interval: effective_tick,
                                          registry: registry_remote,
                                          ctx: ctx)
-      input_thread  = InputThread.start(ts, reader: Reline.method(:readline), prompt: "> ",
+      input_thread  = InputThread.start(ts, reader: multiline_reader, prompt: "> ",
                                         registry: registry_remote, ctx: ctx)
       event_thread  = EventThread.start(ts, registry: registry_remote, ctx: ctx)
 
@@ -81,6 +81,15 @@ module Cclikesh
     ensure
       Layout.reset_scroll_region($stdout) if $stdout.tty?
       Screen.leave_alt
+    end
+
+    def self.multiline_reader
+      lambda do |prompt|
+        Reline.readmultiline(prompt, true) do |whole|
+          last = whole.lines.last || whole
+          !last.chomp.end_with?("\\")
+        end
+      end
     end
 
     def self.install_winch_trap

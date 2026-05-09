@@ -167,6 +167,12 @@ module Cclikesh
       @info_segments << [name.to_sym, effective_order, block]
     end
 
+    def prompt_suggestion(&block)
+      @prompt_suggestion_block = block
+    end
+
+    attr_reader :prompt_suggestion_block
+
     def info_segments
       @info_segments.sort_by { |_, order, _| order }
     end
