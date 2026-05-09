@@ -21,7 +21,7 @@ class TestEventThread < Test::Unit::TestCase
     sleep 0.01 until !fake.empty? || Time.now > deadline
 
     ts.write([:cmd, :quit])
-    thread.join(2)
+    assert_not_nil thread.join(2), "EventThread did not stop within 2s"
 
     assert_equal [[:phase, nil, :working, :ctx_sentinel]], fake
   end
@@ -44,7 +44,7 @@ class TestEventThread < Test::Unit::TestCase
     end
 
     ts.write([:cmd, :quit])
-    thread.join(2)
+    assert_not_nil thread.join(2), "EventThread did not stop within 2s"
 
     assert_equal [[:a, nil, 1], [:b, nil, 2], [:a, 1, 3]], fake
   end
