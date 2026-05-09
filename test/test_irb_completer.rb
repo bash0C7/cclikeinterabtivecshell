@@ -16,6 +16,33 @@ class TestIrbCompleter < Test::Unit::TestCase
     assert_includes candidates, "apricot"
   end
 
+  def test_completes_method_after_dot_on_local_variable
+    evaluator = IrbEvaluator.new
+    evaluator.evaluate("x = 42")
+    completer = IrbCompleter.new(evaluator.binding)
+
+    candidates = completer.candidates("x.to_", 5)
+    assert candidates.any? { |c| c.include?("to_s") }, "expected to_s in #{candidates.inspect}"
+    assert candidates.any? { |c| c.include?("to_i") }, "expected to_i in #{candidates.inspect}"
+  end
+
+  def test_completes_method_after_dot_on_string_literal
+    evaluator = IrbEvaluator.new
+    completer = IrbCompleter.new(evaluator.binding)
+
+    candidates = completer.candidates(%("foo".rev), 9)
+    assert candidates.any? { |c| c.include?("reverse") }, "expected reverse in #{candidates.inspect}"
+  end
+
+  def test_completes_namespaced_constant
+    require "net/http"
+    evaluator = IrbEvaluator.new
+    completer = IrbCompleter.new(evaluator.binding)
+
+    candidates = completer.candidates("Net::H", 6)
+    assert candidates.any? { |c| c.include?("Net::HTTP") }, "expected Net::HTTP* in #{candidates.inspect}"
+  end
+
   def test_completes_constant
     evaluator = IrbEvaluator.new
     completer = IrbCompleter.new(evaluator.binding)

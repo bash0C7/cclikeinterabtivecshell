@@ -1,27 +1,29 @@
 # frozen_string_literal: true
 
-class IrbCompleter
-  WORD_PATTERN = /[A-Za-z_][A-Za-z0-9_]*\z/.freeze
+require "irb"
+require "irb/completion"
 
+class IrbCompleter
   def initialize(bind)
     @binding = bind
+    @completor = build_completor
   end
 
   def candidates(buf, pos)
-    prefix = buf[0...pos] || ""
-    word = prefix[WORD_PATTERN]
-    return [] if word.nil? || word.empty?
-
-    pool = collect_pool
-    pool.select { |c| c.start_with?(word) }.uniq
+    pre = buf[0...pos] || ""
+    return [] if pre.strip.empty?
+    result = @completor.completion_candidates("", pre, "", bind: @binding)
+    Array(result).uniq
+  rescue StandardError
+    []
   end
 
   private
 
-  def collect_pool
-    locals = @binding.local_variables.map(&:to_s)
-    constants = Object.constants.map(&:to_s)
-    methods = Kernel.instance_methods.map(&:to_s) + Kernel.private_instance_methods.map(&:to_s)
-    locals + constants + methods
+  def build_completor
+    require "irb/type_completion/completor"
+    IRB::TypeCompletion::Completor.new
+  rescue LoadError
+    IRB::RegexpCompletor.new
   end
 end
