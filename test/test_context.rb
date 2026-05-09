@@ -66,4 +66,25 @@ class TestContext < Test::Unit::TestCase
     tuple = ts.take([:cmd, :refresh], 1)
     assert_equal [:cmd, :refresh], tuple
   end
+
+  def test_context_dialog_returns_dialog_instance
+    ts = Cclikesh::TupleSpace.new
+    ctx = Cclikesh::Context.new(ts)
+    assert_kind_of Cclikesh::Dialog, ctx.dialog
+  end
+
+  def test_context_dialog_writes_through_display
+    ts = Cclikesh::TupleSpace.new
+    ctx = Cclikesh::Context.new(ts)
+    ctx.dialog.show("hi")
+
+    found = []
+    begin
+      loop { found << ts.take([:render, :display_append, nil, nil], 0) }
+    rescue Rinda::RequestExpiredError
+      # done
+    end
+    matched = found.any? { |t| t[2].include?("hi") }
+    assert(matched, "dialog content not pushed to display: #{found.inspect}")
+  end
 end
