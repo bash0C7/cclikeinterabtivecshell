@@ -75,7 +75,7 @@ class TestHandlerRegistry < Test::Unit::TestCase
     ctx = StubCtx.new
     registry.dispatch_slash(:reset, [], ctx)
 
-    assert_equal [{ first: "  └ ", rest: "    " }], ctx.display.indent_block_calls
+    assert_equal [{ first: "  ⎿  ", rest: "     " }], ctx.display.indent_block_calls
     assert_equal 1, ctx.display.end_indent_block_count
   end
 
@@ -497,5 +497,55 @@ class TestHandlerRegistry < Test::Unit::TestCase
     builder.tick_interval = 0.02
     registry = Cclikesh::HandlerRegistry.new(builder)
     assert_equal 0.02, registry.tick_interval
+  end
+
+  def test_footer_height_baseline_without_hint
+    builder = Cclikesh::Builder.new
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    assert_equal 1, registry.footer_height
+  end
+
+  def test_footer_height_increments_when_shortcuts_hint_set
+    builder = Cclikesh::Builder.new
+    builder.shortcuts_hint "press ?"
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    assert_equal 2, registry.footer_height
+  end
+
+  def test_footer_height_counts_status_rows
+    builder = Cclikesh::Builder.new
+    builder.status_row(:clock) { |_row, _ctx| }
+    builder.status_row(:usage) { |_row, _ctx| }
+    builder.shortcuts_hint "x"
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    assert_equal 4, registry.footer_height # info_bar + 2 rows + hint
+  end
+
+  def test_snapshot_footer_appends_shortcuts_hint_when_block_set
+    builder = Cclikesh::Builder.new
+    builder.shortcuts_hint("? for shortcuts")
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    lines = registry.snapshot_footer(StubCtx.new)
+    assert lines.last.include?("? for shortcuts"), "expected hint as last line, got: #{lines.inspect}"
+    assert lines.last.include?("\e[2;90m"), "expected dim/gray ANSI, got: #{lines.last.dump}"
+  end
+
+  def test_snapshot_footer_omits_shortcuts_hint_when_block_returns_nil
+    builder = Cclikesh::Builder.new
+    builder.shortcuts_hint { |_ctx| nil }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    lines = registry.snapshot_footer(StubCtx.new)
+    refute lines.last.to_s.include?("\e[2;90m"), "expected no hint line"
+  end
+
+  def test_shortcuts_hint_block_form_passes_ctx
+    builder = Cclikesh::Builder.new
+    captured = nil
+    builder.shortcuts_hint { |c| captured = c; "dynamic" }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    ctx = StubCtx.new
+    lines = registry.snapshot_footer(ctx)
+    assert_same ctx, captured
+    assert lines.any? { |l| l.include?("dynamic") }, lines.inspect
   end
 end

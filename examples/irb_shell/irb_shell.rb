@@ -71,6 +71,8 @@ Cclikesh.run do |shell|
     ctx.state[:phase] == :idle ? "puts 'hello, cclikesh'" : nil
   end
 
+  shell.shortcuts_hint "? for shortcuts · /reset to clear · /q to quit"
+
   shell.btw do |question, _ctx|
     "(no AI hooked up — you asked: #{question})"
   end

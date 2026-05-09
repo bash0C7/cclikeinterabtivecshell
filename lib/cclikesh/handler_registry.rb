@@ -50,7 +50,7 @@ module Cclikesh
       args_str = Array(args).join(" ")
       label = args_str.empty? ? "▌ /#{name}" : "▌ /#{name} #{args_str}"
       ctx.display.append(label, style: :slash_tag)
-      ctx.display.begin_indent_block(first: "  └ ", rest: "    ")
+      ctx.display.begin_indent_block(first: "  ⎿  ", rest: "     ")
       begin
         handler.call(args, ctx)
       ensure
@@ -193,7 +193,18 @@ module Cclikesh
     end
 
     def footer_height
-      1 + @builder.status_rows.size
+      1 + @builder.status_rows.size + (@builder.shortcuts_hint_block ? 1 : 0)
+    end
+
+    def snapshot_shortcuts_hint(ctx)
+      block = @builder.shortcuts_hint_block
+      return nil unless block
+      result = block.call(ctx)
+      return nil if result.nil? || result.to_s.empty?
+      "\e[2;90m#{result}\e[0m"
+    rescue StandardError => e
+      @builder.logger.error("shortcuts_hint error: #{e.full_message}")
+      nil
     end
 
     def snapshot_status_rows(ctx)
@@ -218,7 +229,10 @@ module Cclikesh
         spinner_label: info_snap[:spinner_label],
         segments:      info_snap[:segments]
       )
-      [info_line] + snapshot_status_rows(ctx)
+      lines = [info_line] + snapshot_status_rows(ctx)
+      hint = snapshot_shortcuts_hint(ctx)
+      lines << hint if hint
+      lines
     end
 
     private

@@ -66,7 +66,8 @@ module Cclikesh
 
     def self.park_cursor_in_input
       return unless $stdout.tty?
-      Layout.position($stdout, Layout.input_top)
+      middle_row = Layout.input_height >= 3 ? Layout.input_top + 1 : Layout.input_top
+      Layout.position($stdout, middle_row)
       Layout.clear_line($stdout)
       $stdout.flush
     end

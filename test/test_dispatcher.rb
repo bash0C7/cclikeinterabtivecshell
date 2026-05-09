@@ -60,7 +60,7 @@ class TestDispatcher < Test::Unit::TestCase
     # tag line first
     @ts.take([:render, :display_append, "$ echo hello-from-shell", nil], 1)
     # output line (with indent prefix from begin_indent_block)
-    out_tuple = @ts.take([:render, :display_append, "  └ hello-from-shell", nil], 1)
+    out_tuple = @ts.take([:render, :display_append, "  ⎿  hello-from-shell", nil], 1)
     assert_equal :display_append, out_tuple[1]
   end
 
@@ -79,6 +79,6 @@ class TestDispatcher < Test::Unit::TestCase
     @dispatcher.dispatch_one
 
     @ts.take([:render, :display_append, "$ ruby -e 'exit 7'", nil], 1)
-    @ts.take([:render, :display_append, "  └ (exit 7)", nil], 1)
+    @ts.take([:render, :display_append, "  ⎿  (exit 7)", nil], 1)
   end
 end

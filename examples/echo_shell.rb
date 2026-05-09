@@ -40,6 +40,8 @@ Cclikesh.run do |shell|
 
   shell.prompt_suggestion { |_ctx| "type something and watch it echo back" }
 
+  shell.shortcuts_hint "? for shortcuts · /q to quit"
+
   shell.btw do |question, _ctx|
     "echo-shell heard: #{question}"
   end

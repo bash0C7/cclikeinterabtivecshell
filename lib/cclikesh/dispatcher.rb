@@ -40,7 +40,7 @@ module Cclikesh
       return if cmd.empty?
 
       @ctx.display.append("$ #{cmd}", style: :slash_tag)
-      @ctx.display.begin_indent_block(first: "  └ ", rest: "    ")
+      @ctx.display.begin_indent_block(first: "  ⎿  ", rest: "     ")
       begin
         out, err, status = Open3.capture3(cmd)
         out.each_line { |line| @ctx.display.append(line.chomp) } unless out.empty?

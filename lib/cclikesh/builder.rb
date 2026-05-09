@@ -189,6 +189,16 @@ module Cclikesh
 
     attr_reader :prompt_suggestion_block
 
+    def shortcuts_hint(text = nil, &block)
+      if block
+        @shortcuts_hint_block = block
+      elsif text
+        @shortcuts_hint_block = ->(_ctx) { text }
+      end
+    end
+
+    attr_reader :shortcuts_hint_block
+
     def btw(&block)
       @btw_block = block
       @slash_handlers[:btw] = lambda do |args, ctx|

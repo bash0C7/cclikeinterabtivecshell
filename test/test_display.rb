@@ -119,32 +119,32 @@ class TestDisplay < Test::Unit::TestCase
   def test_indent_block_first_append_uses_first_prefix
     ts = Cclikesh::TupleSpace.new
     d = Cclikesh::Display.new(ts)
-    d.begin_indent_block(first: "  └ ", rest: "    ")
+    d.begin_indent_block(first: "  ⎿  ", rest: "     ")
     d.append("first line")
-    tuple = ts.take([:render, :display_append, "  └ first line", nil])
-    assert_equal "  └ first line", tuple[2]
+    tuple = ts.take([:render, :display_append, "  ⎿  first line", nil])
+    assert_equal "  ⎿  first line", tuple[2]
   end
 
   def test_indent_block_subsequent_appends_use_rest_prefix
     ts = Cclikesh::TupleSpace.new
     d = Cclikesh::Display.new(ts)
-    d.begin_indent_block(first: "  └ ", rest: "    ")
+    d.begin_indent_block(first: "  ⎿  ", rest: "     ")
     d.append("first")
     d.append("second")
     d.append("third")
-    assert ts.take([:render, :display_append, "  └ first",  nil], 0)
-    assert ts.take([:render, :display_append, "    second", nil], 0)
-    assert ts.take([:render, :display_append, "    third",  nil], 0)
+    assert ts.take([:render, :display_append, "  ⎿  first",  nil], 0)
+    assert ts.take([:render, :display_append, "     second", nil], 0)
+    assert ts.take([:render, :display_append, "     third",  nil], 0)
   end
 
   def test_end_indent_block_resumes_unindented_appends
     ts = Cclikesh::TupleSpace.new
     d = Cclikesh::Display.new(ts)
-    d.begin_indent_block(first: "  └ ", rest: "    ")
+    d.begin_indent_block(first: "  ⎿  ", rest: "     ")
     d.append("inside")
     d.end_indent_block
     d.append("outside")
-    assert ts.take([:render, :display_append, "  └ inside", nil], 0)
-    assert ts.take([:render, :display_append, "outside",    nil], 0)
+    assert ts.take([:render, :display_append, "  ⎿  inside", nil], 0)
+    assert ts.take([:render, :display_append, "outside",     nil], 0)
   end
 end

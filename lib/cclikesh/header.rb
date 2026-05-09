@@ -29,7 +29,7 @@ module Cclikesh
 
       def height
         ls = lines
-        ls.empty? ? 0 : ls.size + 1
+        ls.empty? ? 0 : ls.size + 3
       end
 
       private
@@ -55,15 +55,30 @@ module Cclikesh
       end
     end
 
-    def self.paint(io, lines)
-      return if lines.nil? || lines.empty?
-      lines.each_with_index do |line, idx|
+    def self.paint(io, content_lines, cols: nil)
+      return if content_lines.nil? || content_lines.empty?
+      rendered = cols ? box(content_lines, cols) : content_lines
+      rendered.each_with_index do |line, idx|
         Layout.position(io, idx + 1, 1)
         Layout.clear_line(io)
-        io.write(line)
+        io.write(line) if line
       end
-      Layout.position(io, lines.size + 1, 1)
+      Layout.position(io, rendered.size + 1, 1)
       Layout.clear_line(io)
+    end
+
+    def self.box(content_lines, cols)
+      return [] if content_lines.nil? || content_lines.empty?
+      inner_w = [cols - 4, 1].max
+      bar_w   = [cols - 2, 1].max
+      top    = "╭" + ("─" * bar_w) + "╮"
+      bottom = "╰" + ("─" * bar_w) + "╯"
+      body = content_lines.map do |line|
+        visible = line.to_s.length
+        pad = [inner_w - visible, 0].max
+        "│ #{line}#{" " * pad} │"
+      end
+      [top, *body, bottom]
     end
   end
 end

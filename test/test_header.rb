@@ -19,7 +19,7 @@ class TestHeader < Test::Unit::TestCase
     cfg = Cclikesh::Header::Configurator.new
     cfg.title = "myshell"
     assert_equal ["myshell"], cfg.lines
-    assert_equal 2, cfg.height
+    assert_equal 4, cfg.height
   end
 
   def test_configurator_logo_and_title_combined
@@ -42,7 +42,7 @@ class TestHeader < Test::Unit::TestCase
       "   Ruby 4.0",
       "   /q to exit"
     ], cfg.lines
-    assert_equal 4, cfg.height
+    assert_equal 6, cfg.height
   end
 
   def test_configurator_logo_only
@@ -66,5 +66,35 @@ class TestHeader < Test::Unit::TestCase
     assert_equal "", io.string
     Cclikesh::Header.paint(io, nil)
     assert_equal "", io.string
+  end
+
+  def test_box_wraps_content_in_corners
+    boxed = Cclikesh::Header.box(["hello"], 20)
+    assert_equal "╭" + ("─" * 18) + "╮", boxed.first
+    assert_equal "╰" + ("─" * 18) + "╯", boxed.last
+    assert_equal "│ hello#{" " * 11} │", boxed[1]
+    assert_equal 3, boxed.size
+  end
+
+  def test_box_with_empty_content_returns_empty
+    assert_equal [], Cclikesh::Header.box([], 80)
+    assert_equal [], Cclikesh::Header.box(nil, 80)
+  end
+
+  def test_box_pads_each_line_to_inner_width
+    boxed = Cclikesh::Header.box(["a", "bb", "ccc"], 12)
+    boxed[1..-2].each do |row|
+      assert row.start_with?("│ "), "expected left bar, got: #{row.inspect}"
+      assert row.end_with?(" │"),   "expected right bar, got: #{row.inspect}"
+      assert_equal 12, row.length, "expected width 12, got #{row.length}: #{row.inspect}"
+    end
+  end
+
+  def test_paint_with_cols_renders_boxed_form
+    io = StringIO.new
+    Cclikesh::Header.paint(io, ["hi"], cols: 10)
+    assert_match(/╭─{8}╮/,         io.string)
+    assert_match(/│ hi#{" " * 4} │/, io.string)
+    assert_match(/╰─{8}╯/,         io.string)
   end
 end

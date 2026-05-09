@@ -16,6 +16,7 @@ require_relative "event_thread"
 require_relative "screen"
 require_relative "layout"
 require_relative "header"
+require_relative "input_box"
 require_relative "history"
 
 module Cclikesh
@@ -42,9 +43,11 @@ module Cclikesh
 
       Layout.recompute(
         header_height: registry_remote.header_height,
+        input_height:  InputBox.height,
         footer_height: registry_remote.footer_height
       )
-      Header.paint($stdout, registry_remote.header_lines) if $stdout.tty?
+      Header.paint($stdout, registry_remote.header_lines, cols: Layout.cols) if $stdout.tty?
+      InputBox.paint($stdout, Layout.cols) if $stdout.tty?
       Layout.set_scroll_region($stdout) if $stdout.tty?
 
       @registry_for_winch = registry_remote
@@ -60,7 +63,7 @@ module Cclikesh
                                          tick_interval: effective_tick,
                                          registry: registry_remote,
                                          ctx: ctx)
-      input_thread  = InputThread.start(ts, reader: multiline_reader, prompt: "> ",
+      input_thread  = InputThread.start(ts, reader: multiline_reader, prompt: InputBox.prompt,
                                         registry: registry_remote, ctx: ctx)
       event_thread  = EventThread.start(ts, registry: registry_remote, ctx: ctx)
 
