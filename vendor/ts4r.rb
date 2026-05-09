@@ -16,6 +16,13 @@ class TupleSpace4Ractor
       false
     end
 
+    def do_try_take(port, pattern)
+      tuple = @ts.take(pattern, 0)
+      port << tuple
+    rescue Rinda::RequestExpiredError
+      port << nil
+    end
+
     def do_read(port, pattern)
       tuple = @ts.read(pattern, 0)
       port << tuple
@@ -42,6 +49,8 @@ class TupleSpace4Ractor
           @read_waiter << [port, tuple] unless do_read(port, tuple)
         when :take
           @take_waiter << [port, tuple] unless do_take(port, tuple)
+        when :try_take
+          do_try_take(port, tuple)
         when :write
           do_write(tuple)
         end
@@ -57,6 +66,14 @@ class TupleSpace4Ractor
   def take(pattern)
     port = Ractor::Port.new
     @ractor << [:take, pattern, port]
+    port.receive
+  end
+
+  # Non-blocking take. Returns the matched tuple, or nil if no match exists
+  # at the moment of the call. Does not enqueue a waiter.
+  def try_take(pattern)
+    port = Ractor::Port.new
+    @ractor << [:try_take, pattern, port]
     port.receive
   end
 
