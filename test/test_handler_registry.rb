@@ -42,4 +42,17 @@ class TestHandlerRegistry < Test::Unit::TestCase
 
     assert_equal :not_registered, registry.dispatch_slash(:unknown, [], :stub_ctx)
   end
+
+  def test_style_definition_returns_builder_value
+    b = Cclikesh::Builder.new
+    b.define_style(:hi, fg: :magenta)
+    r = Cclikesh::HandlerRegistry.new(b)
+    assert_equal({ fg: :magenta }, r.style_definition(:hi))
+  end
+
+  def test_style_definition_unknown_returns_nil
+    b = Cclikesh::Builder.new
+    r = Cclikesh::HandlerRegistry.new(b)
+    assert_nil r.style_definition(:none)
+  end
 end

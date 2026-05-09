@@ -37,4 +37,22 @@ class TestBuilder < Test::Unit::TestCase
     b.slash("quit", &block)
     assert_same block, b.slash_handler(:quit)
   end
+
+  def test_define_style_registers_definition
+    b = Cclikesh::Builder.new
+    b.define_style(:warn, fg: :yellow, bold: true)
+    assert_equal({ fg: :yellow, bold: true }, b.style_definition(:warn))
+  end
+
+  def test_style_definition_unknown_returns_nil
+    b = Cclikesh::Builder.new
+    assert_nil b.style_definition(:unknown)
+  end
+
+  def test_define_style_overrides_previous
+    b = Cclikesh::Builder.new
+    b.define_style(:x, fg: :red)
+    b.define_style(:x, fg: :green)
+    assert_equal({ fg: :green }, b.style_definition(:x))
+  end
 end

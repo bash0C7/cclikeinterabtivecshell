@@ -7,6 +7,7 @@ module Cclikesh
     def initialize
       @on_submit_handler = nil
       @slash_handlers = {}
+      @styles = {}
     end
 
     def on_submit(&block)
@@ -19,6 +20,14 @@ module Cclikesh
 
     def slash_handler(name)
       @slash_handlers[name.to_sym]
+    end
+
+    def define_style(name, **opts)
+      @styles[name.to_sym] = opts
+    end
+
+    def style_definition(name)
+      @styles[name.to_sym]
     end
   end
 end

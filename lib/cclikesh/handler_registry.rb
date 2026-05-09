@@ -22,5 +22,9 @@ module Cclikesh
       handler.call(args, ctx)
       nil
     end
+
+    def style_definition(name)
+      @builder.style_definition(name)
+    end
   end
 end
