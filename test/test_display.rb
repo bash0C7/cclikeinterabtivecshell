@@ -44,7 +44,7 @@ class TestDisplay < Test::Unit::TestCase
     ts = Cclikesh::TupleSpace.new
     d = Cclikesh::Display.new(ts)
     s1 = d.open_live
-    # drain s1 open + auto-commit (s2 open will trigger commit)
+    # s2 open triggers auto-commit of s1
     s2 = d.open_live
     refute_equal s1.id, s2.id
   end

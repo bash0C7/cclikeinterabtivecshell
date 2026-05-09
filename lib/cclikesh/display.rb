@@ -29,7 +29,6 @@ module Cclikesh
         @ts.write([:render, :live_open, id, { style: style }])
         @active_slot = LiveSlot.new(@ts, id, style: style)
       end
-      @active_slot
     end
   end
 end
