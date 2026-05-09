@@ -2,6 +2,7 @@
 
 require "rinda/tuplespace"
 require_relative "style"
+require_relative "layout"
 
 module Cclikesh
   class Renderer
@@ -44,12 +45,14 @@ module Cclikesh
       style_name = opts && opts[:style]
       styled = Style.wrap(payload, style_name, custom: resolve_custom_style(style_name))
 
-      if @live_state
-        @out.write("\r\e[2K")
-        @out.write("#{prefix}#{styled}\n")
-        redraw_live
-      else
-        @out.puts("#{prefix}#{styled}")
+      Layout.in_history(@out) do
+        if @live_state
+          @out.write("\r\e[2K")
+          @out.write("#{prefix}#{styled}\n")
+          redraw_live
+        else
+          @out.puts("#{prefix}#{styled}")
+        end
       end
     end
 
@@ -63,7 +66,9 @@ module Cclikesh
       return unless @live_state && @live_state[:id] == id
       style_name = @live_state[:style]
       styled = Style.wrap(text, style_name, custom: resolve_custom_style(style_name))
-      @out.write("\r\e[2K#{styled}")
+      Layout.in_history(@out) do
+        @out.write("\r\e[2K#{styled}")
+      end
       @live_state[:last_text] = text
     end
 
@@ -73,14 +78,18 @@ module Cclikesh
       style_name = @live_state[:style]
       text = final_text || @live_state[:last_text] || ""
       styled = Style.wrap(text, style_name, custom: resolve_custom_style(style_name))
-      @out.write("\r\e[2K#{styled}\n")
+      Layout.in_history(@out) do
+        @out.write("\r\e[2K#{styled}\n")
+      end
       @live_state = nil
     end
 
     def process_live_discard(tuple)
       _, _, id, _ = tuple
       return unless @live_state && @live_state[:id] == id
-      @out.write("\r\e[2K")
+      Layout.in_history(@out) do
+        @out.write("\r\e[2K")
+      end
       @live_state = nil
     end
 

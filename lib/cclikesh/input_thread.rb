@@ -2,6 +2,7 @@
 
 require "reline"
 require_relative "info_bar"
+require_relative "layout"
 
 module Cclikesh
   class InputThread
@@ -45,6 +46,7 @@ module Cclikesh
           end
           break if quit_tuple
 
+          park_cursor_in_input
           effective_prompt = compose_prompt(prompt, registry, ctx)
           line = reader.call(effective_prompt)
           payload = line.nil? ? nil : line.chomp
@@ -52,6 +54,13 @@ module Cclikesh
           break if payload.nil?
         end
       end
+    end
+
+    def self.park_cursor_in_input
+      return unless $stdout.tty?
+      Layout.position($stdout, Layout.input_top)
+      Layout.clear_line($stdout)
+      $stdout.flush
     end
   end
 end

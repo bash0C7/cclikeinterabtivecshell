@@ -14,6 +14,7 @@ require_relative "render_thread"
 require_relative "input_thread"
 require_relative "event_thread"
 require_relative "screen"
+require_relative "layout"
 
 module Cclikesh
   class Runner
@@ -29,6 +30,9 @@ module Cclikesh
 
     def self.run_child(handlers_uri, tick_interval: nil)
       Screen.enter_alt
+      Layout.update_from_io($stdout)
+      Layout.set_scroll_region($stdout) if $stdout.tty?
+      install_winch_trap
       DRb.start_service
       registry_remote = DRbObject.new_with_uri(handlers_uri)
 
@@ -37,6 +41,8 @@ module Cclikesh
       ts = TupleSpace.new
       ctx = Context.new(ts, registry: registry_remote)
       dispatcher = Dispatcher.new(ts, registry_remote, ctx)
+
+      @ts_for_winch = ts
 
       render_thread = RenderThread.start(ts, $stdout,
                                          tick_interval: effective_tick,
@@ -63,7 +69,19 @@ module Cclikesh
       event_thread.join(2)
       DRb.stop_service
     ensure
+      Layout.reset_scroll_region($stdout) if $stdout.tty?
       Screen.leave_alt
+    end
+
+    def self.install_winch_trap
+      return unless $stdout.tty?
+      Signal.trap("WINCH") do
+        Layout.update_from_io($stdout)
+        Layout.set_scroll_region($stdout)
+        @ts_for_winch&.write([:cmd, :refresh])
+      end
+    rescue ArgumentError
+      # SIGWINCH not supported on this platform
     end
   end
 end
