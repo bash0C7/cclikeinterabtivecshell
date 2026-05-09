@@ -123,7 +123,7 @@ end
 
 - [ ] **Step 4: `lib/cclikesh/renderer.rb` を Rinda 直接呼び出しに**
 
-`try_take` を `Rinda::TupleSpace#take(pattern, 0)` + `Rinda::RequestExpiredError` rescue に。LIFO 問題は Rinda::TupleSpace.bag は FIFO なので reverse 不要:
+`try_take` を `Rinda::TupleSpace#take(pattern, 0)` + `Rinda::RequestExpiredError` rescue に。**実機検証で `Rinda::TupleSpace#take` も LIFO だったので Plan 1 同様 collect → `reverse_each` を維持**:
 
 ```ruby
 # frozen_string_literal: true
