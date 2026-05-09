@@ -158,4 +158,22 @@ class TestInputThread < Test::Unit::TestCase
     prompt = Cclikesh::InputThread.compose_prompt("> ", nil, nil)
     assert_equal "> ", prompt
   end
+
+  def test_install_completion_proc_clears_word_break_characters
+    fake_registry = Object.new
+    fake_registry.define_singleton_method(:slash_names_starting_with) { |_| [] }
+    fake_registry.define_singleton_method(:dispatch_tab) { |_, _, _| [] }
+
+    prev_break_chars = Reline.completer_word_break_characters
+    prev_proc = Reline.completion_proc
+
+    begin
+      Reline.completer_word_break_characters = "DUMMY"
+      Cclikesh::InputThread.install_completion_proc(registry: fake_registry, ctx: nil)
+      assert_equal "", Reline.completer_word_break_characters
+    ensure
+      Reline.completer_word_break_characters = prev_break_chars
+      Reline.completion_proc = prev_proc
+    end
+  end
 end

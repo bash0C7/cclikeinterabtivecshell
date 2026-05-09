@@ -26,16 +26,18 @@ module Cclikesh
       end
     end
 
-    def self.run_child(handlers_uri, tick_interval:)
+    def self.run_child(handlers_uri, tick_interval: nil)
       DRb.start_service
       registry_remote = DRbObject.new_with_uri(handlers_uri)
+
+      effective_tick = tick_interval || registry_remote.tick_interval
 
       ts = TupleSpace.new
       ctx = Context.new(ts, registry: registry_remote)
       dispatcher = Dispatcher.new(ts, registry_remote, ctx)
 
       render_thread = RenderThread.start(ts, $stdout,
-                                         tick_interval: tick_interval,
+                                         tick_interval: effective_tick,
                                          registry: registry_remote)
       input_thread  = InputThread.start(ts, reader: Reline.method(:readline), prompt: "> ",
                                         registry: registry_remote, ctx: ctx)

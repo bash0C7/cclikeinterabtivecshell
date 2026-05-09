@@ -141,6 +141,10 @@ module Cclikesh
       @builder.style_definition(name)
     end
 
+    def tick_interval
+      @builder.tick_interval
+    end
+
     def logger
       @builder.logger
     end

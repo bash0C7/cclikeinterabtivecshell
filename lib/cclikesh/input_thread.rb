@@ -5,7 +5,7 @@ require_relative "info_bar"
 
 module Cclikesh
   class InputThread
-    def self.install_completion_proc(registry:, ctx:, apply: ->(p) { Reline.completion_proc = p })
+    def self.install_completion_proc(registry:, ctx:, apply: nil)
       proc = ->(buf) {
         if buf.start_with?("/") && !buf.include?(" ")
           registry.slash_names_starting_with(buf[1..])
@@ -13,7 +13,12 @@ module Cclikesh
           registry.dispatch_tab(buf, buf.bytesize, ctx)
         end
       }
-      apply.call(proc)
+      if apply
+        apply.call(proc)
+      else
+        Reline.completer_word_break_characters = ""
+        Reline.completion_proc = proc
+      end
       proc
     end
 

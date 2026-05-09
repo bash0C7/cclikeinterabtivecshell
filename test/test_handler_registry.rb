@@ -348,4 +348,11 @@ class TestHandlerRegistry < Test::Unit::TestCase
     assert_equal ["/reset"],      registry.slash_names_starting_with("re")
     assert_equal [],              registry.slash_names_starting_with("zz")
   end
+
+  def test_registry_exposes_builder_tick_interval
+    builder = Cclikesh::Builder.new
+    builder.tick_interval = 0.02
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    assert_equal 0.02, registry.tick_interval
+  end
 end
