@@ -14,7 +14,8 @@ module Cclikesh
     end
 
     def logger
-      @registry&.logger
+      raise "Context has no registry; cannot provide logger" unless @registry
+      @registry.logger
     end
 
     def display

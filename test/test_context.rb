@@ -46,9 +46,9 @@ class TestContext < Test::Unit::TestCase
     assert_match(/through-ctx/, io.string)
   end
 
-  def test_context_logger_returns_nil_when_no_registry
+  def test_context_logger_raises_when_no_registry
     ts = Cclikesh::TupleSpace.new
     ctx = Cclikesh::Context.new(ts)
-    assert_nil ctx.logger
+    assert_raise(RuntimeError) { ctx.logger }
   end
 end
