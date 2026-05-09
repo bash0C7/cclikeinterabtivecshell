@@ -44,6 +44,7 @@ module Cclikesh
     def self.start(ts, reader:, prompt: "> ", registry: nil, ctx: nil)
       install_completion_proc(registry: registry, ctx: ctx) if registry && ctx
       enable_autocompletion
+      configure_editor_mode(registry) if registry
 
       Thread.new do
         loop do
@@ -74,6 +75,16 @@ module Cclikesh
       Reline.autocompletion = true if Reline.respond_to?(:autocompletion=)
     rescue StandardError
       # older Reline; fall back to no autocompletion popup
+    end
+
+    def self.configure_editor_mode(registry)
+      return unless registry.respond_to?(:editor_mode)
+      case registry.editor_mode
+      when :vim, :vi   then Reline.vi_editing_mode
+      when :emacs, nil then Reline.emacs_editing_mode
+      end
+    rescue StandardError
+      # older Reline lacking these toggles
     end
 
     def self.normalize_payload(raw)

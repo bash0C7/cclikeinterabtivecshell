@@ -16,6 +16,7 @@ require_relative "event_thread"
 require_relative "screen"
 require_relative "layout"
 require_relative "header"
+require_relative "history"
 
 module Cclikesh
   class Runner
@@ -32,6 +33,8 @@ module Cclikesh
     def self.run_child(handlers_uri, tick_interval: nil)
       Screen.enter_alt
       Layout.update_from_io($stdout)
+      @history_path = History.path_for(Dir.pwd)
+      History.load(@history_path).each { |entry| Reline::HISTORY << entry }
       DRb.start_service
       registry_remote = DRbObject.new_with_uri(handlers_uri)
 
@@ -79,6 +82,7 @@ module Cclikesh
       event_thread.join(2)
       DRb.stop_service
     ensure
+      History.save(@history_path, Reline::HISTORY.to_a) if @history_path
       Layout.reset_scroll_region($stdout) if $stdout.tty?
       Screen.leave_alt
     end

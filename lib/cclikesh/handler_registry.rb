@@ -178,6 +178,10 @@ module Cclikesh
       @builder.logger
     end
 
+    def editor_mode
+      @builder.editor_mode
+    end
+
     def header_lines
       cfg = @builder.header_config
       cfg ? cfg.lines : []

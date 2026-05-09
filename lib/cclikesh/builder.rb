@@ -11,7 +11,7 @@ module Cclikesh
     }.freeze
 
     attr_reader :on_submit_handler, :on_state_change_handler, :slash_handlers, :on_start_handlers, :on_quit_handlers, :before_submit_handlers, :after_submit_handlers, :on_tab_handler, :before_tab_handlers, :after_tab_handlers, :logger, :header_config
-    attr_reader :spinner_frames, :spinner_colors, :spinner_frame_interval, :spinner_label_proc, :idle_phrase_interval
+    attr_reader :spinner_frames, :spinner_colors, :spinner_frame_interval, :spinner_label_proc, :idle_phrase_interval, :editor_mode
     attr_accessor :tick_interval, :idle_phrases
 
     SpinnerConfigurator = Struct.new(:frames, :colors, :frame_interval)
@@ -44,6 +44,11 @@ module Cclikesh
       @header_config = nil
       @status_row_registry = []
       @status_row_registration_counter = 0
+      @editor_mode = :emacs
+    end
+
+    def editor_mode=(mode)
+      @editor_mode = mode.to_sym
     end
 
     def header(&block)
