@@ -49,6 +49,10 @@ module Cclikesh
 
       registry_remote.dispatch_quit(ctx)
 
+      # Give EventThread 2 ticks (tick=0.05s) to drain any state_change events
+      # emitted during dispatch_quit before signaling thread shutdown.
+      sleep 0.1
+
       ts.write([:cmd, :quit])
       render_thread.join(2)
       input_thread.join(2)

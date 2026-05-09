@@ -27,7 +27,6 @@ module Cclikesh
     end
 
     def quit
-      @ts.write([:cmd, :quit])
       @ts.write([:key, nil])
     end
 

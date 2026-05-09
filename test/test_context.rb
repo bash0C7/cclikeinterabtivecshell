@@ -20,12 +20,19 @@ class TestContext < Test::Unit::TestCase
     assert_kind_of Cclikesh::State, c.state
   end
 
-  def test_quit_writes_cmd_quit_and_eof_key
+  def test_quit_writes_only_nil_key_not_cmd_quit
     ts = Cclikesh::TupleSpace.new
-    c = Cclikesh::Context.new(ts)
-    c.quit
-    assert_equal [:cmd, :quit], ts.take([:cmd, :quit])
-    assert_equal [:key, nil], ts.take([:key, nil])
+    ctx = Cclikesh::Context.new(ts)
+    ctx.quit
+
+    # nil key signals dispatcher
+    key_tuple = ts.take([:key, nil], 1)
+    assert_equal [:key, nil], key_tuple
+
+    # NO cmd/quit tuple should be present
+    assert_raise(Rinda::RequestExpiredError) do
+      ts.take([:cmd, :quit], 0)
+    end
   end
 
   def test_display_and_state_are_memoized

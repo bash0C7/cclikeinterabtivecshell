@@ -12,7 +12,11 @@ module Cclikesh
           rescue Rinda::RequestExpiredError
             nil
           end
-          break if quit_tuple
+
+          if quit_tuple
+            drain_remaining_state_changes(ts, registry, ctx)
+            break
+          end
 
           begin
             _, _, key, old, new_v = ts.take([:event, :state_change, nil, nil, nil], 0.05)
@@ -22,6 +26,15 @@ module Cclikesh
           end
         end
       end
+    end
+
+    def self.drain_remaining_state_changes(ts, registry, ctx)
+      loop do
+        _, _, key, old, new_v = ts.take([:event, :state_change, nil, nil, nil], 0)
+        registry.dispatch_state_change(key, old, new_v, ctx)
+      end
+    rescue Rinda::RequestExpiredError
+      # done draining
     end
   end
 end

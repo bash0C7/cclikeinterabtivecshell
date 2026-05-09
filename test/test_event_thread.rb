@@ -48,4 +48,26 @@ class TestEventThread < Test::Unit::TestCase
 
     assert_equal [[:a, nil, 1], [:b, nil, 2], [:a, 1, 3]], fake
   end
+
+  def test_drains_pending_state_changes_after_quit_signal
+    ts = Cclikesh::TupleSpace.new
+    fake = []
+    fake_registry = Object.new
+    fake_registry.define_singleton_method(:dispatch_state_change) do |k, o, n, _c|
+      fake << [k, o, n]
+    end
+
+    thread = Cclikesh::EventThread.start(ts, registry: fake_registry, ctx: nil)
+
+    # Pile up multiple events, then signal quit BEFORE giving EventThread a chance to drain naturally
+    ts.write([:event, :state_change, :a, nil, 1])
+    ts.write([:event, :state_change, :b, nil, 2])
+    ts.write([:event, :state_change, :c, nil, 3])
+    ts.write([:cmd, :quit])
+
+    assert_not_nil thread.join(3), "EventThread did not stop within 3s"
+
+    # All three events must have been drained even though quit was signaled before drain completed
+    assert_equal [[:a, nil, 1], [:b, nil, 2], [:c, nil, 3]], fake.sort_by { |t| t[0].to_s }
+  end
 end
