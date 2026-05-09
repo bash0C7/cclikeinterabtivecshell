@@ -40,6 +40,8 @@ module Cclikesh
       input_thread  = InputThread.start(ts, reader: Reline.method(:readline), prompt: "> ")
       event_thread  = EventThread.start(ts, registry: registry_remote, ctx: ctx)
 
+      registry_remote.dispatch_start(ctx)
+
       loop do
         break if dispatcher.dispatch_one == :quit
       end

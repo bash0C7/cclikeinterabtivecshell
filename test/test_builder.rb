@@ -120,4 +120,11 @@ class TestBuilder < Test::Unit::TestCase
     builder.on_state_change_handler.call(:phase, nil, :working, nil)
     assert_equal [[:phase, nil, :working]], called
   end
+
+  def test_on_start_collects_multiple_handlers_in_registration_order
+    builder = Cclikesh::Builder.new
+    builder.on_start { |_| 1 }
+    builder.on_start { |_| 2 }
+    assert_equal 2, builder.on_start_handlers.size
+  end
 end

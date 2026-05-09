@@ -36,6 +36,18 @@ module Cclikesh
       end
     end
 
+    def dispatch_start(ctx)
+      log = @builder.logger
+      @builder.on_start_handlers.each do |h|
+        begin
+          h.call(ctx)
+        rescue => e
+          log.error("on_start error: #{e.full_message}")
+        end
+      end
+      nil
+    end
+
     def style_definition(name)
       @builder.style_definition(name)
     end

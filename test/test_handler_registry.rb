@@ -93,4 +93,27 @@ class TestHandlerRegistry < Test::Unit::TestCase
     assert_nothing_raised { registry.dispatch_state_change(:k, 1, 2, :ctx) }
     assert_match(/state-change-boom/, io.string)
   end
+
+  def test_dispatch_start_runs_each_in_registration_order
+    builder = Cclikesh::Builder.new
+    seq = []
+    builder.on_start { |_| seq << :first }
+    builder.on_start { |_| seq << :second }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    registry.dispatch_start(:ctx)
+    assert_equal [:first, :second], seq
+  end
+
+  def test_dispatch_start_logs_and_continues_on_error
+    io = StringIO.new
+    builder = Cclikesh::Builder.new
+    builder.log_to(io)
+    seq = []
+    builder.on_start { |_| raise "boom" }
+    builder.on_start { |_| seq << :ran }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    registry.dispatch_start(:ctx)
+    assert_equal [:ran], seq
+    assert_match(/boom/, io.string)
+  end
 end
