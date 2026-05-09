@@ -430,6 +430,43 @@ class TestHandlerRegistry < Test::Unit::TestCase
     assert_equal({ name: "/reset", description: "reset session" },  items[1])
   end
 
+  def test_btw_dsl_auto_registers_btw_slash
+    builder = Cclikesh::Builder.new
+    builder.btw { |q, _| "answer to #{q}" }
+    assert_not_nil builder.slash_handler(:btw)
+    assert_equal "ask a side question (ephemeral)", builder.slash_description(:btw)
+  end
+
+  def test_btw_handler_invokes_block_with_question_and_appends_answer
+    builder = Cclikesh::Builder.new
+    captured = nil
+    builder.btw do |question, _ctx|
+      captured = question
+      "the answer is 42"
+    end
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    ctx = StubCtx.new
+    registry.dispatch_slash(:btw, ["what", "is", "life"], ctx)
+    assert_equal "what is life", captured
+    appended_texts = ctx.display.appended.map { |a| a[:text] }
+    assert_includes appended_texts, "the answer is 42"
+  end
+
+  def test_btw_handler_skips_append_when_block_returns_nil
+    builder = Cclikesh::Builder.new
+    builder.btw { |_, _| nil }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    ctx = StubCtx.new
+    registry.dispatch_slash(:btw, [], ctx)
+    appended_texts = ctx.display.appended.map { |a| a[:text] }
+    refute_includes appended_texts, ""
+  end
+
+  def test_btw_not_registered_when_dsl_not_called
+    builder = Cclikesh::Builder.new
+    assert_nil builder.slash_handler(:btw)
+  end
+
   def test_registry_exposes_builder_tick_interval
     builder = Cclikesh::Builder.new
     builder.tick_interval = 0.02

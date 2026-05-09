@@ -178,6 +178,21 @@ module Cclikesh
 
     attr_reader :prompt_suggestion_block
 
+    def btw(&block)
+      @btw_block = block
+      @slash_handlers[:btw] = lambda do |args, ctx|
+        question = Array(args).join(" ")
+        begin
+          answer = @btw_block.call(question, ctx)
+        rescue StandardError => e
+          ctx.logger.error("/btw error: #{e.full_message}") if ctx.respond_to?(:logger)
+          return
+        end
+        ctx.display.append(answer.to_s) if answer && !answer.to_s.empty?
+      end
+      @slash_descriptions[:btw] = "ask a side question (ephemeral)"
+    end
+
     def info_segments
       @info_segments.sort_by { |_, order, _| order }
     end
