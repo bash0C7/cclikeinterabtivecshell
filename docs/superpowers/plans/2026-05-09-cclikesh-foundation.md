@@ -6,7 +6,9 @@
 
 **Architecture:** Single-process Ruby program that uses ts4r as the central tuple space. Three Ractors split responsibilities (Render reads `[:render, ...]` tuples and writes to stdout; Input reads stdin lines and writes `[:key, ...]` tuples; the caller's main Ractor dispatches `[:event, :submit, line]` events to the user-supplied `on_submit` block via `Cclikesh::Dispatcher`). The dRuby split (impl ↔ F as separate processes) and reline integration are deferred to Plan 2; this plan uses line-buffered `IO#gets` for input and direct `puts` for display.
 
-**Tech Stack:** Ruby 4.0.3+, ts4r (TupleSpace4Ractor), test-unit, rake, rdoc (stdlib).
+**Tech Stack:** Ruby 4.0.3+, ts4r (TupleSpace4Ractor — vendored as a single file because upstream has no gemspec), test-unit, rake, rdoc (stdlib).
+
+**Note on ts4r:** Upstream `seki/ts4r` has no `.gemspec` and is not on rubygems. Bundler git sources require a gemspec. Therefore Plan 1 vendors `src/ts.rb` from `https://github.com/seki/ts4r` (commit `main` at plan time) into `vendor/ts4r.rb` and adds `vendor/` to `$LOAD_PATH` in `lib/cclikesh.rb`. When ts4r becomes a published gem, swap the vendored copy out for a `gem "ts4r"` dependency.
 
 **Out of scope (deferred to later plans):** dRuby, fork+exec, tcsetpgrp, reline raw mode, live slot, dialog, info bar, spinner, idle_phrases, slash full parsing (this plan supports only `/quit`), state store with `on_state_change`, before/after hooks, full logger, Ruby::Box.
 
@@ -20,6 +22,8 @@ cclikesh/
 ├── cclikesh.gemspec
 ├── Rakefile
 ├── .gitignore
+├── vendor/
+│   └── ts4r.rb              # Verbatim copy of upstream src/ts.rb
 ├── lib/
 │   └── cclikesh/
 │       ├── version.rb        # Version constant
@@ -99,6 +103,9 @@ end
 ```ruby
 # frozen_string_literal: true
 
+# Make the vendored ts4r available as `require "ts4r"`.
+$LOAD_PATH.unshift(File.expand_path("../vendor", __dir__))
+
 require_relative "cclikesh/version"
 
 module Cclikesh
@@ -120,10 +127,10 @@ Gem::Specification.new do |spec|
   spec.license       = "MIT"
   spec.required_ruby_version = ">= 4.0.0"
 
-  spec.files         = Dir["lib/**/*.rb", "README.md", "LICENSE"]
+  spec.files         = Dir["lib/**/*.rb", "vendor/**/*.rb", "README.md", "LICENSE"]
   spec.require_paths = ["lib"]
 
-  spec.add_runtime_dependency "ts4r"
+  # ts4r is vendored at vendor/ts4r.rb; no runtime gem dependency on it yet.
 
   spec.add_development_dependency "test-unit", "~> 3.6"
   spec.add_development_dependency "rake", "~> 13.0"
@@ -139,7 +146,8 @@ source "https://rubygems.org"
 
 gemspec
 
-gem "ts4r", git: "https://github.com/seki/ts4r.git", branch: "main"
+# ts4r is vendored at vendor/ts4r.rb (upstream has no gemspec). When ts4r is
+# published to rubygems, replace the vendored copy with `gem "ts4r"` here.
 ```
 
 - [ ] **Step 6: Create `Rakefile`**
@@ -208,9 +216,25 @@ git commit -m "feat: add project skeleton with smoke test"
 ## Task 2: TupleSpace Wrapper
 
 **Files:**
+- Create: `vendor/ts4r.rb` (verbatim copy of upstream `seki/ts4r` `src/ts.rb`)
 - Create: `lib/cclikesh/tuple_space.rb`
 - Create: `test/test_tuple_space.rb`
-- Modify: `lib/cclikesh.rb`
+
+- [ ] **Step 0: Vendor ts4r**
+
+Download `src/ts.rb` from `seki/ts4r` (main branch) and save it as `vendor/ts4r.rb`. This is needed because upstream has no gemspec, so it cannot be a Bundler git source. The `lib/cclikesh.rb` from Task 1 already prepends `vendor/` to `$LOAD_PATH`, so `require "ts4r"` resolves to the vendored copy.
+
+Run:
+```bash
+mkdir -p vendor
+gh api repos/seki/ts4r/contents/src/ts.rb -H "Accept: application/vnd.github.raw" > vendor/ts4r.rb
+```
+
+Verify the file defines `class TupleSpace4Ractor`:
+```bash
+grep -E "^class TupleSpace4Ractor" vendor/ts4r.rb
+```
+Expected: one matching line.
 
 - [ ] **Step 1: Write the failing test in `test/test_tuple_space.rb`**
 
@@ -278,8 +302,8 @@ Expected: `4 tests, 4 assertions, 0 failures, 0 errors`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/cclikesh/tuple_space.rb test/test_tuple_space.rb
-git commit -m "feat: add ts4r-backed TupleSpace wrapper"
+git add vendor/ts4r.rb lib/cclikesh/tuple_space.rb test/test_tuple_space.rb
+git commit -m "feat: vendor ts4r and add TupleSpace wrapper"
 ```
 
 ---
