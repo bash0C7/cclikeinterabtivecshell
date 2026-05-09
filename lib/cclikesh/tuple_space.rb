@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require "ts4r"
+require "rinda/tuplespace"
 
 module Cclikesh
   class TupleSpace
     def self.new
-      Ractor.make_shareable(TupleSpace4Ractor.new)
+      Rinda::TupleSpace.new
     end
   end
 end
