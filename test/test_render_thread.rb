@@ -69,4 +69,37 @@ class TestRenderThread < Test::Unit::TestCase
     assert_match(/fast/, io.string)
     assert(elapsed < 1.5, "expected refresh to short-circuit 5s tick (got #{elapsed}s)")
   end
+
+  class FakeTty < StringIO
+    def tty?; true; end
+  end
+
+  class FakeRegistry
+    def initialize(header_lines:)
+      @header_lines = header_lines
+    end
+    def style_definition(_); nil; end
+    def header_lines; @header_lines; end
+    def snapshot_footer(_ctx); ["info-line"]; end
+    def header_height; @header_lines.size + 3; end
+    def footer_height; 1; end
+  end
+
+  def test_refresh_signal_repaints_header_and_input_box
+    Cclikesh::Layout.recompute(rows: 28, cols: 30, header_height: 5, input_height: 3, footer_height: 1)
+    ts = Cclikesh::TupleSpace.new
+    io = FakeTty.new
+    reg = FakeRegistry.new(header_lines: ["✻ cclikesh", "Ruby 4.0.3"])
+
+    thread = Cclikesh::RenderThread.start(ts, io, tick_interval: 5.0, registry: reg, ctx: Object.new)
+    ts.write([:cmd, :refresh])
+    deadline = Time.now + 2
+    sleep 0.02 until (io.string.include?("✻ cclikesh") && io.string.include?("╭") && io.string.scan("╭").size >= 2) || Time.now > deadline
+    ts.write([:cmd, :quit])
+    thread.join(2)
+
+    assert_match(/✻ cclikesh/, io.string, "expected header banner repaint on refresh")
+    assert(io.string.scan("╭").size >= 2, "expected both header banner ╭ and input box ╭")
+    assert(io.string.scan("╰").size >= 2, "expected both header banner ╰ and input box ╰")
+  end
 end

@@ -2,6 +2,8 @@
 
 require_relative "renderer"
 require_relative "footer"
+require_relative "header"
+require_relative "input_box"
 require "rinda/tuplespace"
 
 module Cclikesh
@@ -27,6 +29,9 @@ module Cclikesh
             # normal tick — no refresh signal arrived
           end
           renderer.render_pending
+          if refreshed
+            paint_chrome(output_io, registry)
+          end
           if refreshed || (Time.now - last_footer_paint) >= FOOTER_PAINT_INTERVAL_S
             paint_footer(output_io, registry, ctx)
             last_footer_paint = Time.now
@@ -38,6 +43,18 @@ module Cclikesh
         output_io.flush
         watcher.kill
       end
+    end
+
+    def self.paint_chrome(io, registry)
+      return unless io.respond_to?(:tty?) && io.tty?
+      return unless registry
+      lines = registry.header_lines
+      Layout.save_cursor(io)
+      Header.paint(io, lines, cols: Layout.cols) if lines && !lines.empty?
+      InputBox.paint(io, Layout.cols)
+      Layout.restore_cursor(io)
+    rescue StandardError
+      # never let chrome paint kill the render loop
     end
 
     def self.paint_footer(io, registry, ctx)
