@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "logger"
+require_relative "header"
 
 module Cclikesh
   class Builder
@@ -9,7 +10,7 @@ module Cclikesh
       warn: Logger::WARN, error: Logger::ERROR, fatal: Logger::FATAL
     }.freeze
 
-    attr_reader :on_submit_handler, :on_state_change_handler, :slash_handlers, :on_start_handlers, :on_quit_handlers, :before_submit_handlers, :after_submit_handlers, :on_tab_handler, :before_tab_handlers, :after_tab_handlers, :logger
+    attr_reader :on_submit_handler, :on_state_change_handler, :slash_handlers, :on_start_handlers, :on_quit_handlers, :before_submit_handlers, :after_submit_handlers, :on_tab_handler, :before_tab_handlers, :after_tab_handlers, :logger, :header_config
     attr_reader :spinner_frames, :spinner_colors, :spinner_frame_interval, :spinner_label_proc, :idle_phrase_interval
     attr_accessor :tick_interval, :idle_phrases
 
@@ -39,6 +40,13 @@ module Cclikesh
       @idle_phrase_interval = 3.0
       @info_segments = []
       @info_registration_counter = 0
+      @header_config = nil
+    end
+
+    def header(&block)
+      @header_config ||= Header::Configurator.new
+      block.call(@header_config) if block
+      @header_config
     end
 
     def on_submit(&block)

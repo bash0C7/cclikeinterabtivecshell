@@ -15,6 +15,7 @@ require_relative "input_thread"
 require_relative "event_thread"
 require_relative "screen"
 require_relative "layout"
+require_relative "header"
 
 module Cclikesh
   class Runner
@@ -31,12 +32,17 @@ module Cclikesh
     def self.run_child(handlers_uri, tick_interval: nil)
       Screen.enter_alt
       Layout.update_from_io($stdout)
-      Layout.set_scroll_region($stdout) if $stdout.tty?
-      install_winch_trap
       DRb.start_service
       registry_remote = DRbObject.new_with_uri(handlers_uri)
 
       effective_tick = tick_interval || registry_remote.tick_interval
+
+      Layout.recompute(header_height: registry_remote.header_height)
+      Header.paint($stdout, registry_remote.header_lines) if $stdout.tty?
+      Layout.set_scroll_region($stdout) if $stdout.tty?
+
+      @registry_for_winch = registry_remote
+      install_winch_trap
 
       ts = TupleSpace.new
       ctx = Context.new(ts, registry: registry_remote)
@@ -77,6 +83,7 @@ module Cclikesh
       return unless $stdout.tty?
       Signal.trap("WINCH") do
         Layout.update_from_io($stdout)
+        Header.paint($stdout, @registry_for_winch.header_lines) if @registry_for_winch
         Layout.set_scroll_region($stdout)
         @ts_for_winch&.write([:cmd, :refresh])
       end

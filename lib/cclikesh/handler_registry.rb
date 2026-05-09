@@ -158,6 +158,16 @@ module Cclikesh
       @builder.logger
     end
 
+    def header_lines
+      cfg = @builder.header_config
+      cfg ? cfg.lines : []
+    end
+
+    def header_height
+      cfg = @builder.header_config
+      cfg ? cfg.height : 0
+    end
+
     private
 
     def compute_spinner_label(ctx, log)
