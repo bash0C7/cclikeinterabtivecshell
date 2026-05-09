@@ -41,12 +41,24 @@ module Cclikesh
       @info_segments = []
       @info_registration_counter = 0
       @header_config = nil
+      @status_row_registry = []
+      @status_row_registration_counter = 0
     end
 
     def header(&block)
       @header_config ||= Header::Configurator.new
       block.call(@header_config) if block
       @header_config
+    end
+
+    def status_row(name, order: nil, &block)
+      @status_row_registration_counter += 1
+      effective_order = order || (10_000 + @status_row_registration_counter)
+      @status_row_registry << [name.to_sym, effective_order, block]
+    end
+
+    def status_rows
+      @status_row_registry.sort_by { |_, o, _| o }
     end
 
     def on_submit(&block)

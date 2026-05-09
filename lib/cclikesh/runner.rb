@@ -37,7 +37,10 @@ module Cclikesh
 
       effective_tick = tick_interval || registry_remote.tick_interval
 
-      Layout.recompute(header_height: registry_remote.header_height)
+      Layout.recompute(
+        header_height: registry_remote.header_height,
+        footer_height: registry_remote.footer_height
+      )
       Header.paint($stdout, registry_remote.header_lines) if $stdout.tty?
       Layout.set_scroll_region($stdout) if $stdout.tty?
 
@@ -52,7 +55,8 @@ module Cclikesh
 
       render_thread = RenderThread.start(ts, $stdout,
                                          tick_interval: effective_tick,
-                                         registry: registry_remote)
+                                         registry: registry_remote,
+                                         ctx: ctx)
       input_thread  = InputThread.start(ts, reader: Reline.method(:readline), prompt: "> ",
                                         registry: registry_remote, ctx: ctx)
       event_thread  = EventThread.start(ts, registry: registry_remote, ctx: ctx)

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "drb/drb"
+require_relative "info_bar"
+require_relative "footer"
 
 module Cclikesh
   class HandlerRegistry
@@ -166,6 +168,35 @@ module Cclikesh
     def header_height
       cfg = @builder.header_config
       cfg ? cfg.height : 0
+    end
+
+    def footer_height
+      1 + @builder.status_rows.size
+    end
+
+    def snapshot_status_rows(ctx)
+      log = @builder.logger
+      rows = []
+      @builder.status_rows.each do |name, _order, block|
+        row = Footer::Row.new
+        begin
+          block.call(row, ctx)
+          rows << row.to_line
+        rescue => e
+          log.error("status_row(:#{name}) error: #{e.full_message}")
+        end
+      end
+      rows
+    end
+
+    def snapshot_footer(ctx)
+      info_snap = snapshot_info_bar(ctx)
+      info_line = InfoBar.compose(
+        spinner_frame: info_snap[:spinner_frame],
+        spinner_label: info_snap[:spinner_label],
+        segments:      info_snap[:segments]
+      )
+      [info_line] + snapshot_status_rows(ctx)
     end
 
     private
