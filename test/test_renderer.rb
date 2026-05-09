@@ -204,4 +204,34 @@ class TestRenderer < Test::Unit::TestCase
 
     assert_equal "\r\e[2Ka\r\e[2Ka\n", out.string
   end
+
+  def test_render_pending_history_during_live_clears_redraws_live
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :live_open, 1, { style: nil }])
+    ts.write([:render, :live_update, 1, "live"])
+    ts.write([:render, :display_append, "history", {}])
+    r.render_pending
+
+    # live update writes "\r\e[2Klive"
+    # history append: clear live ("\r\e[2K") + write "history\n" + redraw live ("\r\e[2Klive")
+    expected =
+      "\r\e[2Klive" +
+      "\r\e[2K" + "history\n" +
+      "\r\e[2Klive"
+    assert_equal expected, out.string
+  end
+
+  def test_render_pending_history_when_no_live_active_unchanged
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :display_append, "x", {}])
+    r.render_pending
+
+    assert_equal "x\n", out.string
+  end
 end

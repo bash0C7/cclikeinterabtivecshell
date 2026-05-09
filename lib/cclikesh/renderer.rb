@@ -57,7 +57,14 @@ module Cclikesh
       prefix = (opts && opts[:prompt]) || ""
       style_name = opts && opts[:style]
       styled = Style.wrap(payload, style_name, custom: resolve_custom_style(style_name))
-      @out.puts("#{prefix}#{styled}")
+
+      if @live_state
+        @out.write("\r\e[2K")
+        @out.write("#{prefix}#{styled}\n")
+        redraw_live
+      else
+        @out.puts("#{prefix}#{styled}")
+      end
     end
 
     def process_live_open(tuple)
@@ -89,6 +96,15 @@ module Cclikesh
       return unless @live_state && @live_state[:id] == id
       @out.write("\r\e[2K")
       @live_state = nil
+    end
+
+    def redraw_live
+      return unless @live_state
+      text = @live_state[:last_text]
+      return if text.nil?
+      style_name = @live_state[:style]
+      styled = Style.wrap(text, style_name, custom: resolve_custom_style(style_name))
+      @out.write("\r\e[2K#{styled}")
     end
 
     def resolve_custom_style(name)
