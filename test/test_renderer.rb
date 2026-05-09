@@ -40,4 +40,48 @@ class TestRenderer < Test::Unit::TestCase
 
     assert_equal "> msg\n", out.string
   end
+
+  def test_render_pending_applies_builtin_result_style
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :display_append, "ok", { style: :result }])
+    r.render_pending
+
+    assert_equal "\e[32mok\e[0m\n", out.string
+  end
+
+  def test_render_pending_applies_error_style
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :display_append, "boom", { style: :error }])
+    r.render_pending
+
+    assert_equal "\e[31mboom\e[0m\n", out.string
+  end
+
+  def test_render_pending_no_style_returns_plain_text
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :display_append, "plain", {}])
+    r.render_pending
+
+    assert_equal "plain\n", out.string
+  end
+
+  def test_render_pending_style_with_prompt_wraps_text_only
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :display_append, "msg", { style: :result, prompt: ">> " }])
+    r.render_pending
+
+    assert_equal ">> \e[32mmsg\e[0m\n", out.string
+  end
 end

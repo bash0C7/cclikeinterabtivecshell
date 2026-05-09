@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
 require "rinda/tuplespace"
+require_relative "style"
 
 module Cclikesh
   class Renderer
-    def initialize(tuple_space, output_io)
+    def initialize(tuple_space, output_io, registry: nil)
       @ts = tuple_space
       @out = output_io
+      @registry = registry
     end
 
     # Drain all currently-queued render tuples and write them to output.
@@ -30,8 +32,16 @@ module Cclikesh
       case op
       when :display_append
         prefix = (opts && opts[:prompt]) || ""
-        @out.puts("#{prefix}#{payload}")
+        style_name = opts && opts[:style]
+        styled = Style.wrap(payload, style_name, custom: resolve_custom_style(style_name))
+        @out.puts("#{prefix}#{styled}")
       end
+    end
+
+    def resolve_custom_style(name)
+      return nil if name.nil? || Style::BUILTINS.key?(name.to_sym)
+      return nil unless @registry
+      @registry.style_definition(name)
     end
   end
 end
