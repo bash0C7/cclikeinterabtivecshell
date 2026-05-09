@@ -166,4 +166,75 @@ class TestBuilder < Test::Unit::TestCase
     builder.after_tab { |_, _, _, _| 1 }
     assert_equal 1, builder.after_tab_handlers.size
   end
+
+  def test_tick_interval_default_and_setter
+    builder = Cclikesh::Builder.new
+    assert_equal 0.06, builder.tick_interval
+    builder.tick_interval = 0.1
+    assert_equal 0.1, builder.tick_interval
+  end
+
+  def test_spinner_block_sets_frames_colors_interval
+    builder = Cclikesh::Builder.new
+    builder.spinner do |s|
+      s.frames = %w[A B C]
+      s.colors = [:red, :green]
+      s.frame_interval = 0.2
+    end
+    assert_equal %w[A B C], builder.spinner_frames
+    assert_equal [:red, :green], builder.spinner_colors
+    assert_equal 0.2, builder.spinner_frame_interval
+  end
+
+  def test_spinner_defaults_when_block_not_called
+    builder = Cclikesh::Builder.new
+    assert_equal %w[✻ ✶ ✷ ✸ ✹], builder.spinner_frames
+    assert_equal [:cyan, :magenta], builder.spinner_colors
+    assert_equal 0.15, builder.spinner_frame_interval
+  end
+
+  def test_spinner_label_registers_block
+    builder = Cclikesh::Builder.new
+    builder.spinner_label { |_ctx| "Working" }
+    assert_equal "Working", builder.spinner_label_proc.call(:ctx)
+  end
+
+  def test_idle_phrases_default_loaded_from_file
+    builder = Cclikesh::Builder.new
+    assert_includes builder.idle_phrases, "Roosting"
+    assert_includes builder.idle_phrases, "Mooching"
+    assert_equal 20, builder.idle_phrases.size
+  end
+
+  def test_idle_phrases_setter_overrides
+    builder = Cclikesh::Builder.new
+    builder.idle_phrases = %w[Foo Bar]
+    assert_equal %w[Foo Bar], builder.idle_phrases
+  end
+
+  def test_idle_phrase_interval_default_and_setter
+    builder = Cclikesh::Builder.new
+    assert_equal 3.0, builder.idle_phrase_interval
+    builder.idle_phrase_interval = 5.0
+    assert_equal 5.0, builder.idle_phrase_interval
+  end
+
+  def test_info_registers_block_with_order
+    builder = Cclikesh::Builder.new
+    builder.info(:elapsed, order: 10) { |_| "1s" }
+    builder.info(:tokens,  order: 20) { |_| "↓ 1k" }
+    segs = builder.info_segments
+    assert_equal [:elapsed, :tokens], segs.map { |name, _, _| name }
+    assert_equal "1s",   segs[0][2].call(:ctx)
+    assert_equal "↓ 1k", segs[1][2].call(:ctx)
+  end
+
+  def test_info_unspecified_order_uses_registration_order
+    builder = Cclikesh::Builder.new
+    builder.info(:b) { |_| "b" }
+    builder.info(:a, order: 5) { |_| "a" }
+    builder.info(:c) { |_| "c" }
+    segs = builder.info_segments
+    assert_equal :a, segs.first[0]
+  end
 end
