@@ -88,6 +88,45 @@ class TestE2EPTY < Test::Unit::TestCase
     end
   end
 
+  def test_dialog_slash_renders_box
+    output = String.new
+    pid = nil
+
+    Timeout.timeout(20) do
+      master, slave = PTY.open
+      pid = spawn(
+        "bundle", "exec", "ruby", "-Ilib", ECHO_SHELL,
+        in: slave, out: slave, err: slave,
+        chdir: PROJECT_ROOT
+      )
+      slave.close
+
+      wait_for_prompt(master, output, 8)
+
+      master.print "/dialog hello-from-dialog\r"
+      sleep 0.5
+      master.print "/quit\r"
+
+      drain_until_eof_or_timeout_for(master, output, 5, /hello-from-dialog/)
+      Process.wait(pid)
+      pid = nil
+    end
+
+    text = output.force_encoding("UTF-8")
+    assert_match(/┌/, text, "expected dialog top border. Got:\n#{output.inspect}")
+    assert_match(/hello-from-dialog/, text)
+    assert_match(/└/, text, "expected dialog bottom border")
+  ensure
+    if pid
+      begin
+        Process.kill("KILL", pid)
+        Process.wait(pid)
+      rescue Errno::ESRCH, Errno::ECHILD
+        # already gone
+      end
+    end
+  end
+
   private
 
   def wait_for_prompt(io, output, timeout)
