@@ -43,7 +43,7 @@ module Cclikesh
       @mutex.synchronize do
         return unless @state == :open
         @state = :discarded
-        @ts.write([:render, :live_discard, @id])
+        @ts.write([:render, :live_discard, @id, nil])
       end
     end
 

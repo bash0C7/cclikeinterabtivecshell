@@ -18,24 +18,10 @@ module Cclikesh
         collected << @ts.take([:render, nil, nil, nil], 0)
       end
     rescue Rinda::RequestExpiredError
-      retry_three_arg(collected)
       collected.reverse_each { |t| process(t) }
     end
 
     private
-
-    # Some live tuples have 3 fields (e.g. [:render, :live_discard, id]).
-    # They won't match the 4-arity pattern above; drain them too.
-    # Prepend into the front of the array so that after reverse_each they
-    # are processed after the 4-arity tuples (preserving write-time order).
-    def retry_three_arg(into)
-      three_arg = []
-      loop do
-        three_arg << @ts.take([:render, nil, nil], 0)
-      end
-    rescue Rinda::RequestExpiredError
-      into.unshift(*three_arg)
-    end
 
     def process(tuple)
       case tuple[1]
@@ -92,7 +78,7 @@ module Cclikesh
     end
 
     def process_live_discard(tuple)
-      _, _, id = tuple
+      _, _, id, _ = tuple
       return unless @live_state && @live_state[:id] == id
       @out.write("\r\e[2K")
       @live_state = nil

@@ -30,8 +30,8 @@ class TestLiveSlot < Test::Unit::TestCase
 
   def test_discard_writes_live_discard_tuple
     @slot.discard
-    tuple = @ts.take([:render, :live_discard, 1], 0)
-    assert_equal [:render, :live_discard, 1], tuple
+    tuple = @ts.take([:render, :live_discard, 1, nil], 0)
+    assert_equal [:render, :live_discard, 1, nil], tuple
   end
 
   def test_update_after_commit_is_noop
@@ -45,7 +45,7 @@ class TestLiveSlot < Test::Unit::TestCase
 
   def test_update_after_discard_is_noop
     @slot.discard
-    @ts.take([:render, :live_discard, 1], 0)
+    @ts.take([:render, :live_discard, 1, nil], 0)
     @slot.update("ignored")
     assert_raise(Rinda::RequestExpiredError) do
       @ts.take([:render, :live_update, 1, nil], 0)

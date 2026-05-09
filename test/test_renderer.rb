@@ -185,7 +185,7 @@ class TestRenderer < Test::Unit::TestCase
 
     ts.write([:render, :live_open, 1, { style: nil }])
     ts.write([:render, :live_update, 1, "abc"])
-    ts.write([:render, :live_discard, 1])
+    ts.write([:render, :live_discard, 1, nil])
     r.render_pending
 
     assert_equal "\r\e[2Kabc\r\e[2K", out.string

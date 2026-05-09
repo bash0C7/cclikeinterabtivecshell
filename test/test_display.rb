@@ -91,8 +91,8 @@ class TestDisplay < Test::Unit::TestCase
     assert_equal "boom", raised.message
     assert_equal false, captured.open?
     # discard tuple was emitted, not commit
-    discard = ts.take([:render, :live_discard, captured.id], 0)
-    assert_equal [:render, :live_discard, captured.id], discard
+    discard = ts.take([:render, :live_discard, captured.id, nil], 0)
+    assert_equal [:render, :live_discard, captured.id, nil], discard
   end
 
   def test_open_live_block_form_discards_on_non_standard_error
@@ -112,7 +112,7 @@ class TestDisplay < Test::Unit::TestCase
 
     assert_kind_of Interrupt, raised
     assert_equal false, captured.open?
-    discard = ts.take([:render, :live_discard, captured.id], 0)
-    assert_equal [:render, :live_discard, captured.id], discard
+    discard = ts.take([:render, :live_discard, captured.id, nil], 0)
+    assert_equal [:render, :live_discard, captured.id, nil], discard
   end
 end
