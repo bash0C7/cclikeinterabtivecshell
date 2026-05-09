@@ -30,5 +30,9 @@ module Cclikesh
       @ts.write([:cmd, :quit])
       @ts.write([:key, nil])
     end
+
+    def refresh
+      @ts.write([:cmd, :refresh])
+    end
   end
 end

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "renderer"
+require "rinda/tuplespace"
 
 module Cclikesh
   class RenderThread
@@ -11,9 +12,14 @@ module Cclikesh
         watcher = Thread.new do
           ts.read([:cmd, :quit])
           stopping = true
+          ts.write([:cmd, :refresh])
         end
         until stopping
-          sleep tick_interval
+          begin
+            ts.take([:cmd, :refresh], tick_interval)
+          rescue Rinda::RequestExpiredError
+            # normal tick — no refresh signal arrived
+          end
           renderer.render_pending
           output_io.flush
         end

@@ -51,4 +51,12 @@ class TestContext < Test::Unit::TestCase
     ctx = Cclikesh::Context.new(ts)
     assert_raise(RuntimeError) { ctx.logger }
   end
+
+  def test_refresh_writes_refresh_command_tuple
+    ts = Cclikesh::TupleSpace.new
+    ctx = Cclikesh::Context.new(ts)
+    ctx.refresh
+    tuple = ts.take([:cmd, :refresh], 1)
+    assert_equal [:cmd, :refresh], tuple
+  end
 end

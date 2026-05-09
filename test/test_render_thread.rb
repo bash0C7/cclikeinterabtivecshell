@@ -49,4 +49,24 @@ class TestRenderThread < Test::Unit::TestCase
 
     assert_match(/\e\[32myo\e\[0m/, out.string)
   end
+
+  def test_refresh_signal_short_circuits_sleep
+    ts = Cclikesh::TupleSpace.new
+    io = StringIO.new
+    thread = Cclikesh::RenderThread.start(ts, io, tick_interval: 5.0)
+
+    start = Time.now
+    ts.write([:render, :display_append, "fast", {}])
+    ts.write([:cmd, :refresh])
+
+    deadline = Time.now + 2
+    sleep 0.02 until io.string.include?("fast") || Time.now > deadline
+    elapsed = Time.now - start
+
+    ts.write([:cmd, :quit])
+    assert_not_nil thread.join(2), "RenderThread did not stop within 2s"
+
+    assert_match(/fast/, io.string)
+    assert(elapsed < 1.5, "expected refresh to short-circuit 5s tick (got #{elapsed}s)")
+  end
 end
