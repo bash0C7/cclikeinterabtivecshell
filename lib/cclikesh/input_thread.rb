@@ -2,6 +2,7 @@
 
 require "reline"
 require_relative "layout"
+require_relative "reline_dialogs"
 
 module Cclikesh
   class InputThread
@@ -44,6 +45,7 @@ module Cclikesh
     def self.start(ts, reader:, prompt: "> ", registry: nil, ctx: nil)
       install_completion_proc(registry: registry, ctx: ctx) if registry && ctx
       enable_autocompletion
+      install_dialogs(registry, ctx) if registry && ctx
       configure_editor_mode(registry) if registry
 
       Thread.new do
@@ -76,6 +78,12 @@ module Cclikesh
       Reline.autocompletion = true if Reline.respond_to?(:autocompletion=)
     rescue StandardError
       # older Reline; fall back to no autocompletion popup
+    end
+
+    def self.install_dialogs(registry, ctx)
+      RelineDialogs.install(registry, ctx) if Reline.respond_to?(:add_dialog_proc)
+    rescue StandardError
+      # older Reline lacking dialog API; degrade gracefully
     end
 
     def self.configure_editor_mode(registry)
