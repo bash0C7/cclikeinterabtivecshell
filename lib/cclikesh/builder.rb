@@ -47,6 +47,7 @@ module Cclikesh
       @editor_mode = :emacs
 
       register_focus_slash
+      register_transcript_slash
     end
 
     def register_focus_slash
@@ -56,6 +57,17 @@ module Cclikesh
         ctx.display.append("focus mode: #{ctx.state[:focus_mode] ? "on" : "off"}", style: :dim)
       end
       @slash_descriptions[:focus] = "toggle compact (focus) display mode"
+    end
+
+    def register_transcript_slash
+      @slash_handlers[:transcript] = lambda do |_args, ctx|
+        path = ctx.transcript_save
+        lines = ctx.transcript_lines
+        ctx.display.append("transcript saved: #{path}", style: :result)
+        ctx.display.append("(view: less #{path})", style: :dim)
+        lines.last(8).each { |l| ctx.display.append("  #{l}", style: :dim) }
+      end
+      @slash_descriptions[:transcript] = "save and preview the session transcript"
     end
 
     def editor_mode=(mode)

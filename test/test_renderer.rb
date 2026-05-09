@@ -234,4 +234,39 @@ class TestRenderer < Test::Unit::TestCase
 
     assert_equal "x\n", out.string
   end
+
+  def test_render_pending_records_display_append_to_transcript
+    require "cclikesh/transcript"
+    Cclikesh::Transcript.clear!
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :display_append, "ham", { style: :result }])
+    ts.write([:render, :display_append, "spam", { style: :result, prompt: ">> " }])
+    r.render_pending
+
+    lines = Cclikesh::Transcript.lines
+    assert_equal "ham", lines[0]
+    assert_equal ">> spam", lines[1]
+  ensure
+    Cclikesh::Transcript.clear!
+  end
+
+  def test_render_pending_records_live_commit_text_to_transcript
+    require "cclikesh/transcript"
+    Cclikesh::Transcript.clear!
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :live_open, 1, { style: nil }])
+    ts.write([:render, :live_update, 1, "tmp"])
+    ts.write([:render, :live_commit, 1, "DONE"])
+    r.render_pending
+
+    assert_equal ["DONE"], Cclikesh::Transcript.lines
+  ensure
+    Cclikesh::Transcript.clear!
+  end
 end

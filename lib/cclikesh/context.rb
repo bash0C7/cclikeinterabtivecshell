@@ -1,9 +1,11 @@
 # frozen_string_literal: true
 
 require "drb/drb"
+require "tmpdir"
 require_relative "display"
 require_relative "state"
 require_relative "dialog"
+require_relative "transcript"
 
 module Cclikesh
   class Context
@@ -37,6 +39,19 @@ module Cclikesh
 
     def refresh
       @ts.write([:cmd, :refresh])
+    end
+
+    def transcript_lines
+      Transcript.lines
+    end
+
+    def transcript_save(path = nil)
+      target = path || default_transcript_path
+      Transcript.save(target)
+    end
+
+    def default_transcript_path
+      File.join(Dir.tmpdir, "cclikesh-transcript-#{Process.pid}.log")
     end
   end
 end

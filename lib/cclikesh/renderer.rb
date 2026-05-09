@@ -3,6 +3,7 @@
 require "rinda/tuplespace"
 require_relative "style"
 require_relative "layout"
+require_relative "transcript"
 
 module Cclikesh
   class Renderer
@@ -45,6 +46,8 @@ module Cclikesh
       style_name = opts && opts[:style]
       styled = Style.wrap(payload, style_name, custom: resolve_custom_style(style_name))
 
+      Transcript.record("#{prefix}#{payload}")
+
       Layout.in_history(@out) do
         if @live_state
           @out.write("\r\e[2K")
@@ -78,6 +81,7 @@ module Cclikesh
       style_name = @live_state[:style]
       text = final_text || @live_state[:last_text] || ""
       styled = Style.wrap(text, style_name, custom: resolve_custom_style(style_name))
+      Transcript.record(text)
       Layout.in_history(@out) do
         @out.write("\r\e[2K#{styled}\n")
       end

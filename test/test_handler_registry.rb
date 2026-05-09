@@ -492,6 +492,31 @@ class TestHandlerRegistry < Test::Unit::TestCase
     assert_equal false, state[:focus_mode]
   end
 
+  def test_transcript_slash_is_auto_registered
+    builder = Cclikesh::Builder.new
+    assert_not_nil builder.slash_handler(:transcript)
+    assert_match(/transcript/, builder.slash_description(:transcript))
+  end
+
+  def test_transcript_slash_invokes_save_and_appends_path_and_preview
+    builder = Cclikesh::Builder.new
+    display = StubDisplay.new([], [], 0)
+    saved_path = nil
+    ctx = Object.new
+    ctx.define_singleton_method(:display) { display }
+    ctx.define_singleton_method(:transcript_save) { |*| saved_path = "/tmp/x.log" }
+    ctx.define_singleton_method(:transcript_lines) { ["alpha", "beta"] }
+
+    builder.slash_handler(:transcript).call([], ctx)
+
+    assert_equal "/tmp/x.log", saved_path
+    texts = display.appended.map { |a| a[:text] }
+    assert(texts.any? { |t| t.include?("/tmp/x.log") }, "expected saved path in display: #{texts.inspect}")
+    assert(texts.any? { |t| t.include?("less /tmp/x.log") }, "expected viewer hint: #{texts.inspect}")
+    assert(texts.any? { |t| t.include?("alpha") }, "expected preview line: #{texts.inspect}")
+    assert(texts.any? { |t| t.include?("beta") }, "expected preview line: #{texts.inspect}")
+  end
+
   def test_registry_exposes_builder_tick_interval
     builder = Cclikesh::Builder.new
     builder.tick_interval = 0.02
