@@ -45,4 +45,29 @@ class TestStyle < Test::Unit::TestCase
   def test_wrap_unknown_style_with_no_custom_returns_text
     assert_equal "hi", Cclikesh::Style.wrap("hi", :unknown_xyz)
   end
+
+  def test_wrap_custom_with_bg_symbol
+    custom = { bg: :blue }
+    assert_equal "\e[44mhi\e[0m", Cclikesh::Style.wrap("hi", :my, custom: custom)
+  end
+
+  def test_wrap_custom_with_256color_fg
+    custom = { fg: 200 }
+    assert_equal "\e[38;5;200mhi\e[0m", Cclikesh::Style.wrap("hi", :my, custom: custom)
+  end
+
+  def test_wrap_custom_with_256color_bg
+    custom = { bg: 245 }
+    assert_equal "\e[48;5;245mhi\e[0m", Cclikesh::Style.wrap("hi", :my, custom: custom)
+  end
+
+  def test_wrap_slash_tag_combines_bold_fg_bg
+    out = Cclikesh::Style.wrap("/reset", :slash_tag)
+    assert_match(/\e\[/, out)
+    assert_match(/1/, out)            # bold
+    assert_match(/38;5;15/, out)      # fg 256-color 15
+    assert_match(/48;5;245/, out)     # bg 256-color 245
+    assert out.start_with?("\e[")
+    assert out.end_with?("\e[0m")
+  end
 end

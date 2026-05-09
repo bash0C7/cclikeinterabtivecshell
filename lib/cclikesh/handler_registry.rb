@@ -44,7 +44,16 @@ module Cclikesh
     def dispatch_slash(name, args, ctx)
       handler = @builder.slash_handler(name)
       return :not_registered unless handler
-      handler.call(args, ctx)
+
+      args_str = Array(args).join(" ")
+      label = args_str.empty? ? "▌ /#{name}" : "▌ /#{name} #{args_str}"
+      ctx.display.append(label, style: :slash_tag)
+      ctx.display.begin_indent_block(first: "  └ ", rest: "    ")
+      begin
+        handler.call(args, ctx)
+      ensure
+        ctx.display.end_indent_block
+      end
       nil
     end
 

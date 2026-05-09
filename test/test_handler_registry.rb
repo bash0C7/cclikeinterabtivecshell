@@ -32,9 +32,10 @@ class TestHandlerRegistry < Test::Unit::TestCase
     builder.slash(:greet) { |args, ctx| captured << [args, ctx] }
 
     registry = Cclikesh::HandlerRegistry.new(builder)
-    registry.dispatch_slash(:greet, ["alice"], :stub_ctx)
+    ctx = StubCtx.new
+    registry.dispatch_slash(:greet, ["alice"], ctx)
 
-    assert_equal [[["alice"], :stub_ctx]], captured
+    assert_equal [[["alice"], ctx]], captured
   end
 
   def test_dispatch_slash_returns_not_registered_for_unknown
@@ -42,6 +43,70 @@ class TestHandlerRegistry < Test::Unit::TestCase
     registry = Cclikesh::HandlerRegistry.new(builder)
 
     assert_equal :not_registered, registry.dispatch_slash(:unknown, [], :stub_ctx)
+  end
+
+  def test_dispatch_slash_emits_grey_tag_label_to_display
+    builder = Cclikesh::Builder.new
+    builder.slash(:reset) { |_args, _ctx| }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    ctx = StubCtx.new
+    registry.dispatch_slash(:reset, [], ctx)
+
+    assert_equal "▌ /reset", ctx.display.appended.first[:text]
+    assert_equal :slash_tag, ctx.display.appended.first[:style]
+  end
+
+  def test_dispatch_slash_includes_args_in_tag_label
+    builder = Cclikesh::Builder.new
+    builder.slash(:fix) { |_args, _ctx| }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    ctx = StubCtx.new
+    registry.dispatch_slash(:fix, ["issue", "42"], ctx)
+
+    assert_equal "▌ /fix issue 42", ctx.display.appended.first[:text]
+  end
+
+  def test_dispatch_slash_wraps_handler_with_indent_block
+    builder = Cclikesh::Builder.new
+    builder.slash(:reset) do |_args, ctx|
+      ctx.display.append("session reset")
+    end
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    ctx = StubCtx.new
+    registry.dispatch_slash(:reset, [], ctx)
+
+    assert_equal [{ first: "  └ ", rest: "    " }], ctx.display.indent_block_calls
+    assert_equal 1, ctx.display.end_indent_block_count
+  end
+
+  def test_dispatch_slash_ends_indent_block_on_handler_exception
+    builder = Cclikesh::Builder.new
+    builder.slash(:bad) { |_args, _ctx| raise "boom" }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    ctx = StubCtx.new
+    assert_raises(RuntimeError) { registry.dispatch_slash(:bad, [], ctx) }
+    assert_equal 1, ctx.display.end_indent_block_count
+  end
+
+  StubDisplay = Struct.new(:appended, :indent_block_calls, :end_indent_block_count) do
+    def append(text, style: nil, prompt: nil)
+      appended << { text: text, style: style, prompt: prompt }
+    end
+
+    def begin_indent_block(first:, rest:)
+      indent_block_calls << { first: first, rest: rest }
+    end
+
+    def end_indent_block
+      self.end_indent_block_count = end_indent_block_count.to_i + 1
+    end
+  end
+
+  class StubCtx
+    attr_reader :display
+    def initialize
+      @display = StubDisplay.new([], [], 0)
+    end
   end
 
   def test_style_definition_returns_builder_value
