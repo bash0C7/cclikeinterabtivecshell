@@ -30,7 +30,7 @@ module Cclikesh
       registry_remote = DRbObject.new_with_uri(handlers_uri)
 
       ts = TupleSpace.new
-      ctx = Context.new(ts)
+      ctx = Context.new(ts, registry: registry_remote)
       dispatcher = Dispatcher.new(ts, registry_remote, ctx)
 
       render_thread = RenderThread.start(ts, $stdout,

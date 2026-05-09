@@ -8,8 +8,13 @@ module Cclikesh
   class Context
     include DRb::DRbUndumped
 
-    def initialize(tuple_space)
+    def initialize(tuple_space, registry: nil)
       @ts = tuple_space
+      @registry = registry
+    end
+
+    def logger
+      @registry&.logger
     end
 
     def display

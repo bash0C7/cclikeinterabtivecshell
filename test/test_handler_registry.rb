@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "stringio"
 require_relative "test_helper"
 require "cclikesh/builder"
 require "cclikesh/handler_registry"
@@ -54,5 +55,15 @@ class TestHandlerRegistry < Test::Unit::TestCase
     b = Cclikesh::Builder.new
     r = Cclikesh::HandlerRegistry.new(b)
     assert_nil r.style_definition(:none)
+  end
+
+  def test_registry_exposes_builder_logger
+    io = StringIO.new
+    builder = Cclikesh::Builder.new
+    builder.log_to(io)
+    builder.log_level = :debug
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    registry.logger.info("from-impl")
+    assert_match(/from-impl/, io.string)
   end
 end

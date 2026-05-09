@@ -26,5 +26,9 @@ module Cclikesh
     def style_definition(name)
       @builder.style_definition(name)
     end
+
+    def logger
+      @builder.logger
+    end
   end
 end

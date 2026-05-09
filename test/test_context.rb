@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
+require "stringio"
 require_relative "test_helper"
 require "cclikesh/tuple_space"
 require "cclikesh/context"
+require "cclikesh/builder"
+require "cclikesh/handler_registry"
 
 class TestContext < Test::Unit::TestCase
   def test_display_returns_a_display
@@ -30,5 +33,22 @@ class TestContext < Test::Unit::TestCase
     c = Cclikesh::Context.new(ts)
     assert_same c.display, c.display
     assert_same c.state, c.state
+  end
+
+  def test_context_logger_returns_registry_logger
+    ts = Cclikesh::TupleSpace.new
+    io = StringIO.new
+    builder = Cclikesh::Builder.new
+    builder.log_to(io)
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    ctx = Cclikesh::Context.new(ts, registry: registry)
+    ctx.logger.info("through-ctx")
+    assert_match(/through-ctx/, io.string)
+  end
+
+  def test_context_logger_returns_nil_when_no_registry
+    ts = Cclikesh::TupleSpace.new
+    ctx = Cclikesh::Context.new(ts)
+    assert_nil ctx.logger
   end
 end
