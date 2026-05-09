@@ -47,10 +47,8 @@ Cclikesh.run do |shell|
     end
   end
 
-  shell.on_tab do |buf, pos, ctx|
-    candidates = completer.candidates(buf, pos)
-    ctx.dialog.show(candidates.join("\n")) if candidates.size > 1
-    candidates
+  shell.on_tab do |buf, pos, _ctx|
+    completer.candidates(buf, pos)
   end
 
   shell.info(:elapsed, order: 10) { |_| format_duration(Time.now - start_at) }
