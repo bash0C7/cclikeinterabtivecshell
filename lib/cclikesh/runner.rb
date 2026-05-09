@@ -13,6 +13,7 @@ require_relative "forking"
 require_relative "render_thread"
 require_relative "input_thread"
 require_relative "event_thread"
+require_relative "screen"
 
 module Cclikesh
   class Runner
@@ -27,6 +28,7 @@ module Cclikesh
     end
 
     def self.run_child(handlers_uri, tick_interval: nil)
+      Screen.enter_alt
       DRb.start_service
       registry_remote = DRbObject.new_with_uri(handlers_uri)
 
@@ -60,6 +62,8 @@ module Cclikesh
       input_thread.join(2)
       event_thread.join(2)
       DRb.stop_service
+    ensure
+      Screen.leave_alt
     end
   end
 end
