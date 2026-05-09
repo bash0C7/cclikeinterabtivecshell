@@ -61,4 +61,30 @@ class TestInputThread < Test::Unit::TestCase
     assert_equal ["alpha", "beta"], candidates
     assert_equal [["foo", 3, :ctx_x]], recorded
   end
+
+  def test_compose_prompt_returns_base_when_no_info_bar
+    fake_registry = Object.new
+    fake_registry.define_singleton_method(:snapshot_info_bar) do |_|
+      { spinner_frame: nil, spinner_label: nil, segments: [] }
+    end
+    prompt = Cclikesh::InputThread.compose_prompt("> ", fake_registry, :ctx)
+    assert_equal "> ", prompt
+  end
+
+  def test_compose_prompt_includes_info_bar_above_base
+    fake_registry = Object.new
+    fake_registry.define_singleton_method(:snapshot_info_bar) do |_|
+      { spinner_frame: "✻", spinner_label: "Roosting", segments: ["3s"] }
+    end
+    prompt = Cclikesh::InputThread.compose_prompt("> ", fake_registry, :ctx)
+    lines = prompt.split("\n")
+    assert_equal 2, lines.size
+    assert_match(/Roosting/, lines[0])
+    assert_equal "> ", lines[1]
+  end
+
+  def test_compose_prompt_no_registry_returns_base
+    prompt = Cclikesh::InputThread.compose_prompt("> ", nil, nil)
+    assert_equal "> ", prompt
+  end
 end
