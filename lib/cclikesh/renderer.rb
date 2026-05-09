@@ -9,33 +9,62 @@ module Cclikesh
       @ts = tuple_space
       @out = output_io
       @registry = registry
+      @live_state = nil
     end
 
-    # Drain all currently-queued render tuples and write them to output.
-    # Non-blocking: take(pattern, 0) raises Rinda::RequestExpiredError when
-    # no matching tuple exists, which we use as the loop terminator.
-    # Rinda::TupleSpace#take returns matching tuples in LIFO order, so we
-    # collect everything and process in write-order via reverse_each.
     def render_pending
       collected = []
       loop do
         collected << @ts.take([:render, nil, nil, nil], 0)
       end
     rescue Rinda::RequestExpiredError
+      retry_three_arg(collected)
       collected.reverse_each { |t| process(t) }
     end
 
     private
 
-    def process(tuple)
-      _, op, payload, opts = tuple
-      case op
-      when :display_append
-        prefix = (opts && opts[:prompt]) || ""
-        style_name = opts && opts[:style]
-        styled = Style.wrap(payload, style_name, custom: resolve_custom_style(style_name))
-        @out.puts("#{prefix}#{styled}")
+    # Some live tuples have 3 fields (e.g. [:render, :live_discard, id]).
+    # They won't match the 4-arity pattern above; drain them too.
+    def retry_three_arg(into)
+      loop do
+        into << @ts.take([:render, nil, nil], 0)
       end
+    rescue Rinda::RequestExpiredError
+      # done
+    end
+
+    def process(tuple)
+      case tuple[1]
+      when :display_append
+        process_display_append(tuple)
+      when :live_open
+        process_live_open(tuple)
+      when :live_update
+        process_live_update(tuple)
+      end
+    end
+
+    def process_display_append(tuple)
+      _, _, payload, opts = tuple
+      prefix = (opts && opts[:prompt]) || ""
+      style_name = opts && opts[:style]
+      styled = Style.wrap(payload, style_name, custom: resolve_custom_style(style_name))
+      @out.puts("#{prefix}#{styled}")
+    end
+
+    def process_live_open(tuple)
+      _, _, id, opts = tuple
+      @live_state = { id: id, style: opts && opts[:style], last_text: nil }
+    end
+
+    def process_live_update(tuple)
+      _, _, id, text = tuple
+      return unless @live_state && @live_state[:id] == id
+      style_name = @live_state[:style]
+      styled = Style.wrap(text, style_name, custom: resolve_custom_style(style_name))
+      @out.write("\r\e[2K#{styled}")
+      @live_state[:last_text] = text
     end
 
     def resolve_custom_style(name)

@@ -113,4 +113,42 @@ class TestRenderer < Test::Unit::TestCase
 
     assert_equal "x\n", out.string
   end
+
+  def test_render_pending_live_update_writes_inplace_ansi
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :live_open, 1, { style: :thinking }])
+    ts.write([:render, :live_update, 1, "step 1"])
+    r.render_pending
+
+    assert_equal "\r\e[2K\e[35mstep 1\e[0m", out.string
+  end
+
+  def test_render_pending_multiple_live_updates_overwrite_same_line
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    ts.write([:render, :live_open, 1, { style: nil }])
+    ts.write([:render, :live_update, 1, "a"])
+    ts.write([:render, :live_update, 1, "bb"])
+    r.render_pending
+
+    # both updates render: \r\e[2K + text, sequentially
+    assert_equal "\r\e[2Ka\r\e[2Kbb", out.string
+  end
+
+  def test_render_pending_live_update_for_inactive_slot_is_noop
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    r = Cclikesh::Renderer.new(ts, out)
+
+    # no live_open written first
+    ts.write([:render, :live_update, 99, "stray"])
+    r.render_pending
+
+    assert_equal "", out.string
+  end
 end
