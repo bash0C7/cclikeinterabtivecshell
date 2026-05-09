@@ -9,10 +9,11 @@ module Cclikesh
       warn: Logger::WARN, error: Logger::ERROR, fatal: Logger::FATAL
     }.freeze
 
-    attr_reader :on_submit_handler, :slash_handlers, :logger
+    attr_reader :on_submit_handler, :on_state_change_handler, :slash_handlers, :logger
 
     def initialize
       @on_submit_handler = nil
+      @on_state_change_handler = nil
       @slash_handlers = {}
       @styles = {}
       @logger = Logger.new($stderr)
@@ -22,6 +23,10 @@ module Cclikesh
 
     def on_submit(&block)
       @on_submit_handler = block
+    end
+
+    def on_state_change(&block)
+      @on_state_change_handler = block
     end
 
     def slash(name, &block)

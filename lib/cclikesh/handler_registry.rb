@@ -23,6 +23,15 @@ module Cclikesh
       nil
     end
 
+    def dispatch_state_change(key, old, new_v, ctx)
+      handler = @builder.on_state_change_handler
+      handler.call(key, old, new_v, ctx) if handler
+      nil
+    rescue => e
+      logger.error("on_state_change error: #{e.full_message}")
+      nil
+    end
+
     def style_definition(name)
       @builder.style_definition(name)
     end

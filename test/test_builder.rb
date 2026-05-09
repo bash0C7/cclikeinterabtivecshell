@@ -112,4 +112,12 @@ class TestBuilder < Test::Unit::TestCase
     builder.logger.debug("debug-msg")
     assert_match(/debug-msg/, io.string)
   end
+
+  def test_on_state_change_registers_block
+    builder = Cclikesh::Builder.new
+    called = []
+    builder.on_state_change { |k, o, n, _ctx| called << [k, o, n] }
+    builder.on_state_change_handler.call(:phase, nil, :working, nil)
+    assert_equal [[:phase, nil, :working]], called
+  end
 end

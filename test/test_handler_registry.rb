@@ -66,4 +66,31 @@ class TestHandlerRegistry < Test::Unit::TestCase
     registry.logger.info("from-impl")
     assert_match(/from-impl/, io.string)
   end
+
+  def test_dispatch_state_change_calls_handler
+    builder = Cclikesh::Builder.new
+    recorded = []
+    builder.on_state_change { |k, o, n, ctx| recorded << [k, o, n, ctx] }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    registry.dispatch_state_change(:phase, nil, :working, :ctx_sentinel)
+    assert_equal [[:phase, nil, :working, :ctx_sentinel]], recorded
+  end
+
+  def test_dispatch_state_change_no_handler_is_noop
+    builder = Cclikesh::Builder.new
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    assert_nothing_raised do
+      registry.dispatch_state_change(:phase, nil, :working, :ctx)
+    end
+  end
+
+  def test_dispatch_state_change_logs_handler_error
+    io = StringIO.new
+    builder = Cclikesh::Builder.new
+    builder.log_to(io)
+    builder.on_state_change { |_, _, _, _| raise "state-change-boom" }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    assert_nothing_raised { registry.dispatch_state_change(:k, 1, 2, :ctx) }
+    assert_match(/state-change-boom/, io.string)
+  end
 end

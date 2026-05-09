@@ -12,6 +12,7 @@ require_relative "handler_registry"
 require_relative "forking"
 require_relative "render_thread"
 require_relative "input_thread"
+require_relative "event_thread"
 
 module Cclikesh
   class Runner
@@ -37,6 +38,7 @@ module Cclikesh
                                          tick_interval: tick_interval,
                                          registry: registry_remote)
       input_thread  = InputThread.start(ts, reader: Reline.method(:readline), prompt: "> ")
+      event_thread  = EventThread.start(ts, registry: registry_remote, ctx: ctx)
 
       loop do
         break if dispatcher.dispatch_one == :quit
@@ -45,6 +47,7 @@ module Cclikesh
       ts.write([:cmd, :quit])
       render_thread.join(2)
       input_thread.join(2)
+      event_thread.join(2)
       DRb.stop_service
     end
   end
