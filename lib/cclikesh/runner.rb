@@ -2,6 +2,7 @@
 
 require "drb/drb"
 require "drb/unix"
+require_relative "drb_patches"
 require "reline"
 require_relative "tuple_space"
 require_relative "builder"
