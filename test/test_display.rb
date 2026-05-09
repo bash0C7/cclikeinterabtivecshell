@@ -57,4 +57,41 @@ class TestDisplay < Test::Unit::TestCase
     assert_equal false, s1.open?
     assert_equal true, s2.open?
   end
+
+  def test_open_live_block_form_yields_slot_and_commits
+    ts = Cclikesh::TupleSpace.new
+    d = Cclikesh::Display.new(ts)
+
+    captured = nil
+    result = d.open_live(style: :thinking) do |slot|
+      captured = slot
+      slot.update("...")
+    end
+
+    assert_kind_of Cclikesh::LiveSlot, captured
+    assert_equal false, captured.open?  # auto-committed
+    assert_equal captured, result        # returned slot
+  end
+
+  def test_open_live_block_form_discards_on_exception
+    ts = Cclikesh::TupleSpace.new
+    d = Cclikesh::Display.new(ts)
+
+    raised = nil
+    captured = nil
+    begin
+      d.open_live do |slot|
+        captured = slot
+        raise "boom"
+      end
+    rescue => e
+      raised = e
+    end
+
+    assert_equal "boom", raised.message
+    assert_equal false, captured.open?
+    # discard tuple was emitted, not commit
+    discard = ts.take([:render, :live_discard, captured.id], 0)
+    assert_equal [:render, :live_discard, captured.id], discard
+  end
 end

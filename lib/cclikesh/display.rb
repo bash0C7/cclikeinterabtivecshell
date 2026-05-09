@@ -21,14 +21,24 @@ module Cclikesh
       @ts.write([:render, :display_append, text, opts])
     end
 
-    def open_live(style: nil)
-      @mutex.synchronize do
+    def open_live(style: nil, &block)
+      slot = @mutex.synchronize do
         @active_slot.commit if @active_slot && @active_slot.open?
         @slot_counter += 1
         id = @slot_counter
         @ts.write([:render, :live_open, id, { style: style }])
         @active_slot = LiveSlot.new(@ts, id, style: style)
       end
+      return slot unless block
+
+      begin
+        block.call(slot)
+        slot.commit
+      rescue
+        slot.discard
+        raise
+      end
+      slot
     end
   end
 end
