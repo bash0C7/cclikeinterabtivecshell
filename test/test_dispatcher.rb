@@ -3,62 +3,52 @@
 require_relative "test_helper"
 require "cclikesh/tuple_space"
 require "cclikesh/builder"
+require "cclikesh/handler_registry"
 require "cclikesh/context"
 require "cclikesh/dispatcher"
 
 class TestDispatcher < Test::Unit::TestCase
-  def test_dispatch_one_calls_on_submit_handler
-    ts = Cclikesh::TupleSpace.new
-    builder = Cclikesh::Builder.new
-    received = []
-    builder.on_submit { |line, ctx| received << line }
-    ts.write([:key, "hello"])
-    ctx = Cclikesh::Context.new(ts)
-    d = Cclikesh::Dispatcher.new(ts, builder, ctx)
-    d.dispatch_one
-    assert_equal ["hello"], received
+  def setup
+    @ts = Cclikesh::TupleSpace.new
+    @builder = Cclikesh::Builder.new
+    @registry = Cclikesh::HandlerRegistry.new(@builder)
+    @ctx = Cclikesh::Context.new(@ts)
+    @dispatcher = Cclikesh::Dispatcher.new(@ts, @registry, @ctx)
   end
 
-  def test_dispatch_one_calls_slash_handler_for_known_command
-    ts = Cclikesh::TupleSpace.new
-    builder = Cclikesh::Builder.new
-    quit_called = false
-    builder.slash(:quit) { |args, ctx| quit_called = true; ctx.quit }
-    ts.write([:key, "/quit"])
-    ctx = Cclikesh::Context.new(ts)
-    d = Cclikesh::Dispatcher.new(ts, builder, ctx)
-    d.dispatch_one
-    assert quit_called, "slash handler must be called"
+  def test_returns_quit_on_eof_key
+    @ts.write([:key, nil])
+    assert_equal :quit, @dispatcher.dispatch_one
   end
 
-  def test_dispatch_one_writes_error_for_unknown_slash
-    ts = Cclikesh::TupleSpace.new
-    builder = Cclikesh::Builder.new
-    ts.write([:key, "/unknown"])
-    ctx = Cclikesh::Context.new(ts)
-    d = Cclikesh::Dispatcher.new(ts, builder, ctx)
-    d.dispatch_one
-    tuple = ts.take([:render, :display_append, nil, nil])
+  def test_routes_plain_line_to_on_submit
+    captured = []
+    @builder.on_submit { |line, _ctx| captured << line }
+    @ts.write([:key, "hello"])
+
+    result = @dispatcher.dispatch_one
+
+    assert_nil result
+    assert_equal ["hello"], captured
+  end
+
+  def test_routes_slash_to_slash_handler
+    captured = []
+    @builder.slash(:greet) { |args, _ctx| captured << args }
+    @ts.write([:key, "/greet alice bob"])
+
+    @dispatcher.dispatch_one
+
+    assert_equal [["alice", "bob"]], captured
+  end
+
+  def test_unknown_slash_appends_error_to_display
+    @ts.write([:key, "/unknown"])
+
+    @dispatcher.dispatch_one
+
+    tuple = @ts.take([:render, :display_append, nil, nil], 1)
     assert_equal :display_append, tuple[1]
-    assert_match(/unknown/, tuple[2])
-  end
-
-  def test_dispatch_one_returns_quit_when_eof_key_seen
-    ts = Cclikesh::TupleSpace.new
-    builder = Cclikesh::Builder.new
-    ts.write([:key, nil])
-    ctx = Cclikesh::Context.new(ts)
-    d = Cclikesh::Dispatcher.new(ts, builder, ctx)
-    result = d.dispatch_one
-    assert_equal :quit, result
-  end
-
-  def test_dispatch_one_with_no_on_submit_does_not_raise
-    ts = Cclikesh::TupleSpace.new
-    builder = Cclikesh::Builder.new
-    ts.write([:key, "hello"])
-    ctx = Cclikesh::Context.new(ts)
-    d = Cclikesh::Dispatcher.new(ts, builder, ctx)
-    assert_nothing_raised { d.dispatch_one }
+    assert_match(/\/unknown.*not registered/, tuple[2])
   end
 end

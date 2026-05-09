@@ -2,9 +2,9 @@
 
 module Cclikesh
   class Dispatcher
-    def initialize(tuple_space, builder, context)
+    def initialize(tuple_space, registry, context)
       @ts = tuple_space
-      @builder = builder
+      @registry = registry
       @ctx = context
     end
 
@@ -15,27 +15,18 @@ module Cclikesh
       if payload.start_with?("/")
         dispatch_slash(payload)
       else
-        dispatch_submit(payload)
+        @registry.dispatch_submit(payload, @ctx)
       end
       nil
     end
 
     private
 
-    def dispatch_submit(line)
-      @ts.write([:event, :submit, line])
-      handler = @builder.on_submit_handler
-      handler.call(line, @ctx) if handler
-    end
-
     def dispatch_slash(payload)
       name_part, *args = payload[1..].split(/\s+/)
       name = name_part.to_sym
-      @ts.write([:event, :slash, name, args])
-      handler = @builder.slash_handler(name)
-      if handler
-        handler.call(args, @ctx)
-      else
+      result = @registry.dispatch_slash(name, args, @ctx)
+      if result == :not_registered
         @ctx.display.append("/#{name}: not registered", style: :error)
       end
     end
