@@ -84,4 +84,33 @@ class TestRenderer < Test::Unit::TestCase
 
     assert_equal ">> \e[32mmsg\e[0m\n", out.string
   end
+
+  class FakeRegistry
+    def initialize(map); @map = map; end
+    def style_definition(name); @map[name&.to_sym]; end
+  end
+
+  def test_render_pending_uses_custom_style_from_registry
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    reg = FakeRegistry.new(my_warn: { fg: :yellow, bold: true })
+    r = Cclikesh::Renderer.new(ts, out, registry: reg)
+
+    ts.write([:render, :display_append, "warn!", { style: :my_warn }])
+    r.render_pending
+
+    assert_equal "\e[1;33mwarn!\e[0m\n", out.string
+  end
+
+  def test_render_pending_unknown_custom_style_falls_back_to_plain
+    ts = Cclikesh::TupleSpace.new
+    out = StringIO.new
+    reg = FakeRegistry.new({})
+    r = Cclikesh::Renderer.new(ts, out, registry: reg)
+
+    ts.write([:render, :display_append, "x", { style: :nope }])
+    r.render_pending
+
+    assert_equal "x\n", out.string
+  end
 end
