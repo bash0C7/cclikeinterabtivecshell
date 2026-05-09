@@ -127,6 +127,93 @@ class TestE2EPTY < Test::Unit::TestCase
     end
   end
 
+  def test_irb_shell_evaluates_expressions_and_persists_bindings
+    irb_shell = File.join(PROJECT_ROOT, "examples", "irb_shell", "irb_shell.rb")
+    output = String.new
+    pid = nil
+
+    Timeout.timeout(30) do
+      master, slave = PTY.open
+      pid = spawn(
+        "bundle", "exec", "ruby", "-Ilib", irb_shell,
+        in: slave, out: slave, err: slave,
+        chdir: PROJECT_ROOT
+      )
+      slave.close
+
+      wait_for_prompt(master, output, 10)
+
+      master.print "x = 41\r"
+      sleep 0.3
+      master.print "x + 1\r"
+      sleep 0.3
+      master.print "/q\r"
+
+      drain_until_eof_or_timeout_for(master, output, 8, /=> 42/)
+      Process.wait(pid)
+      pid = nil
+    end
+
+    output.force_encoding("UTF-8") unless output.encoding == Encoding::UTF_8
+
+    assert_match(/=> 41/, output, "first expression should yield => 41. Got:\n#{output.inspect}")
+    assert_match(/=> 42/, output, "second expression should yield => 42 (persistent binding). Got:\n#{output.inspect}")
+  ensure
+    if pid
+      begin
+        Process.kill("KILL", pid)
+        Process.wait(pid)
+      rescue Errno::ESRCH, Errno::ECHILD
+        # already gone
+      end
+    end
+  end
+
+  def test_irb_shell_reset_clears_bindings
+    irb_shell = File.join(PROJECT_ROOT, "examples", "irb_shell", "irb_shell.rb")
+    output = String.new
+    pid = nil
+
+    Timeout.timeout(30) do
+      master, slave = PTY.open
+      pid = spawn(
+        "bundle", "exec", "ruby", "-Ilib", irb_shell,
+        in: slave, out: slave, err: slave,
+        chdir: PROJECT_ROOT
+      )
+      slave.close
+
+      wait_for_prompt(master, output, 10)
+
+      master.print "y = 100\r"
+      sleep 0.3
+      master.print "/reset\r"
+      sleep 0.3
+      master.print "y\r"
+      sleep 0.3
+      master.print "/q\r"
+
+      drain_until_eof_or_timeout_for(master, output, 8, /NameError/)
+      Process.wait(pid)
+      pid = nil
+    end
+
+    output.force_encoding("UTF-8") unless output.encoding == Encoding::UTF_8
+
+    assert_match(/=> 100/, output, "first assignment should yield => 100")
+    assert_match(/session reset/, output, "/reset should print confirmation")
+    assert_match(/NameError/, output, "after /reset, y should raise NameError")
+  ensure
+    if pid
+      begin
+        Process.kill("KILL", pid)
+        Process.wait(pid)
+      rescue Errno::ESRCH, Errno::ECHILD
+        # already gone
+      end
+    end
+  end
+
   private
 
   def wait_for_prompt(io, output, timeout)
