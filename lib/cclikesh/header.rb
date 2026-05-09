@@ -5,7 +5,18 @@ require_relative "layout"
 module Cclikesh
   module Header
     class Configurator
-      attr_accessor :logo, :title, :version, :subtitle, :note
+      ATTRS = %i[logo title version subtitle note].freeze
+      attr_accessor(*ATTRS)
+
+      ATTRS.each do |name|
+        define_method(name) do |value = nil|
+          if value.nil?
+            instance_variable_get("@#{name}")
+          else
+            instance_variable_set("@#{name}", value)
+          end
+        end
+      end
 
       def lines
         out = []

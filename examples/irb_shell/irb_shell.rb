@@ -14,8 +14,17 @@ evaluator = IrbEvaluator.new
 completer = IrbCompleter.new(evaluator.binding)
 counter   = ByteCounter.new
 start_at  = Time.now
+SESSION_BUDGET_BYTES = 8 * 1024
 
 Cclikesh.run do |shell|
+  shell.header do |h|
+    h.logo     "✻"
+    h.title    "cclikesh"
+    h.version  "v#{Cclikesh::VERSION}"
+    h.subtitle "Ruby #{RUBY_VERSION} · #{Dir.pwd}"
+    h.note     "irb on cclikesh · /q to exit · /reset to clear bindings"
+  end
+
   shell.on_submit do |line, ctx|
     ctx.display.append(line, prompt: "irb(main)> ")
     counter.add(line.bytesize)
@@ -47,16 +56,31 @@ Cclikesh.run do |shell|
   shell.info(:elapsed, order: 10) { |_| format_duration(Time.now - start_at) }
   shell.info(:tokens,  order: 20) { |_| "↓ #{counter.human}" }
 
+  shell.status_row :usage do |row, _ctx|
+    pct = [counter.bytes * 100.0 / SESSION_BUDGET_BYTES, 100].min
+    row.bar percent: pct, width: 12
+    row.text Time.now.strftime("%H:%M")
+    row.link text: "main", state: :gray
+  end
+
   shell.spinner_label do |ctx|
     ctx.state[:phase] == :working ? :auto : nil
   end
 
-  shell.slash(:reset) do |_args, ctx|
+  shell.prompt_suggestion do |ctx|
+    ctx.state[:phase] == :idle ? "puts 'hello, cclikesh'" : nil
+  end
+
+  shell.btw do |question, _ctx|
+    "(no AI hooked up — you asked: #{question})"
+  end
+
+  shell.slash(:reset, description: "reset irb session") do |_args, ctx|
     evaluator.reset
     counter.reset
     ctx.display.append("session reset", style: :result)
   end
 
-  shell.slash(:quit) { |_args, ctx| ctx.quit }
-  shell.slash(:q)    { |_args, ctx| ctx.quit }
+  shell.slash(:quit, description: "exit") { |_args, ctx| ctx.quit }
+  shell.slash(:q,    description: "exit") { |_args, ctx| ctx.quit }
 end

@@ -6,23 +6,31 @@ require "rinda/tuplespace"
 
 module Cclikesh
   class RenderThread
+    FOOTER_PAINT_INTERVAL_S = 0.25
+
     def self.start(ts, output_io, tick_interval: 0.06, registry: nil, ctx: nil)
       Thread.new do
         renderer = Renderer.new(ts, output_io, registry: registry)
         stopping = false
+        last_footer_paint = Time.now - FOOTER_PAINT_INTERVAL_S
         watcher = Thread.new do
           ts.read([:cmd, :quit])
           stopping = true
           ts.write([:cmd, :refresh])
         end
         until stopping
+          refreshed = false
           begin
             ts.take([:cmd, :refresh], tick_interval)
+            refreshed = true
           rescue Rinda::RequestExpiredError
             # normal tick — no refresh signal arrived
           end
           renderer.render_pending
-          paint_footer(output_io, registry, ctx)
+          if refreshed || (Time.now - last_footer_paint) >= FOOTER_PAINT_INTERVAL_S
+            paint_footer(output_io, registry, ctx)
+            last_footer_paint = Time.now
+          end
           output_io.flush
         end
         renderer.render_pending

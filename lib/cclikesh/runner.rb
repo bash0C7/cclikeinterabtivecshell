@@ -99,10 +99,16 @@ module Cclikesh
     def self.install_winch_trap
       return unless $stdout.tty?
       Signal.trap("WINCH") do
-        Layout.update_from_io($stdout)
-        Header.paint($stdout, @registry_for_winch.header_lines) if @registry_for_winch
-        Layout.set_scroll_region($stdout)
-        @ts_for_winch&.write([:cmd, :refresh])
+        # Stay signal-handler-safe: only do local IO (no DRb calls).
+        # RenderThread will repaint the header on its next tick when the
+        # refresh tuple is consumed.
+        begin
+          Layout.update_from_io($stdout)
+          Layout.set_scroll_region($stdout)
+          @ts_for_winch&.write([:cmd, :refresh])
+        rescue StandardError
+          # never let WINCH handler crash the process
+        end
       end
     rescue ArgumentError
       # SIGWINCH not supported on this platform
