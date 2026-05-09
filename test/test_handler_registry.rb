@@ -219,4 +219,55 @@ class TestHandlerRegistry < Test::Unit::TestCase
     registry = Cclikesh::HandlerRegistry.new(builder)
     assert_equal [], registry.dispatch_tab("buf", 0, :ctx)
   end
+
+  def test_dispatch_tab_runs_before_main_after
+    builder = Cclikesh::Builder.new
+    seq = []
+    builder.before_tab { |b, p, _|       seq << [:before, b, p] }
+    builder.on_tab     { |b, p, _|       seq << [:main,   b, p]; ["x", "y"] }
+    builder.after_tab  { |b, p, c, _|    seq << [:after,  b, p, c] }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    result = registry.dispatch_tab("foo", 3, :ctx)
+    assert_equal ["x", "y"], result
+    assert_equal(
+      [[:before, "foo", 3], [:main, "foo", 3], [:after, "foo", 3, ["x", "y"]]],
+      seq
+    )
+  end
+
+  def test_before_tab_exception_does_not_break_dispatch
+    io = StringIO.new
+    builder = Cclikesh::Builder.new
+    builder.log_to(io)
+    builder.before_tab { |_, _, _| raise "tab-before-boom" }
+    builder.on_tab     { |_, _, _| ["x"] }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    result = registry.dispatch_tab("foo", 0, :ctx)
+    assert_equal ["x"], result
+    assert_match(/tab-before-boom/, io.string)
+  end
+
+  def test_after_tab_receives_resolved_candidates
+    builder = Cclikesh::Builder.new
+    captured = nil
+    builder.on_tab    { |_, _, _| ["a", "b"] }
+    builder.after_tab { |_, _, c, _| captured = c }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    registry.dispatch_tab("buf", 0, :ctx)
+    assert_equal ["a", "b"], captured
+  end
+
+  def test_after_tab_receives_empty_when_main_raises
+    io = StringIO.new
+    builder = Cclikesh::Builder.new
+    builder.log_to(io)
+    captured = nil
+    builder.on_tab    { |_, _, _| raise "main-boom" }
+    builder.after_tab { |_, _, c, _| captured = c }
+    registry = Cclikesh::HandlerRegistry.new(builder)
+    result = registry.dispatch_tab("buf", 0, :ctx)
+    assert_equal [], result
+    assert_equal [], captured
+    assert_match(/main-boom/, io.string)
+  end
 end

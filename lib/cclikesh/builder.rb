@@ -9,7 +9,7 @@ module Cclikesh
       warn: Logger::WARN, error: Logger::ERROR, fatal: Logger::FATAL
     }.freeze
 
-    attr_reader :on_submit_handler, :on_state_change_handler, :slash_handlers, :on_start_handlers, :on_quit_handlers, :before_submit_handlers, :after_submit_handlers, :on_tab_handler, :logger
+    attr_reader :on_submit_handler, :on_state_change_handler, :slash_handlers, :on_start_handlers, :on_quit_handlers, :before_submit_handlers, :after_submit_handlers, :on_tab_handler, :before_tab_handlers, :after_tab_handlers, :logger
 
     def initialize
       @on_submit_handler = nil
@@ -20,6 +20,8 @@ module Cclikesh
       @before_submit_handlers = []
       @after_submit_handlers = []
       @on_tab_handler = nil
+      @before_tab_handlers = []
+      @after_tab_handlers = []
       @styles = {}
       @logger = Logger.new($stderr)
       @logger.level = Logger::INFO
@@ -52,6 +54,14 @@ module Cclikesh
 
     def on_tab(&block)
       @on_tab_handler = block
+    end
+
+    def before_tab(&block)
+      @before_tab_handlers << block
+    end
+
+    def after_tab(&block)
+      @after_tab_handlers << block
     end
 
     def slash(name, &block)

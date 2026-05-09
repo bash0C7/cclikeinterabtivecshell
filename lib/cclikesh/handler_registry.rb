@@ -87,15 +87,36 @@ module Cclikesh
 
     def dispatch_tab(buf, pos, ctx)
       log = @builder.logger
-      handler = @builder.on_tab_handler
-      return [] unless handler
-      begin
-        result = handler.call(buf, pos, ctx)
-        result.is_a?(Array) ? result : []
-      rescue => e
-        log.error("on_tab error: #{e.full_message}")
-        []
+
+      @builder.before_tab_handlers.each do |h|
+        begin
+          h.call(buf, pos, ctx)
+        rescue => e
+          log.error("before_tab error: #{e.full_message}")
+          break
+        end
       end
+
+      candidates = []
+      if (handler = @builder.on_tab_handler)
+        begin
+          result = handler.call(buf, pos, ctx)
+          candidates = result.is_a?(Array) ? result : []
+        rescue => e
+          log.error("on_tab error: #{e.full_message}")
+        end
+      end
+
+      @builder.after_tab_handlers.each do |h|
+        begin
+          h.call(buf, pos, candidates, ctx)
+        rescue => e
+          log.error("after_tab error: #{e.full_message}")
+          break
+        end
+      end
+
+      candidates
     end
 
     def style_definition(name)

@@ -153,4 +153,17 @@ class TestBuilder < Test::Unit::TestCase
     builder.on_tab { |buf, pos, _| [buf, pos] }
     assert_equal ["x", 1], builder.on_tab_handler.call("x", 1, nil)
   end
+
+  def test_before_tab_collects_handlers
+    builder = Cclikesh::Builder.new
+    builder.before_tab { |_, _, _| 1 }
+    builder.before_tab { |_, _, _| 2 }
+    assert_equal 2, builder.before_tab_handlers.size
+  end
+
+  def test_after_tab_collects_handlers
+    builder = Cclikesh::Builder.new
+    builder.after_tab { |_, _, _, _| 1 }
+    assert_equal 1, builder.after_tab_handlers.size
+  end
 end
