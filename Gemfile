@@ -10,3 +10,5 @@ gemspec
 gem "curses", "~> 1.4"
 
 gem "informers", "~> 1.2"
+
+gem "unicode-display_width", "~> 3.0"
