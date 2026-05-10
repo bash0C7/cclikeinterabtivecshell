@@ -1,5 +1,6 @@
 require "test/unit"
 require "tmpdir"
+require "extralite"
 require "cclikesh/debug/storage"
 
 class TestDebugStorage < Test::Unit::TestCase
@@ -16,6 +17,11 @@ class TestDebugStorage < Test::Unit::TestCase
   def teardown
     @s.close
     [@path, "#{@path}-wal", "#{@path}-shm"].each { |f| File.unlink(f) if File.exist?(f) }
+  end
+
+  def test_storage_uses_extralite
+    assert_kind_of Extralite::Database, @s.db,
+      "Storage#db must be an Extralite::Database (Ractor-safe)"
   end
 
   def test_session_info_persists
