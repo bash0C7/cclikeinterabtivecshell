@@ -8,6 +8,8 @@ gemspec
 # published to rubygems, replace the vendored copy with `gem "ts4r"` here.
 
 gem "curses", "~> 1.4"
+gem "drb"
+gem "rinda"
 
 gem "informers", "~> 1.2"
 
