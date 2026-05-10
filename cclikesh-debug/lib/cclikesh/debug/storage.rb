@@ -1,4 +1,4 @@
-require "sqlite3"
+require "extralite"
 require "sqlite_vec"
 require "json"
 require "time"
@@ -30,34 +30,30 @@ module Cclikesh
       SQL
 
       def self.create(path, session_uuid:, shell_argv:, cclikesh_ver:, rows:, cols:, embedder:, notes: nil)
-        db = SQLite3::Database.new(path)
-        db.enable_load_extension(true)
-        SqliteVec.load(db)
-        db.enable_load_extension(false)
+        db = Extralite::Database.new(path)
+        db.load_extension(SqliteVec.loadable_path)
         db.execute("PRAGMA journal_mode = WAL")
-        db.execute_batch(SCHEMA)
+        db.execute(SCHEMA)
         db.execute(
           "CREATE VIRTUAL TABLE frame_vec USING vec0(frame_id INTEGER PRIMARY KEY, embedding FLOAT[768])"
         )
         db.execute(
           "INSERT INTO session_info(uuid, started_at, ended_at, shell_argv, cclikesh_ver, rows, cols, embedder, notes)
            VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)",
-          [session_uuid, Time.now.iso8601, shell_argv.to_json, cclikesh_ver, rows, cols, embedder, notes]
+          session_uuid, Time.now.iso8601, shell_argv.to_json, cclikesh_ver, rows, cols, embedder, notes
         )
         MetaSeeds::ROWS.each do |row|
           db.execute(
             "INSERT INTO _sqlite_mcp_meta(object_type, object_name, description, hints_json, recipe_sql, recipe_label) VALUES (?,?,?,?,?,?)",
-            row
+            *row
           )
         end
         new(db, path)
       end
 
       def self.open(path, readonly: true)
-        db = SQLite3::Database.new(path, readonly: readonly)
-        db.enable_load_extension(true)
-        SqliteVec.load(db)
-        db.enable_load_extension(false)
+        db = Extralite::Database.new(path, read_only: readonly)
+        db.load_extension(SqliteVec.loadable_path)
         new(db, path)
       end
 
@@ -69,20 +65,20 @@ module Cclikesh
       end
 
       def session_info
-        row = @db.execute(
+        row = @db.query_single(
           "SELECT uuid, started_at, ended_at, shell_argv, cclikesh_ver, rows, cols, embedder, notes
            FROM session_info LIMIT 1"
-        ).first
+        )
         return nil unless row
         {
-          uuid: row[0], started_at: row[1], ended_at: row[2],
-          shell_argv: JSON.parse(row[3]), cclikesh_ver: row[4],
-          rows: row[5], cols: row[6], embedder: row[7], notes: row[8]
+          uuid: row[:uuid], started_at: row[:started_at], ended_at: row[:ended_at],
+          shell_argv: JSON.parse(row[:shell_argv]), cclikesh_ver: row[:cclikesh_ver],
+          rows: row[:rows], cols: row[:cols], embedder: row[:embedder], notes: row[:notes]
         }
       end
 
       def mark_ended!
-        @db.execute("UPDATE session_info SET ended_at = ? WHERE ended_at IS NULL", [Time.now.iso8601])
+        @db.execute("UPDATE session_info SET ended_at = ? WHERE ended_at IS NULL", Time.now.iso8601)
       end
 
       def insert_frame(ts:, trigger:, event_kind:, cursor_row:, cursor_col:,
@@ -91,10 +87,10 @@ module Cclikesh
           "INSERT INTO frames(ts, trigger, event_kind, cursor_row, cursor_col,
                               raw_bytes_zlib, framework_state_json, content, source)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [ts, trigger, event_kind, cursor_row, cursor_col,
-           raw_bytes_zlib, framework_state_json, content, source]
+          ts, trigger, event_kind, cursor_row, cursor_col,
+          raw_bytes_zlib, framework_state_json, content, source
         )
-        @db.last_insert_row_id
+        @db.last_insert_rowid
       end
 
       def select_frames(since: nil, until_ts: nil, event_kind: nil, limit: 100)
@@ -107,10 +103,10 @@ module Cclikesh
         sql += " WHERE #{where.join(' AND ')}" unless where.empty?
         sql += " ORDER BY ts ASC LIMIT ?"
         args << limit
-        @db.execute(sql, args).map do |r|
+        @db.query(sql, *args).map do |r|
           {
-            id: r[0], ts: r[1], trigger: r[2], event_kind: r[3],
-            cursor_row: r[4], cursor_col: r[5], content: r[6]
+            id: r[:id], ts: r[:ts], trigger: r[:trigger], event_kind: r[:event_kind],
+            cursor_row: r[:cursor_row], cursor_col: r[:cursor_col], content: r[:content]
           }
         end
       end
@@ -119,7 +115,7 @@ module Cclikesh
         blob = vec.pack("f*")
         @db.execute(
           "INSERT OR REPLACE INTO frame_vec(frame_id, embedding) VALUES (?, ?)",
-          [frame_id, blob]
+          frame_id, blob
         )
       end
 

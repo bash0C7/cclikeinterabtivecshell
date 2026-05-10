@@ -56,8 +56,8 @@ class TestDebugStorage < Test::Unit::TestCase
   end
 
   def test_meta_seeds_inserted
-    rows = @s.db.execute("SELECT object_type, object_name FROM _sqlite_mcp_meta")
-    types = rows.map { |r| r[0] }
+    rows = @s.db.query("SELECT object_type, object_name FROM _sqlite_mcp_meta")
+    types = rows.map { |r| r[:object_type] }
     assert_includes types, "db"
     assert_includes types, "table"
     assert_includes types, "recipe"
@@ -69,7 +69,7 @@ class TestDebugStorage < Test::Unit::TestCase
                            framework_state_json: "{}", content: "x", source: "framework_state")
     vec = Array.new(768) { 0.001 }
     @s.upsert_frame_vec(fid, vec)
-    count = @s.db.execute("SELECT COUNT(*) FROM frame_vec").first[0]
+    count = @s.db.query("SELECT COUNT(*) AS c FROM frame_vec").first[:c]
     assert_equal 1, count
   end
 end
