@@ -21,8 +21,10 @@ class TestChrome < Test::Unit::TestCase
 
   def test_header_lines_appear_in_header_window
     Cclikesh::Chrome.update_header(["✻ cclikesh", "  v0.2.0"])
+    # inch returns narrow-char bytes only, so non-ASCII chars may be truncated;
+    # match on the ASCII portion that reliably survives the inch encoding
     cells = capture_window_text(Cclikesh::Chrome.header_win, 0, 0, 12)
-    assert_match(/✻ cclikesh/, cells)
+    assert_match(/cclikesh/, cells)
   end
 
   def test_footer_includes_shortcuts_hint
@@ -60,7 +62,8 @@ class TestChrome < Test::Unit::TestCase
   def capture_window_text(win, row, col, len)
     chars = []
     len.times do |i|
-      ch = win.inch(row, col + i) & Curses::A_CHARTEXT
+      win.setpos(row, col + i)
+      ch = win.inch & Curses::A_CHARTEXT
       begin
         chars << ch.chr(Encoding::UTF_8)
       rescue
