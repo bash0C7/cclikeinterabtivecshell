@@ -14,26 +14,34 @@ module Cclikesh
 
         def serve
           until @stop
-            begin
-              ready = IO.select([@sock], nil, nil, 0.1)
-              next unless ready
-              client = begin
-                @sock.accept_nonblock
-              rescue IO::WaitReadable
-                next
-              end
-              line = client.gets
-              if line
-                cmd = JSON.parse(line, symbolize_names: true)
-                result = yield(cmd)
-                client.puts(result.to_json)
-              end
-              client.close rescue nil
-            rescue Errno::EBADF
-              # Socket closed during select, exit gracefully
-              break
-            end
+            accept_one(timeout: 0.1) { |cmd| yield(cmd) }
           end
+        end
+
+        # Single-shot accept that returns true if a command was handled,
+        # false if the timeout expired with no client. Used by main-loop
+        # callers that need to interleave other work (e.g. periodic capture)
+        # without spawning a Thread.
+        def accept_one(timeout:)
+          return false if @stop
+          ready = IO.select([@sock], nil, nil, timeout)
+          return false unless ready
+          client = begin
+            @sock.accept_nonblock
+          rescue IO::WaitReadable
+            return false
+          end
+          line = client.gets
+          if line
+            cmd = JSON.parse(line, symbolize_names: true)
+            result = yield(cmd)
+            client.puts(result.to_json)
+          end
+          client.close rescue nil
+          true
+        rescue Errno::EBADF
+          @stop = true
+          false
         end
 
         def shutdown

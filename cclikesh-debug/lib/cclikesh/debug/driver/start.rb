@@ -4,6 +4,7 @@ require "fileutils"
 require "tmpdir"
 require "io/console"
 require "drb/drb"
+require "timeout"
 require_relative "../recorder"
 require_relative "../storage"
 require_relative "../socket_protocol"
@@ -30,6 +31,7 @@ module Cclikesh
           db_path = File.join(out_dir, "#{ts_str}-#{pid}-#{short}.sqlite")
           sock    = File.join(out_dir, "#{short}.sock")
           drb_sock_base = File.join(out_dir, "#{short}.drb-sock")
+          embedder_sock = File.join(out_dir, "#{short}.embedder.sock")
 
           rows, cols = (IO.console.winsize rescue [24, 80])
 
@@ -37,9 +39,17 @@ module Cclikesh
             session_uuid: uuid, shell_argv: ["ruby", target], cclikesh_ver: "0.2.0",
             rows: rows, cols: cols, embedder: EmbedderPool::MODEL_NAME, notes: note)
 
+          # Allocate PTY for the shell child. Set TERM and winsize so Curses can
+          # initialise correctly even from headless test runners (priority-2 fix).
           master, slave = PTY.open
+          slave.winsize = [rows, cols]
           child_pid = spawn(
-            { "CCLIKESH_DEBUG_SOCK" => drb_sock_base },
+            {
+              "CCLIKESH_DEBUG_SOCK" => drb_sock_base,
+              "TERM"                => ENV["TERM"] || "xterm-256color",
+              "LINES"               => rows.to_s,
+              "COLUMNS"             => cols.to_s
+            },
             "ruby", target,
             in: slave, out: slave, err: slave
           )
@@ -50,7 +60,7 @@ module Cclikesh
 
           recorder = Recorder.new(
             storage: storage,
-            embedder_factory: -> { EmbedderPool.new },
+            embedder_factory: -> { EmbedderPool.new },  # legacy synthetic path only
             no_vector: no_vector || embed_after_stop  # both skip live embedding
           )
           recorder.start_pipeline!(pty_master_fd: master.fileno)
@@ -61,14 +71,25 @@ module Cclikesh
 
           server = SocketProtocol::Server.new(sock)
 
-          server_thread = Thread.new do
-            server.serve do |cmd|
+          puts "session_uuid=#{uuid}"
+          puts "session_db=#{db_path}"
+          puts "control_socket=#{sock}"
+          $stdout.flush
+
+          # Main loop: accept socket commands and run periodic capture in the
+          # same Ractor. No Thread.new; periodic cadence is measured between
+          # accept_one() returns. Stop pivots on the "stop" command.
+          stopped = false
+          last_periodic = Time.now
+          period_secs = cadence_ms / 1000.0
+
+          until stopped
+            server.accept_one(timeout: [period_secs, 0.05].max) do |cmd|
               case cmd[:op]
               when "input"
                 master.write(decode_keys(cmd[:text].to_s))
                 { ok: true }
               when "capture"
-                # Main pulls snapshot via DRb, then triggers Recorder
                 snap = (shell_adapter.debug_snapshot rescue nil)
                 if snap
                   recorder.trigger_capture!(
@@ -80,38 +101,52 @@ module Cclikesh
                 Process.kill("TERM", child_pid) rescue nil
                 recorder.stop!
                 if embed_after_stop
-                  recorder.embed_pending!
+                  embed_pending_via_subprocess(
+                    recorder: recorder,
+                    sock_path: embedder_sock,
+                    log_path:  File.join(out_dir, "#{short}.embedder.log")
+                  )
                 end
                 storage.mark_ended!
                 storage.close
                 server.shutdown
+                stopped = true
                 { ok: true, stopped: true }
               else
                 { ok: false, error: "unknown op: #{cmd[:op]}" }
               end
             end
-          end
 
-          # Periodic capture loop in a background thread
-          periodic_thread = Thread.new do
-            loop do
-              sleep cadence_ms / 1000.0
+            # Periodic capture. We measure from last_periodic so a string of
+            # quick socket commands cannot delay the next periodic forever.
+            if !stopped && (Time.now - last_periodic) >= period_secs
               snap = (shell_adapter.debug_snapshot rescue nil)
-              break unless snap
-              recorder.trigger_capture!(trigger: "periodic", event_kind: nil, snapshot: snap)
+              if snap
+                recorder.trigger_capture!(trigger: "periodic", event_kind: nil, snapshot: snap)
+              else
+                # No snapshot means the shell has gone away; exit cleanly.
+                stopped = true
+              end
+              last_periodic = Time.now
             end
           end
 
-          puts "session_uuid=#{uuid}"
-          puts "session_db=#{db_path}"
-          puts "control_socket=#{sock}"
-          $stdout.flush
-
-          # Wait for child to exit (or stop command via socket)
           Process.wait(child_pid) rescue nil
-          server.shutdown rescue nil
-          server_thread.join(2.0) rescue nil
-          periodic_thread.kill rescue nil
+        end
+
+        def self.embed_pending_via_subprocess(recorder:, sock_path:, log_path:)
+          embedder_pid = spawn(
+            "cclikesh-debug-embedder", sock_path,
+            out: log_path, err: [:child, :out]
+          )
+          Timeout.timeout(120) { sleep 0.2 until File.exist?(sock_path) }
+          sleep 0.5
+          proxy = DRbObject.new_with_uri("drbunix:#{sock_path}")
+          recorder.embed_pending!(proxy: proxy)
+        ensure
+          Process.kill("TERM", embedder_pid) if embedder_pid rescue nil
+          Process.wait(embedder_pid) if embedder_pid rescue nil
+          File.unlink(sock_path) if File.exist?(sock_path)
         end
 
         def self.parse_int(argv, flag, default)
