@@ -1,42 +1,73 @@
 # cclikesh
 
-Claude Code-style 3-region interactive CLI shell framework for Ruby 4.0+.
+Claude Code-style 3-region interactive CLI shell framework, built on curses + Ractor.
 
-This is the **Plan 2 (dRuby split + reline)** — Cclikesh forks an impl process
-and an F (framework) process; impl hosts a HandlerRegistry over UNIX-socket
-dRuby, F runs reline for stdin and a Thread-based renderer for stdout.
-Full display engine, info bar, and richer slash command parsing arrive in
-subsequent plans.
+## Architecture
 
-See [`docs/superpowers/specs/2026-05-09-cclikesh-design.md`](docs/superpowers/specs/2026-05-09-cclikesh-design.md)
-for the full design and [`docs/superpowers/plans/`](docs/superpowers/plans/)
-for the implementation plans.
+- Single-process Ruby 4.0+, macOS only
+- Main Ractor owns Reline + curses (3-region UI: header bar, scrollable body, input row)
+- Slash handlers run in per-invocation Handler Ractors (true parallelism with UI)
+- Mutable user state opt-in via `shareable_ref { ... }` State Ractor wrapper
 
-## Status
+## Quick start
 
-Plan 2 (dRuby split + reline) complete. Cclikesh forks an impl process and an
-F (framework) process; impl hosts a HandlerRegistry over UNIX-socket dRuby; F
-runs reline for stdin and a Thread-based renderer for stdout. PTY-driven E2E
-coverage lands in the next change.
+```ruby
+require "cclikesh"
 
-## Try the example
-
-```sh
-bundle install
-bundle exec ruby -Ilib examples/echo_shell.rb
+Cclikesh.run do |shell|
+  shell.header { |h| h.title "demo"; h.note "hi" }
+  shell.on_submit do |args, ctx|
+    ctx.display.append("you said: #{args.first}", style: :result)
+  end
+  shell.slash(:q) { |_, ctx| ctx.quit }
+end
 ```
 
-## Test
+Run: `bundle exec ruby examples/echo_shell.rb`
 
-```sh
+## Examples
+
+- `examples/echo_shell.rb` — minimal demo
+- `examples/irb_shell/irb_shell.rb` — irb on cclikesh, uses `shell.shareable_ref(:evaluator) { IrbEvaluator.new }`
+
+## cclikesh-debug
+
+Separate sub-gem (`cclikesh-debug/cclikesh-debug.gemspec`) for per-session debug recording:
+
+- Per-session SQLite DB (chiebukuro-mcp compatible schema)
+- sqlite-vec semantic search via informers + ruri-v3-310m-onnx
+- asciinema cast export, agg/ffmpeg pipeline for gif/mp4/webm
+
+```bash
+bundle exec cclikesh-debug start examples/echo_shell.rb
+bundle exec cclikesh-debug input <session> "hello\r"
+bundle exec cclikesh-debug capture <session>
+bundle exec cclikesh-debug stop <session>
+bundle exec cclikesh-debug frames <session>
+```
+
+## Known v1 limitations
+
+- macOS only (curses + PTY usage is macOS-specific)
+- cclikesh-debug recorder pipeline has Ractor-safety issues with sqlite3 (StorageWriter needs to be a Thread, not a Ractor — planned for v0.2.1)
+- cclikesh-debug E2E test is omitted in headless test runs (requires a real TTY; manual verification needed)
+- `on_tab` handler in the DSL is captured but not yet wired into Reline's tab completion path
+
+## Development
+
+```bash
+bundle install
 bundle exec rake test
 ```
 
-## Roadmap
+Sub-gem tests:
 
-- Plan 2: dRuby split (fork, separate processes), reline, real terminal control - done
-- Plan 3: 3-region rendering with Display engine (info layer + spinner + live slot)
-- Plan 4: Info layer (spinner, segments, idle_phrases)
-- Plan 5: Command system (full slash, state hooks, before/after)
-- Plan 6: Logger & Ruby::Box isolation
-- Plan 7: Example irb shell
+```bash
+for f in cclikesh-debug/test/cclikesh-debug/test_*.rb; do
+  bundle exec ruby -Icclikesh-debug/lib -Icclikesh-debug/test/cclikesh-debug "$f"
+done
+```
+
+## License
+
+MIT
