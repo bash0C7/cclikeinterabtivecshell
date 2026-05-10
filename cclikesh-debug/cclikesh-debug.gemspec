@@ -8,15 +8,16 @@ Gem::Specification.new do |s|
   s.license = "MIT"
   s.required_ruby_version = ">= 4.0.0"
 
-  s.files       = Dir["lib/**/*.rb", "exe/cclikesh-debug"]
+  s.files       = Dir["lib/**/*.rb", "exe/cclikesh-debug", "exe/cclikesh-debug-embedder"]
   s.bindir      = "exe"
-  s.executables = ["cclikesh-debug"]
+  s.executables = ["cclikesh-debug", "cclikesh-debug-embedder"]
   s.require_paths = ["lib"]
 
   s.add_dependency "cclikesh",   ">= 0.2"
-  s.add_dependency "sqlite3",    "~> 2.0"
+  s.add_dependency "extralite",  "~> 2.12"
   s.add_dependency "sqlite-vec", "~> 0.1"
   s.add_dependency "informers",  "~> 1.2"
+  s.add_dependency "drb"
 
   s.add_development_dependency "test-unit", "~> 3.6"
   s.add_development_dependency "rake",      "~> 13.0"
