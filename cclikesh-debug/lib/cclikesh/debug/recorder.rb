@@ -4,7 +4,7 @@ require_relative "content_builder"
 require_relative "ractors/pty_reader"
 require_relative "ractors/frame_builder"
 require_relative "ractors/storage_writer"
-require_relative "ractors/embedder_thread"
+require_relative "ractors/embed_storage_writer"
 
 module Cclikesh
   module Debug
@@ -12,7 +12,6 @@ module Cclikesh
       def initialize(storage:, embedder_factory:, no_vector: false)
         @storage = storage
         @embedder_factory = embedder_factory
-        @embedder = no_vector ? nil : embedder_factory.call
         @no_vector = no_vector
         @synthetic = []
         @pty_reader = nil
@@ -34,71 +33,75 @@ module Cclikesh
             content: f[:content],
             source: "framework_state"
           )
-          if @embedder
-            vec = @embedder.embed(f[:content])
+          if !@no_vector
+            embedder = @embedder_factory.call
+            vec = embedder.embed(f[:content])
             @storage.upsert_frame_vec(fid, vec)
           end
         end
         @synthetic.clear
       end
 
-      # Starts the 3-Ractor live pipeline:
-      #   PtyReader → FrameBuilder → StorageWriter
-      #
-      # Embedding is intentionally excluded from the live pipeline because informers is not
-      # Ractor-safe. Use embed_pending! after the session ends for batch embedding.
-      #
-      # DRb note: DRb cannot run inside a Ractor (shared state: DRb.current_server, etc.).
-      # The orchestrator must pull debug_snapshot via DRb in the main thread and call
-      # trigger_capture! which sends the pre-fetched snapshot to FrameBuilder.
       def start_pipeline!(pty_master_fd:)
-        @storage_writer = Ractors::StorageWriter.spawn(
-          db_path: @storage.path,
-          embed_bridge: nil
-        )
-        @frame_builder = Ractors::FrameBuilder.spawn(
-          downstream: @storage_writer
-        )
-        @pty_reader = Ractors::PtyReader.spawn(
-          downstream: @frame_builder,
-          master_fd: pty_master_fd
-        )
+        @storage_writer = Ractors::StorageWriter.spawn(db_path: @storage.path)
+        @frame_builder  = Ractors::FrameBuilder.spawn(downstream: @storage_writer)
+        @pty_reader     = Ractors::PtyReader.spawn(downstream: @frame_builder, master_fd: pty_master_fd)
         self
       end
 
-      # Triggers a frame capture with a pre-fetched debug snapshot.
-      # The snapshot must be fetched by the caller via DRb before calling this method,
-      # because DRb cannot be used inside a Ractor.
-      #
-      # snapshot: Hash with keys :ts_shell, :cursor ([row, col]), :framework_state (Hash)
       def trigger_capture!(snapshot:, trigger: "on_demand", event_kind: nil)
         return unless @frame_builder
-        @frame_builder.send([:capture_with_snapshot, trigger, event_kind, snapshot.freeze])
+        frozen = deep_freeze(snapshot)
+        @frame_builder.send([:capture_with_snapshot,
+                              trigger.to_s.freeze,
+                              event_kind&.to_s&.freeze,
+                              frozen])
       end
 
-      # Post-processing: embed all frames that don't yet have a vector entry.
-      # Runs synchronously in the calling thread. Use after stop! to batch-embed.
-      def embed_pending!
-        return if @no_vector || @embedder.nil?
+      # Post-process bulk embedding (Case B: subprocess + DRb + EmbedStorageWriter Ractor).
+      # The proxy responds to #embed(content) → Array<Float, 768>.
+      # Production wires this to a DRbObject pointing at cclikesh-debug-embedder.
+      def embed_pending!(proxy:)
+        return if @no_vector
 
-        rows = @storage.db.execute(
-          "SELECT f.id, f.content FROM frames f
+        rows = @storage.db.query(
+          "SELECT f.id AS id, f.content AS content FROM frames f
              LEFT JOIN frame_vec v ON v.frame_id = f.id
             WHERE v.frame_id IS NULL"
         )
+        return if rows.empty?
+
+        writer = Ractors::EmbedStorageWriter.spawn(db_path: @storage.path)
         rows.each do |r|
-          fid, content = r
-          vec = @embedder.embed(content)
-          @storage.upsert_frame_vec(fid, vec)
+          vec  = proxy.embed(r[:content])
+          blob = vec.pack("f*").freeze
+          writer.send([:write, r[:id], blob])
         end
+        writer.send([:stop])
+        sleep 0.05
       end
 
-      # Stops the live Ractor pipeline. Safe to call even if pipeline was never started.
       def stop!
         [@pty_reader, @frame_builder, @storage_writer].compact.each do |r|
-          r.send([:stop]) rescue nil
+          (r.send([:stop]) rescue nil)
         end
+        sleep 0.05
         @pty_reader = @frame_builder = @storage_writer = nil
+      end
+
+      private
+
+      def deep_freeze(obj)
+        case obj
+        when Hash
+          obj.each_with_object({}) { |(k, v), h| h[k] = deep_freeze(v) }.freeze
+        when Array
+          obj.map { |v| deep_freeze(v) }.freeze
+        when String
+          obj.frozen? ? obj : obj.dup.freeze
+        else
+          obj
+        end
       end
     end
   end
