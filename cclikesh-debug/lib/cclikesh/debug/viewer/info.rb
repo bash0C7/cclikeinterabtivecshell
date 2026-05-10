@@ -13,16 +13,16 @@ module Cclikesh
           info.each { |k, v| puts "#{k}: #{v}" }
           if (idx = argv.index("--frame"))
             frame_id = Integer(argv[idx + 1])
-            row = storage.db.execute(
-              "SELECT ts, trigger, event_kind, framework_state_json FROM frames WHERE id = ?", [frame_id]
-            ).first
+            row = storage.db.query_single(
+              "SELECT ts, trigger, event_kind, framework_state_json FROM frames WHERE id = ?", frame_id
+            )
             abort("no frame #{frame_id}") unless row
             puts "---"
-            puts "ts: #{row[0]}"
-            puts "trigger: #{row[1]}"
-            puts "event_kind: #{row[2] || '-'}"
+            puts "ts: #{row[:ts]}"
+            puts "trigger: #{row[:trigger]}"
+            puts "event_kind: #{row[:event_kind] || '-'}"
             puts "framework_state:"
-            puts JSON.pretty_generate(JSON.parse(row[3]))
+            puts JSON.pretty_generate(JSON.parse(row[:framework_state_json]))
           end
         end
 

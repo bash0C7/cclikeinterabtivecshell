@@ -14,14 +14,14 @@ module Cclikesh
           pool = Cclikesh::Debug::EmbedderPool.new
           vec = pool.embed(query)
           blob = vec.pack("f*")
-          rows = storage.db.execute(
+          rows = storage.db.query(
             "SELECT v.frame_id, v.distance, f.ts, f.content
                FROM frame_vec v JOIN frames f ON f.id = v.frame_id
               WHERE v.embedding MATCH ? AND k = ?
               ORDER BY v.distance",
-            [blob, k]
+            blob, k
           )
-          rows.each { |r| puts "#{r[0]}\t#{r[1].round(3)}\t#{r[2]}\t#{r[3][0, 60]}" }
+          rows.each { |r| puts "#{r[:frame_id]}\t#{r[:distance].round(3)}\t#{r[:ts]}\t#{r[:content][0, 60]}" }
         end
       end
     end

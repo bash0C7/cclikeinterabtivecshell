@@ -14,8 +14,8 @@ module Cclikesh
           output = parse_str(argv, "--output", nil) || "#{session}.#{fmt}"
           storage = Cclikesh::Debug::Storage.open(Cclikesh::Debug::Viewer::Info.resolve_db(session), readonly: true)
           info = storage.session_info
-          rows = storage.db.execute("SELECT ts, raw_bytes_zlib FROM frames ORDER BY ts")
-          frames = rows.map { |r| { ts: r[0], raw_bytes: r[1] ? Zlib::Inflate.inflate(r[1]) : "" } }
+          rows = storage.db.query("SELECT ts, raw_bytes_zlib FROM frames ORDER BY ts")
+          frames = rows.map { |r| { ts: r[:ts], raw_bytes: r[:raw_bytes_zlib] ? Zlib::Inflate.inflate(r[:raw_bytes_zlib]) : "" } }
 
           case fmt
           when "cast"

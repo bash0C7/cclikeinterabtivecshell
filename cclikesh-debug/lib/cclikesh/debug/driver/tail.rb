@@ -14,13 +14,13 @@ module Cclikesh
           storage = Cclikesh::Debug::Storage.open(db_path, readonly: true)
           last_id = 0
           loop do
-            rows = storage.db.execute(
+            rows = storage.db.query(
               "SELECT id, ts, event_kind, content FROM frames WHERE id > ? ORDER BY id",
-              [last_id]
+              last_id
             )
             rows.each do |r|
-              puts "#{r[0]}\t#{r[1]}\t#{r[2] || '-'}\t#{r[3].to_s.gsub("\n", " ⏎ ")[0, 200]}"
-              last_id = r[0]
+              puts "#{r[:id]}\t#{r[:ts]}\t#{r[:event_kind] || '-'}\t#{r[:content].to_s.gsub("\n", " ⏎ ")[0, 200]}"
+              last_id = r[:id]
             end
             sleep 0.5
           end

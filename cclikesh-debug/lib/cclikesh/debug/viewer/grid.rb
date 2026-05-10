@@ -12,9 +12,9 @@ module Cclikesh
           frame_id = Integer(argv[idx + 1])
           db = Cclikesh::Debug::Viewer::Info.resolve_db(session)
           storage = Cclikesh::Debug::Storage.open(db, readonly: true)
-          row = storage.db.execute("SELECT raw_bytes_zlib FROM frames WHERE id = ?", [frame_id]).first
+          row = storage.db.query_single("SELECT raw_bytes_zlib FROM frames WHERE id = ?", frame_id)
           abort("no frame #{frame_id}") unless row
-          bytes = row[0] ? Zlib::Inflate.inflate(row[0]) : ""
+          bytes = row[:raw_bytes_zlib] ? Zlib::Inflate.inflate(row[:raw_bytes_zlib]) : ""
           $stdout.binmode.write(bytes)
         end
       end
