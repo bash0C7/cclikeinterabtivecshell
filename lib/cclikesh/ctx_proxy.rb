@@ -28,6 +28,11 @@ module Cclikesh
 
     def quit
       @main.send([:quit])
+      begin
+        Process.kill("INT", Process.pid)
+      rescue
+        nil
+      end
     end
 
     # ------------------------------------------------------------------

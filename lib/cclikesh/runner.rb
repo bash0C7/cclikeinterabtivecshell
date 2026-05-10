@@ -1,6 +1,8 @@
 require "curses"
 require "reline"
 
+Warning[:experimental] = false # suppress "Ractor API is experimental" on every spawn
+
 module Cclikesh
   module Runner
     def self.run(builder)
@@ -30,19 +32,26 @@ module Cclikesh
           begin
             line = Reline.readline(prompt_text(builder), true)
           rescue Interrupt
+            RelineDialogs.drain_main_mailbox
+            throw :quit if Context.quit?
             next
           end
           throw :quit if line.nil?
           throw :quit if Context.quit?
           line = line.to_s
           next if line.strip.empty?
-          SlashDispatcher.handle(
-            line,
-            builder.slash_registry,
-            Ractor.current,
-            on_submit: builder.on_submit_handler,
-            state_refs: builder.state_refs
-          )
+          begin
+            SlashDispatcher.handle(
+              line,
+              builder.slash_registry,
+              Ractor.current,
+              on_submit: builder.on_submit_handler,
+              state_refs: builder.state_refs
+            )
+          rescue Interrupt
+            RelineDialogs.drain_main_mailbox
+            throw :quit if Context.quit?
+          end
         end
       end
 
@@ -62,6 +71,10 @@ module Cclikesh
     end
 
     def self.teardown_curses
+      # Redirect stdout to /dev/null before calling endwin so that ncurses
+      # terminal-restore writes don't block on an unread PTY (e.g. in tests).
+      $stdout.reopen("/dev/null", "w") rescue nil
+      STDOUT.reopen("/dev/null", "w") rescue nil
       Curses.close_screen
     rescue
       nil

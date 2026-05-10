@@ -21,7 +21,7 @@ class TestSmoke < Test::Unit::TestCase
       Process.wait(pid)
       pid = nil
     end
-    pass "echo_shell exited within 15s"
+    assert true, "echo_shell exited within 15s"
   ensure
     if pid
       begin

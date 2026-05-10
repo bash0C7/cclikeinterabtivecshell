@@ -46,12 +46,18 @@ class TestCtxProxy < Test::Unit::TestCase
   def test_quit_sends_quit
     main = Ractor.current
     bp = Cclikesh::CtxProxy.blueprint(main, {})
-    Ractor.new(bp) do |b|
+    # ctx.quit sends SIGINT to wake up Reline in production; absorb it here.
+    old_trap = Signal.trap("INT") { nil }
+    r = Ractor.new(bp) do |b|
       ctx = Cclikesh::CtxProxy.from_blueprint(b)
       ctx.quit
     end
     msg = Ractor.receive
+    r.join rescue nil  # wait for ractor to finish so SIGINT is fully delivered
+    sleep 0.05         # let any pending signal fire under the absorb trap
     assert_equal [:quit], msg
+  ensure
+    Signal.trap("INT", old_trap || "DEFAULT")
   end
 
   def test_shareable_returns_named_ref
