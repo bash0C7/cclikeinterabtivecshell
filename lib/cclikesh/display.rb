@@ -1,73 +1,105 @@
 # frozen_string_literal: true
 
-require "drb/drb"
-require_relative "live_slot"
+require "curses"
+require "unicode/display_width"
+require_relative "style"
+require_relative "transcript"
+require_relative "chrome"
 
 module Cclikesh
-  class Display
-    include DRb::DRbUndumped
+  module Display
+    PAD_HEIGHT = 10_000
 
-    def initialize(tuple_space)
-      @ts = tuple_space
-      @slot_counter = 0
-      @active_slot = nil
-      @mutex = Mutex.new
-      @indent_first = nil
-      @indent_rest  = nil
-      @indent_used  = false
+    class << self
+      attr_reader :pad
     end
 
-    def append(text, style: nil, prompt: nil)
-      text = apply_indent(text)
-      opts = {}
-      opts[:style] = style if style
-      opts[:prompt] = prompt if prompt
-      @ts.write([:render, :display_append, text, opts])
+    def self.init
+      @pad = Curses::Pad.new(PAD_HEIGHT, Curses.cols)
+      @pad.scrollok(true)
+      @row = 0
+      @live_slots = {}
+      @next_sid = 0
     end
 
-    def begin_indent_block(first:, rest:)
-      @indent_first = first
-      @indent_rest  = rest
-      @indent_used  = false
+    def self.close
+      @pad&.close
+      @pad = nil
+      @live_slots = {}
     end
 
-    def end_indent_block
-      @indent_first = nil
-      @indent_rest  = nil
-      @indent_used  = false
-    end
-
-    def open_live(style: nil, &block)
-      slot = @mutex.synchronize do
-        @active_slot.commit if @active_slot && @active_slot.open?
-        @slot_counter += 1
-        id = @slot_counter
-        @ts.write([:render, :live_open, id, { style: style }])
-        @active_slot = LiveSlot.new(@ts, id, style: style)
+    def self.append(text, prompt: nil, style: nil)
+      rendered = "#{prompt}#{text}"
+      @pad.setpos(@row, 0)
+      Style.with(@pad, style) do
+        @pad.addstr(rendered)
       end
-      return slot unless block
-
-      committed = false
-      begin
-        block.call(slot)
-        slot.commit
-        committed = true
-      ensure
-        slot.discard unless committed
-      end
-      slot
+      @row += 1
+      Transcript.record(rendered)
+      refresh
     end
 
-    private
+    def self.open_live(style: nil)
+      sid = (@next_sid += 1)
+      @live_slots[sid] = { row: @row, last_text: "", style: style }
+      @pad.setpos(@row, 0)
+      @row += 1
+      sid
+    end
 
-    def apply_indent(text)
-      return text unless @indent_first
-      if @indent_used
-        "#{@indent_rest}#{text}"
-      else
-        @indent_used = true
-        "#{@indent_first}#{text}"
+    def self.live_update(sid, text)
+      slot = @live_slots[sid] or return
+      @pad.setpos(slot[:row], 0)
+      @pad.clrtoeol
+      Style.with(@pad, slot[:style]) { @pad.addstr(text) }
+      slot[:last_text] = text
+      refresh
+    end
+
+    def self.live_commit(sid, final = nil)
+      slot = @live_slots.delete(sid) or return
+      text = final || slot[:last_text]
+      @pad.setpos(slot[:row], 0)
+      @pad.clrtoeol
+      Style.with(@pad, slot[:style]) { @pad.addstr(text) }
+      Transcript.record(text)
+      refresh
+    end
+
+    def self.live_discard(sid)
+      slot = @live_slots.delete(sid) or return
+      @pad.setpos(slot[:row], 0)
+      @pad.clrtoeol
+      @row -= 1 if slot[:row] == @row - 1
+      refresh
+    end
+
+    def self.dialog(content, style: nil)
+      lines = content.to_s.split("\n", -1)
+      lines.pop if lines.last == ""
+      width = (lines.map { |l| Unicode::DisplayWidth.of(l) }.max || 0) + 2
+      append("┌#{"─" * width}┐", style: :dim)
+      lines.each do |line|
+        pad_n = [width - 2 - Unicode::DisplayWidth.of(line), 0].max
+        append("│ #{line}#{" " * pad_n} │", style: style)
       end
+      append("└#{"─" * width}┘", style: :dim)
+    end
+
+    def self.live_slot_state
+      @live_slots.dup
+    end
+
+    def self.refresh
+      return unless @pad
+      visible_h = Curses.lines - Chrome::HEADER_HEIGHT - Chrome::FOOTER_HEIGHT - 1
+      visible_top = [@row - visible_h, 0].max
+      bottom_row = Chrome::HEADER_HEIGHT + visible_h - 1
+      bottom_col = Curses.cols - 1
+      return if bottom_row < Chrome::HEADER_HEIGHT || bottom_col < 0
+      @pad.noutrefresh(visible_top, 0,
+                       Chrome::HEADER_HEIGHT, 0,
+                       bottom_row, bottom_col)
     end
   end
 end

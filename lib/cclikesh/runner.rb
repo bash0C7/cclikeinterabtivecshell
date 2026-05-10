@@ -1,120 +1,93 @@
-# frozen_string_literal: true
-
-require "drb/drb"
-require "drb/unix"
-require_relative "drb_patches"
+require "curses"
 require "reline"
-require_relative "tuple_space"
-require_relative "builder"
-require_relative "context"
-require_relative "dispatcher"
-require_relative "handler_registry"
-require_relative "forking"
-require_relative "render_thread"
-require_relative "input_thread"
-require_relative "event_thread"
-require_relative "screen"
-require_relative "layout"
-require_relative "header"
-require_relative "input_box"
-require_relative "history"
+
+Warning[:experimental] = false # suppress "Ractor API is experimental" on every spawn
 
 module Cclikesh
-  class Runner
-    def self.run(tick_interval: 0.06, &block)
-      builder = Builder.new
-      block.call(builder)
-      registry = HandlerRegistry.new(builder)
-
-      Forking.run(registry) do |handlers_uri|
-        run_child(handlers_uri, tick_interval: tick_interval)
+  module Runner
+    def self.run(builder)
+      init_curses
+      Style.init!
+      Chrome.init
+      Display.init
+      Context.init(logger: builder.logger)
+      if defined?(Cclikesh::DebugEndpoint)
+        Cclikesh::DebugEndpoint.start_if_enabled(builder)
       end
-    end
 
-    def self.run_child(handlers_uri, tick_interval: nil)
-      Screen.enter_alt
-      Layout.update_from_io($stdout)
-      @history_path = History.path_for(Dir.pwd)
-      History.load(@history_path).each { |entry| Reline::HISTORY << entry }
-      DRb.start_service
-      registry_remote = DRbObject.new_with_uri(handlers_uri)
-
-      effective_tick = tick_interval || registry_remote.tick_interval
-
-      Layout.recompute(
-        header_height: registry_remote.header_height,
-        input_height:  InputBox.height,
-        footer_height: registry_remote.footer_height
+      install_completion(builder)
+      RelineDialogs.install(builder)
+      Chrome.update_header(builder.header_lines)
+      Chrome.update_footer(
+        info_bar:        builder.evaluate_info_bar,
+        status_rows:     builder.evaluate_status_rows,
+        shortcuts_hint:  builder.shortcuts_hint_text
       )
-      Header.paint($stdout, registry_remote.header_lines, cols: Layout.cols) if $stdout.tty?
-      InputBox.paint($stdout, Layout.cols) if $stdout.tty?
-      Layout.set_scroll_region($stdout) if $stdout.tty?
+      Curses.doupdate
 
-      @registry_for_winch = registry_remote
-      install_winch_trap
+      builder.on_start_handlers.each { |h| h.call(nil) rescue nil }
 
-      ts = TupleSpace.new
-      ctx = Context.new(ts, registry: registry_remote)
-      dispatcher = Dispatcher.new(ts, registry_remote, ctx)
-
-      @ts_for_winch = ts
-
-      render_thread = RenderThread.start(ts, $stdout,
-                                         tick_interval: effective_tick,
-                                         registry: registry_remote,
-                                         ctx: ctx)
-      input_thread  = InputThread.start(ts, reader: multiline_reader, prompt: InputBox.prompt,
-                                        registry: registry_remote, ctx: ctx)
-      event_thread  = EventThread.start(ts, registry: registry_remote, ctx: ctx)
-
-      registry_remote.dispatch_start(ctx)
-
-      loop do
-        break if dispatcher.dispatch_one == :quit
+      catch(:quit) do
+        loop do
+          line = nil
+          begin
+            line = Reline.readline(prompt_text(builder), true)
+          rescue Interrupt
+            RelineDialogs.drain_main_mailbox
+            throw :quit if Context.quit?
+            next
+          end
+          throw :quit if line.nil?
+          throw :quit if Context.quit?
+          line = line.to_s
+          next if line.strip.empty?
+          begin
+            SlashDispatcher.handle(
+              line,
+              builder.slash_registry,
+              Ractor.current,
+              on_submit: builder.on_submit_handler,
+              state_refs: builder.state_refs
+            )
+          rescue Interrupt
+            RelineDialogs.drain_main_mailbox
+            throw :quit if Context.quit?
+          end
+        end
       end
 
-      registry_remote.dispatch_quit(ctx)
-
-      # Give EventThread 2 ticks (tick=0.05s) to drain any state_change events
-      # emitted during dispatch_quit before signaling thread shutdown.
-      sleep 0.1
-
-      ts.write([:cmd, :quit])
-      render_thread.join(2)
-      input_thread.join(2)
-      event_thread.join(2)
-      DRb.stop_service
+      builder.on_quit_handlers.each { |h| h.call(nil) rescue nil }
     ensure
-      History.save(@history_path, Reline::HISTORY.to_a) if @history_path
-      Layout.reset_scroll_region($stdout) if $stdout.tty?
-      Screen.leave_alt
+      teardown_curses
+      builder.state_refs.each_value { |ref| ref.stop rescue nil }
     end
 
-    def self.multiline_reader
-      lambda do |prompt|
-        Reline.readmultiline(prompt, true) do |whole|
-          last = whole.lines.last || whole
-          !last.chomp.end_with?("\\")
-        end
-      end
+    def self.init_curses
+      Curses.init_screen
+      Curses.cbreak
+      Curses.noecho
+      Curses.start_color
+      Curses.use_default_colors
+      Curses.stdscr.keypad(true)
     end
 
-    def self.install_winch_trap
-      return unless $stdout.tty?
-      Signal.trap("WINCH") do
-        # Stay signal-handler-safe: only do local IO (no DRb calls).
-        # RenderThread will repaint the header on its next tick when the
-        # refresh tuple is consumed.
-        begin
-          Layout.update_from_io($stdout)
-          Layout.set_scroll_region($stdout)
-          @ts_for_winch&.write([:cmd, :refresh])
-        rescue StandardError
-          # never let WINCH handler crash the process
-        end
-      end
-    rescue ArgumentError
-      # SIGWINCH not supported on this platform
+    def self.teardown_curses
+      # Redirect stdout to /dev/null before calling endwin so that ncurses
+      # terminal-restore writes don't block on an unread PTY (e.g. in tests).
+      $stdout.reopen("/dev/null", "w") rescue nil
+      STDOUT.reopen("/dev/null", "w") rescue nil
+      Curses.close_screen
+    rescue
+      nil
+    end
+
+    def self.prompt_text(_builder)
+      "> "
+    end
+
+    def self.install_completion(builder)
+      return unless builder.on_tab_handler
+      Reline.completion_proc = builder.on_tab_handler
     end
   end
 end

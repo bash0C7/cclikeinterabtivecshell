@@ -1,101 +1,134 @@
 # frozen_string_literal: true
 
 require "logger"
-require_relative "header"
+require_relative "slash_registry"
+require_relative "shareable_ref"
+require_relative "style"
 
 module Cclikesh
   class Builder
-    LOG_LEVELS = {
-      debug: Logger::DEBUG, info: Logger::INFO,
-      warn: Logger::WARN, error: Logger::ERROR, fatal: Logger::FATAL
-    }.freeze
-
-    attr_reader :on_submit_handler, :on_state_change_handler, :slash_handlers, :on_start_handlers, :on_quit_handlers, :before_submit_handlers, :after_submit_handlers, :on_tab_handler, :before_tab_handlers, :after_tab_handlers, :logger, :header_config
-    attr_reader :spinner_frames, :spinner_colors, :spinner_frame_interval, :spinner_label_proc, :idle_phrase_interval, :editor_mode
-    attr_accessor :tick_interval, :idle_phrases
-
-    SpinnerConfigurator = Struct.new(:frames, :colors, :frame_interval)
+    attr_reader :slash_registry, :state_refs,
+                :on_submit_handler, :on_tab_handler,
+                :on_start_handlers, :on_quit_handlers,
+                :info_blocks, :status_row_blocks,
+                :spinner_label_block, :prompt_suggestion_block,
+                :shortcuts_hint_text, :header_config,
+                :logger
 
     def initialize
-      @on_submit_handler = nil
-      @on_state_change_handler = nil
-      @slash_handlers = {}
-      @slash_descriptions = {}
-      @on_start_handlers = []
-      @on_quit_handlers = []
-      @before_submit_handlers = []
-      @after_submit_handlers = []
-      @on_tab_handler = nil
-      @before_tab_handlers = []
-      @after_tab_handlers = []
-      @styles = {}
-      @logger = Logger.new($stderr)
-      @logger.level = Logger::INFO
-      @logger.progname = "cclikesh"
-      @tick_interval = 0.06
-      @spinner_frames = %w[✻ ✶ ✷ ✸ ✹]
-      @spinner_colors = [:cyan, :magenta]
-      @spinner_frame_interval = 0.15
-      @spinner_label_proc = nil
-      @idle_phrases = load_default_idle_phrases
-      @idle_phrase_interval = 3.0
-      @info_segments = []
+      @slash_registry          = SlashRegistry.new
+      @state_refs              = {}
+      @on_submit_handler       = nil
+      @on_tab_handler          = nil
+      @on_start_handlers       = []
+      @on_quit_handlers        = []
+      @info_blocks             = []
       @info_registration_counter = 0
-      @header_config = nil
-      @status_row_registry = []
-      @status_row_registration_counter = 0
-      @editor_mode = :emacs
-
-      register_focus_slash
-      register_transcript_slash
+      @status_row_blocks       = []
+      @spinner_label_block     = nil
+      @prompt_suggestion_block = nil
+      @shortcuts_hint_text     = ""
+      @header_config           = {}
+      @logger                  = Logger.new($stderr).tap { |l| l.level = Logger::INFO; l.progname = "cclikesh" }
     end
 
-    def register_focus_slash
-      @slash_handlers[:focus] = lambda do |_args, ctx|
-        current = ctx.state[:focus_mode]
-        ctx.state[:focus_mode] = !current
-        ctx.display.append("focus mode: #{ctx.state[:focus_mode] ? "on" : "off"}", style: :dim)
-      end
-      @slash_descriptions[:focus] = "toggle compact (focus) display mode"
+    # --- ShareableRef ---
+
+    def shareable_ref(name, &block)
+      ref = ShareableRef.spawn(name, &block)
+      @state_refs[name.to_sym] = ref
+      ref
     end
 
-    def register_transcript_slash
-      @slash_handlers[:transcript] = lambda do |_args, ctx|
-        path = ctx.transcript_save
-        lines = ctx.transcript_lines
-        ctx.display.append("transcript saved: #{path}", style: :result)
-        ctx.display.append("(view: less #{path})", style: :dim)
-        lines.last(8).each { |l| ctx.display.append("  #{l}", style: :dim) }
-      end
-      @slash_descriptions[:transcript] = "save and preview the session transcript"
-    end
-
-    def editor_mode=(mode)
-      @editor_mode = mode.to_sym
-    end
+    # --- Header ---
 
     def header(&block)
-      @header_config ||= Header::Configurator.new
-      block.call(@header_config) if block
-      @header_config
+      h = HeaderConfig.new
+      block.call(h)
+      @header_config = h.to_h
     end
 
-    def status_row(name, order: nil, &block)
-      @status_row_registration_counter += 1
-      effective_order = order || (10_000 + @status_row_registration_counter)
-      @status_row_registry << [name.to_sym, effective_order, block]
+    def header_lines
+      h = @header_config
+      [
+        "#{h[:logo] || ''} #{h[:title] || ''} #{h[:version] || ''}".strip,
+        "  #{h[:subtitle]}",
+        "  #{h[:note]}"
+      ].reject { |l| l.strip.empty? }
     end
 
-    def status_rows
-      @status_row_registry.sort_by { |_, o, _| o }
+    # --- Style ---
+
+    def define_style(name, **kwargs)
+      Style.define(name, **kwargs)
     end
 
+    # --- Info bar ---
+
+    def info(name, order: nil, &block)
+      @info_registration_counter += 1
+      effective_order = order || (10_000 + @info_registration_counter)
+      @info_blocks << { name: name.to_sym, order: effective_order, block: block }
+    end
+
+    def evaluate_info_bar(ctx = nil)
+      @info_blocks.sort_by { |b| b[:order] }.map do |b|
+        text = (b[:block].call(ctx) rescue nil)
+        { key: b[:name], text: text }
+      end
+    end
+
+    # --- Status rows ---
+
+    def status_row(name, &block)
+      @status_row_blocks << { name: name.to_sym, block: block }
+    end
+
+    def evaluate_status_rows(ctx = nil)
+      @status_row_blocks.map do |b|
+        row = StatusRow.new(b[:name])
+        (b[:block].call(row, ctx) rescue nil)
+        { key: b[:name], segments: row.segments }
+      end
+    end
+
+    # --- Spinner label ---
+
+    def spinner_label(&block)
+      @spinner_label_block = block
+    end
+
+    def evaluate_spinner_label(ctx = nil)
+      return nil unless @spinner_label_block
+      (@spinner_label_block.call(ctx) rescue nil)
+    end
+
+    # --- Prompt suggestion ---
+
+    def prompt_suggestion(&block)
+      @prompt_suggestion_block = block
+    end
+
+    def evaluate_prompt_suggestion(ctx = nil)
+      return nil unless @prompt_suggestion_block
+      (@prompt_suggestion_block.call(ctx) rescue nil)
+    end
+
+    # --- Shortcuts hint ---
+
+    def shortcuts_hint(text = nil)
+      @shortcuts_hint_text = text.to_s if text
+    end
+
+    # --- Submit / Tab / Start / Quit handlers ---
+
+    # on_submit block signature: |args, ctx| where args = [submitted_line].freeze
     def on_submit(&block)
-      @on_submit_handler = block
+      @on_submit_handler = Ractor.shareable_proc(&block)
     end
 
-    def on_state_change(&block)
-      @on_state_change_handler = block
+    def on_tab(&block)
+      @on_tab_handler = block
     end
 
     def on_start(&block)
@@ -106,135 +139,64 @@ module Cclikesh
       @on_quit_handlers << block
     end
 
-    def before_submit(&block)
-      @before_submit_handlers << block
-    end
-
-    def after_submit(&block)
-      @after_submit_handlers << block
-    end
-
-    def on_tab(&block)
-      @on_tab_handler = block
-    end
-
-    def before_tab(&block)
-      @before_tab_handlers << block
-    end
-
-    def after_tab(&block)
-      @after_tab_handlers << block
-    end
+    # --- Slash commands ---
 
     def slash(name, description: nil, &block)
-      sym = name.to_sym
-      @slash_handlers[sym] = block
-      @slash_descriptions[sym] = description if description
+      @slash_registry.register(name.to_sym, block, description: description)
     end
 
-    def slash_handler(name)
-      @slash_handlers[name.to_sym]
-    end
-
-    def slash_description(name)
-      @slash_descriptions[name.to_sym]
-    end
-
-    def slash_descriptions
-      @slash_descriptions
-    end
-
-    def define_style(name, **opts)
-      @styles[name.to_sym] = opts
-    end
-
-    def style_definition(name)
-      @styles[name.to_sym]
-    end
-
-    def logger=(other)
-      @logger = other
-    end
-
-    def log_level=(sym)
-      level = LOG_LEVELS[sym.to_sym]
-      raise ArgumentError, "unknown log level: #{sym.inspect}" unless level
-      @logger.level = level
-    end
-
-    def log_to(target)
-      prev_level = @logger.level
-      @logger = case target
-                when IO, StringIO then Logger.new(target)
-                when String       then Logger.new(target)
-                else raise ArgumentError, "log_to expects IO or path String, got #{target.class}"
-                end
-      @logger.level    = prev_level
-      @logger.progname = "cclikesh"
-    end
-
-    def spinner
-      cfg = SpinnerConfigurator.new(@spinner_frames, @spinner_colors, @spinner_frame_interval)
-      yield cfg
-      @spinner_frames = cfg.frames
-      @spinner_colors = cfg.colors
-      @spinner_frame_interval = cfg.frame_interval
-    end
-
-    def spinner_label(&block)
-      @spinner_label_proc = block
-    end
-
-    def idle_phrase_interval=(v)
-      @idle_phrase_interval = v
-    end
-
-    def info(name, order: nil, &block)
-      @info_registration_counter += 1
-      effective_order = order || (10_000 + @info_registration_counter)
-      @info_segments << [name.to_sym, effective_order, block]
-    end
-
-    def prompt_suggestion(&block)
-      @prompt_suggestion_block = block
-    end
-
-    attr_reader :prompt_suggestion_block
-
-    def shortcuts_hint(text = nil, &block)
-      if block
-        @shortcuts_hint_block = block
-      elsif text
-        @shortcuts_hint_block = ->(_ctx) { text }
-      end
-    end
-
-    attr_reader :shortcuts_hint_block
-
+    # btw DSL: registers /btw slash that calls user block with (question, ctx)
     def btw(&block)
-      @btw_block = block
-      @slash_handlers[:btw] = lambda do |args, ctx|
+      @slash_registry.register(:btw, proc { |args, ctx|
         question = Array(args).join(" ")
         begin
-          answer = @btw_block.call(question, ctx)
+          answer = block.call(question, ctx)
         rescue StandardError => e
           ctx.logger.error("/btw error: #{e.full_message}") if ctx.respond_to?(:logger)
-          return
+          next
         end
         ctx.display.append(answer.to_s) if answer && !answer.to_s.empty?
+      }, description: "ask a side question (ephemeral)")
+    end
+
+    # -----------------------------------------------------------------------
+    # Inner structs
+    # -----------------------------------------------------------------------
+
+    HeaderConfig = Struct.new(:logo_v, :title_v, :version_v, :subtitle_v, :note_v) do
+      def initialize
+        super(nil, nil, nil, nil, nil)
       end
-      @slash_descriptions[:btw] = "ask a side question (ephemeral)"
+
+      def logo(v = nil);     v.nil? ? @logo_v     : (self.logo_v     = v); end
+      def title(v = nil);    v.nil? ? @title_v    : (self.title_v    = v); end
+      def version(v = nil);  v.nil? ? @version_v  : (self.version_v  = v); end
+      def subtitle(v = nil); v.nil? ? @subtitle_v : (self.subtitle_v = v); end
+      def note(v = nil);     v.nil? ? @note_v     : (self.note_v     = v); end
+
+      def to_h
+        {
+          logo:     logo_v,
+          title:    title_v,
+          version:  version_v,
+          subtitle: subtitle_v,
+          note:     note_v
+        }.compact
+      end
     end
 
-    def info_segments
-      @info_segments.sort_by { |_, order, _| order }
-    end
+    class StatusRow
+      attr_reader :name, :segments
 
-    private
+      def initialize(name)
+        @name     = name
+        @segments = []
+      end
 
-    def load_default_idle_phrases
-      path = File.expand_path("idle_phrases.txt", __dir__)
-      File.readlines(path, chomp: true).reject(&:empty?)
+      def icon(s);                          @segments << { kind: :icon, text: s }; end
+      def text(s);                          @segments << { kind: :text, text: s }; end
+      def link(text:, state: nil);          @segments << { kind: :link, text: text, state: state }; end
+      def bar(percent:, width: 12);         @segments << { kind: :bar, percent: percent, width: width }; end
     end
   end
 end

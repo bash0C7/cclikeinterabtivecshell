@@ -1,10 +1,18 @@
 # frozen_string_literal: true
 
 require "reline"
+require "timeout"
+require_relative "chrome"
+require_relative "display"
+require_relative "context"
 
 module Cclikesh
   module RelineDialogs
     SLASH_NAME_PAD = 16
+
+    class << self
+      attr_accessor :stub_apply_command_for_test
+    end
 
     def self.format_slash_line(item)
       name = item[:name].to_s
@@ -85,9 +93,75 @@ module Cclikesh
       }
     end
 
-    def self.install(registry, ctx)
+    def self.install(builder)
+      registry = builder.slash_registry
+      Reline.add_dialog_proc(:periodic_tick, periodic_tick_proc(builder), Reline::DEFAULT_DIALOG_CONTEXT)
       Reline.add_dialog_proc(:autocomplete, slash_menu_dialog_proc(registry), Reline::DEFAULT_DIALOG_CONTEXT)
-      Reline.add_dialog_proc(:ghost_text, ghost_text_dialog_proc(registry, ctx), Reline::DEFAULT_DIALOG_CONTEXT)
+      Reline.add_dialog_proc(:ghost_text, ghost_text_dialog_proc(registry, nil), Reline::DEFAULT_DIALOG_CONTEXT)
+    end
+
+    def self.periodic_tick_proc(builder)
+      proc do
+        Cclikesh::RelineDialogs.drain_main_mailbox
+        Cclikesh::Chrome.update_footer(
+          info_bar:       builder.evaluate_info_bar,
+          status_rows:    builder.evaluate_status_rows,
+          shortcuts_hint: builder.shortcuts_hint_text
+        )
+        Cclikesh::Chrome.tick_spinner(Cclikesh::Context.state[:phase]) rescue nil
+        Curses.doupdate rescue nil
+        nil
+      end
+    end
+
+    def self.drain_main_mailbox
+      handler = stub_apply_command_for_test || method(:apply_command)
+      100.times do
+        msg = peek_mailbox
+        break unless msg
+        handler.call(msg)
+      end
+    end
+
+    def self.peek_mailbox
+      # Try non-blocking Ractor.receive_if with timeout: 0
+      # (Ruby 4.0 does not have receive_if, so rescue NoMethodError/ArgumentError)
+      Ractor.receive_if(timeout: 0) { true }
+    rescue NoMethodError, ArgumentError
+      # Fallback: Timeout-based non-blocking receive
+      begin
+        Timeout.timeout(0.001) { Ractor.receive }
+      rescue Timeout::Error
+        nil
+      end
+    end
+
+    def self.apply_command(msg)
+      case msg
+      in [:append, text, opts]
+        Cclikesh::Display.append(text, **opts)
+      in [:open_live_request, reply_to, opts]
+        sid = Cclikesh::Display.open_live(**opts)
+        reply_to.send([:open_live_reply, sid])
+      in [:live_update, sid, text]
+        Cclikesh::Display.live_update(sid, text)
+      in [:live_commit, sid, final]
+        Cclikesh::Display.live_commit(sid, final)
+      in [:live_discard, sid]
+        Cclikesh::Display.live_discard(sid)
+      in [:dialog, content, opts]
+        Cclikesh::Display.dialog(content, **opts)
+      in [:state_set, key, value]
+        Cclikesh::Context.state_set(key, value)
+      in [:state_get_request, reply_to, key]
+        reply_to.send([:state_get_reply, Cclikesh::Context.state[key]])
+      in [:logger, level, text]
+        Cclikesh::Context.logger.send(level, text) rescue nil
+      in [:quit]
+        Cclikesh::Context.quit
+      else
+        # Unknown message — ignore
+      end
     end
   end
 end

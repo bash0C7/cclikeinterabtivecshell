@@ -1,73 +1,50 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
+require "curses"
 require "cclikesh/style"
 
 class TestStyle < Test::Unit::TestCase
-  def test_wrap_default_returns_text_unchanged
-    assert_equal "hi", Cclikesh::Style.wrap("hi", :default)
+  def setup
+    Curses.init_screen
+    Curses.start_color
+    Curses.use_default_colors
+    Cclikesh::Style.init!
   end
 
-  def test_wrap_nil_style_returns_text_unchanged
-    assert_equal "hi", Cclikesh::Style.wrap("hi", nil)
+  def teardown
+    Curses.close_screen
+  rescue
+    nil
   end
 
-  def test_wrap_result_uses_green
-    assert_equal "\e[32mhi\e[0m", Cclikesh::Style.wrap("hi", :result)
+  def test_builtin_result_returns_color_pair_and_attr
+    pair, attr = Cclikesh::Style.lookup(:result)
+    refute_nil pair
+    assert_equal 0, attr
   end
 
-  def test_wrap_error_uses_red
-    assert_equal "\e[31mboom\e[0m", Cclikesh::Style.wrap("boom", :error)
+  def test_builtin_dim_returns_a_dim_attr
+    pair, attr = Cclikesh::Style.lookup(:dim)
+    assert (attr & Curses::A_DIM) != 0
   end
 
-  def test_wrap_prompt_uses_cyan
-    assert_equal "\e[36m> \e[0m", Cclikesh::Style.wrap("> ", :prompt)
+  def test_define_custom_style
+    Cclikesh::Style.define(:warn, fg: Curses::COLOR_YELLOW, bold: true)
+    pair, attr = Cclikesh::Style.lookup(:warn)
+    refute_nil pair
+    assert (attr & Curses::A_BOLD) != 0
   end
 
-  def test_wrap_thinking_uses_magenta
-    assert_equal "\e[35m...\e[0m", Cclikesh::Style.wrap("...", :thinking)
+  def test_unknown_style_returns_nil
+    assert_equal [nil, 0], Cclikesh::Style.lookup(:nope)
   end
 
-  def test_wrap_dim_uses_dim
-    assert_equal "\e[2mdim\e[0m", Cclikesh::Style.wrap("dim", :dim)
-  end
-
-  def test_wrap_custom_with_fg_only
-    custom = { fg: :yellow }
-    assert_equal "\e[33mhi\e[0m", Cclikesh::Style.wrap("hi", :my, custom: custom)
-  end
-
-  def test_wrap_custom_with_fg_and_bold
-    custom = { fg: :cyan, bold: true }
-    assert_equal "\e[1;36mhi\e[0m", Cclikesh::Style.wrap("hi", :my, custom: custom)
-  end
-
-  def test_wrap_unknown_style_with_no_custom_returns_text
-    assert_equal "hi", Cclikesh::Style.wrap("hi", :unknown_xyz)
-  end
-
-  def test_wrap_custom_with_bg_symbol
-    custom = { bg: :blue }
-    assert_equal "\e[44mhi\e[0m", Cclikesh::Style.wrap("hi", :my, custom: custom)
-  end
-
-  def test_wrap_custom_with_256color_fg
-    custom = { fg: 200 }
-    assert_equal "\e[38;5;200mhi\e[0m", Cclikesh::Style.wrap("hi", :my, custom: custom)
-  end
-
-  def test_wrap_custom_with_256color_bg
-    custom = { bg: 245 }
-    assert_equal "\e[48;5;245mhi\e[0m", Cclikesh::Style.wrap("hi", :my, custom: custom)
-  end
-
-  def test_wrap_slash_tag_combines_bold_fg_bg
-    out = Cclikesh::Style.wrap("/reset", :slash_tag)
-    assert_match(/\e\[/, out)
-    assert_match(/1/, out)            # bold
-    assert_match(/38;5;15/, out)      # fg 256-color 15
-    assert_match(/48;5;245/, out)     # bg 256-color 245
-    assert out.start_with?("\e[")
-    assert out.end_with?("\e[0m")
+  def test_with_yields_then_attroff
+    win = Curses::Window.new(1, 10, 0, 0)
+    captured = nil
+    Cclikesh::Style.with(win, :result) { captured = :inside }
+    assert_equal :inside, captured
+    win.close
   end
 end

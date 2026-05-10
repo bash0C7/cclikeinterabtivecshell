@@ -1,90 +1,46 @@
 # frozen_string_literal: true
 
-require "stringio"
 require_relative "test_helper"
-require "cclikesh/tuple_space"
+require "logger"
+require "stringio"
 require "cclikesh/context"
-require "cclikesh/builder"
-require "cclikesh/handler_registry"
 
 class TestContext < Test::Unit::TestCase
-  def test_display_returns_a_display
-    ts = Cclikesh::TupleSpace.new
-    c = Cclikesh::Context.new(ts)
-    assert_kind_of Cclikesh::Display, c.display
+  def setup
+    @log_io = StringIO.new
+    Cclikesh::Context.reset!
+    Cclikesh::Context.init(logger: Logger.new(@log_io))
   end
 
-  def test_state_returns_a_state
-    ts = Cclikesh::TupleSpace.new
-    c = Cclikesh::Context.new(ts)
-    assert_kind_of Cclikesh::State, c.state
+  def test_state_set_and_get
+    Cclikesh::Context.state_set(:phase, :working)
+    assert_equal :working, Cclikesh::Context.state[:phase]
   end
 
-  def test_quit_writes_only_nil_key_not_cmd_quit
-    ts = Cclikesh::TupleSpace.new
-    ctx = Cclikesh::Context.new(ts)
-    ctx.quit
-
-    # nil key signals dispatcher
-    key_tuple = ts.take([:key, nil], 1)
-    assert_equal [:key, nil], key_tuple
-
-    # NO cmd/quit tuple should be present
-    assert_raise(Rinda::RequestExpiredError) do
-      ts.take([:cmd, :quit], 0)
-    end
+  def test_state_returns_dup_to_prevent_external_mutation
+    Cclikesh::Context.state_set(:phase, :idle)
+    snapshot = Cclikesh::Context.state
+    snapshot[:phase] = :hijacked
+    assert_equal :idle, Cclikesh::Context.state[:phase]
   end
 
-  def test_display_and_state_are_memoized
-    ts = Cclikesh::TupleSpace.new
-    c = Cclikesh::Context.new(ts)
-    assert_same c.display, c.display
-    assert_same c.state, c.state
+  def test_logger_writes_via_module
+    Cclikesh::Context.logger.info("hello")
+    assert_match(/hello/, @log_io.string)
   end
 
-  def test_context_logger_returns_registry_logger
-    ts = Cclikesh::TupleSpace.new
-    io = StringIO.new
-    builder = Cclikesh::Builder.new
-    builder.log_to(io)
-    registry = Cclikesh::HandlerRegistry.new(builder)
-    ctx = Cclikesh::Context.new(ts, registry: registry)
-    ctx.logger.info("through-ctx")
-    assert_match(/through-ctx/, io.string)
+  def test_quit_sets_quit_flag
+    refute Cclikesh::Context.quit?
+    Cclikesh::Context.quit
+    assert Cclikesh::Context.quit?
   end
 
-  def test_context_logger_raises_when_no_registry
-    ts = Cclikesh::TupleSpace.new
-    ctx = Cclikesh::Context.new(ts)
-    assert_raise(RuntimeError) { ctx.logger }
-  end
-
-  def test_refresh_writes_refresh_command_tuple
-    ts = Cclikesh::TupleSpace.new
-    ctx = Cclikesh::Context.new(ts)
-    ctx.refresh
-    tuple = ts.take([:cmd, :refresh], 1)
-    assert_equal [:cmd, :refresh], tuple
-  end
-
-  def test_context_dialog_returns_dialog_instance
-    ts = Cclikesh::TupleSpace.new
-    ctx = Cclikesh::Context.new(ts)
-    assert_kind_of Cclikesh::Dialog, ctx.dialog
-  end
-
-  def test_context_dialog_writes_through_display
-    ts = Cclikesh::TupleSpace.new
-    ctx = Cclikesh::Context.new(ts)
-    ctx.dialog.show("hi")
-
-    found = []
-    begin
-      loop { found << ts.take([:render, :display_append, nil, nil], 0) }
-    rescue Rinda::RequestExpiredError
-      # done
-    end
-    matched = found.any? { |t| t[2].include?("hi") }
-    assert(matched, "dialog content not pushed to display: #{found.inspect}")
+  def test_transcript_lines_proxies_to_transcript_module
+    require "cclikesh/transcript"
+    Cclikesh::Transcript.clear!
+    Cclikesh::Transcript.record("hello")
+    assert_equal ["hello"], Cclikesh::Context.transcript_lines
+  ensure
+    Cclikesh::Transcript.clear!
   end
 end
