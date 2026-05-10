@@ -29,9 +29,10 @@ class TestDebugE2EFullSession < Test::Unit::TestCase
     #   CCLIKESH_DEBUG_DIR=$dir bundle exec cclikesh-debug stop $SHORT
     #   wait
     #   CCLIKESH_DEBUG_DIR=$dir bundle exec cclikesh-debug frames $SHORT
-    omit "E2E requires a real TTY for Curses; headless test environment crashes the shell child before the control socket is created. Wire up with a headless PTY harness in finalization."
-
-    dir = Dir.mktmpdir("cclikesh-debug-e2e-")
+    # macOS UNIX-socket path limit is 104 bytes; the default Dir.tmpdir under
+    # /var/folders/... already eats ~70 bytes. Use /tmp directly to leave headroom
+    # for {short}.drb-sock.drb and {short}.embedder.sock filenames.
+    dir = Dir.mktmpdir("cl-e2e-", "/tmp")
     ENV["CCLIKESH_DEBUG_DIR"] = dir
 
     # Spawn `start` in background, read stdout to get session_uuid
@@ -40,7 +41,8 @@ class TestDebugE2EFullSession < Test::Unit::TestCase
                  "--no-vector"]
     start_stdout_r, start_stdout_w = IO.pipe
     start_env = { "CCLIKESH_DEBUG_DIR" => dir }
-    start_pid = spawn(start_env, *start_cmd, out: start_stdout_w, err: "/dev/null", chdir: ROOT)
+    start_stderr_path = File.join(dir, "start.err.log")
+    start_pid = spawn(start_env, *start_cmd, out: start_stdout_w, err: start_stderr_path, chdir: ROOT)
     start_stdout_w.close
 
     uuid = nil
@@ -71,7 +73,10 @@ class TestDebugE2EFullSession < Test::Unit::TestCase
 
     # Send input (use short form so resolve_socket glob matches `<short>.sock`)
     out, err, st = Open3.capture3(dbg_env, "bundle", "exec", "cclikesh-debug", "input", short, "hello\\r", chdir: ROOT)
-    assert st.success?, "input failed: stdout=#{out.inspect} stderr=#{err.inspect}"
+    start_err = File.read(start_stderr_path) rescue ""
+    shell_err_files = Dir.glob(File.join(dir, "*.shell.err"))
+    shell_err = shell_err_files.map { |f| "=== #{f} ===\n#{File.read(f)}" }.join("\n") rescue ""
+    assert st.success?, "input failed: stdout=#{out.inspect} stderr=#{err.inspect}\nstart-stderr:\n#{start_err}\nshell-stderr:\n#{shell_err}"
     sleep 0.5
 
     # Force a capture

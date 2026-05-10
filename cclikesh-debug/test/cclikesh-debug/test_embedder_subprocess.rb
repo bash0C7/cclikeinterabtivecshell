@@ -8,8 +8,9 @@ class TestEmbedderSubprocess < Test::Unit::TestCase
   ROOT = File.expand_path("../../..", __dir__)
 
   def test_subprocess_embed_returns_768_dim_array
-    dir = Dir.mktmpdir("cclikesh-embedder-")
-    sock = File.join(dir, "embedder.sock")
+    # macOS UNIX-socket path limit is 104 bytes; default tmpdir is too long.
+    dir = Dir.mktmpdir("cl-emb-", "/tmp")
+    sock = File.join(dir, "e.sock")
 
     pid = spawn(
       { "BUNDLE_GEMFILE" => File.expand_path("Gemfile", File.dirname(File.dirname(ROOT))) },

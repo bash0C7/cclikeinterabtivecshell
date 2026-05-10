@@ -43,6 +43,12 @@ module Cclikesh
           # initialise correctly even from headless test runners (priority-2 fix).
           master, slave = PTY.open
           slave.winsize = [rows, cols]
+          # Use `bundle exec ruby` so the child sees the same Bundler environment
+          # as the parent (development mode); when the gem is installed normally,
+          # rubygems' load path will be sufficient and bundler is a harmless wrapper.
+          # stderr also tees to a log file so a failing child can be diagnosed
+          # post-mortem (the slave PTY otherwise eats it through the recorder).
+          shell_err_log = File.join(out_dir, "#{short}.shell.err")
           child_pid = spawn(
             {
               "CCLIKESH_DEBUG_SOCK" => drb_sock_base,
@@ -50,7 +56,9 @@ module Cclikesh
               "LINES"               => rows.to_s,
               "COLUMNS"             => cols.to_s
             },
-            "ruby", target,
+            "bash", "-c",
+            "exec bundle exec ruby \"$0\" 2> >(tee -a \"$1\" >&2)",
+            target, shell_err_log,
             in: slave, out: slave, err: slave
           )
           slave.close
@@ -119,15 +127,24 @@ module Cclikesh
 
             # Periodic capture. We measure from last_periodic so a string of
             # quick socket commands cannot delay the next periodic forever.
+            # snap=nil is normal during shell warm-up (DRb not yet ready);
+            # we only stop on explicit "stop" command or child shell exit.
             if !stopped && (Time.now - last_periodic) >= period_secs
               snap = (shell_adapter.debug_snapshot rescue nil)
               if snap
                 recorder.trigger_capture!(trigger: "periodic", event_kind: nil, snapshot: snap)
-              else
-                # No snapshot means the shell has gone away; exit cleanly.
-                stopped = true
               end
               last_periodic = Time.now
+            end
+
+            # Detect child shell exit so we don't loop forever after the user
+            # quits the shell (e.g. /q in echo_shell). non-blocking wait.
+            if !stopped && Process.waitpid(child_pid, Process::WNOHANG)
+              stopped = true
+              recorder.stop!
+              storage.mark_ended!
+              storage.close
+              server.shutdown
             end
           end
 
