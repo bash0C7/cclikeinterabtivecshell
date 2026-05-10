@@ -152,64 +152,36 @@ end
 
 test-only の `synthetic_frame!` は main Ractor 内で `FrameBuilder` port に直接 `[:capture_with_snapshot, ...]` 送出 → StorageWriter port に流す形に書換。`drain_one_cycle!` の同期動作は port の round-trip で実現 (StorageWriter から ack port を一段挟む)。
 
-## Section 3: Embedder 戦略 (probe-driven)
+## Section 3: Embedder 戦略 (probe 結果: Case B 確定)
 
-### Probe (Plan Task 0)
+### Probe 結果 (2026-05-10 実施)
 
-```ruby
-# tmp/probes/probe_informers_ractor.rb (committable; プロジェクト方針確認用)
-require 'informers'
+`tmp/probes/probe_informers_ractor.rb` で確認:
 
-r = Ractor.new do
-  model = Informers.pipeline('feature-extraction', 'mochiya98/ruri-v3-310m-onnx')
-  vec = model.('テスト', model_output: 'sentence_embedding', normalize: true).flatten
-  [vec.size, vec.first.class]
-end
-p r.value  # 期待: [768, Float]、Ractor::UnsafeError or SEGV を観察
+```
+Informers.pipeline('feature-extraction', 'mochiya98/ruri-v3-310m-onnx') を Ractor 内呼出
+→ Ractor::IsolationError: can not access non-shareable objects in constant
+   Informers::NO_DEFAULT by non-main ractor.
+   (informers-1.3.0/lib/informers/pipelines.rb:1358)
 ```
 
-判定:
-- ✅ Pass → **Case A** (Embedder Ractor)
-- ❌ Fail → **Case B** (subprocess + DRb)
+`Informers::NO_DEFAULT` が non-shareable な内部 sentinel 定数として定義されてて Ractor 越境不可。informers gem 側 (Andrew Kane) が `Ractor.make_shareable(NO_DEFAULT)` を入れるまで治らへん。
 
-### Case A: Embedder Ractor
+`tmp/probes/probe_extralite_ractor.rb` で確認:
 
-```ruby
-# cclikesh-debug/lib/cclikesh/debug/ractors/embedder.rb
-module Cclikesh::Debug::Ractors::Embedder
-  def self.spawn(db_path:)
-    Ractor.new(db_path) do |path|
-      require 'extralite'
-      require 'informers'
-      require 'sqlite_vec'
-
-      db = Extralite::Database.new(path)
-      db.load_extension(SqliteVec.loadable_path)
-      model = Informers.pipeline('feature-extraction', 'mochiya98/ruri-v3-310m-onnx')
-
-      loop do
-        msg = Ractor.receive
-        case msg
-        in [:embed, frame_id, content]
-          vec = model.(content, model_output: 'sentence_embedding', normalize: true).flatten
-          db.execute("INSERT OR REPLACE INTO frame_vec(frame_id, embedding) VALUES (?, ?)",
-                     frame_id, vec.pack("f*"))
-        in [:stop]
-          break
-        end
-      end
-    ensure
-      db&.close
-    end
-  end
-end
+```
+extralite (Ractor 内 open) + sqlite_vec (load_extension) + vec0 INSERT/SELECT
+→ {c: 1}  # Ractor 結果
+   PASS — extralite + sqlite-vec works inside Ractor
 ```
 
-Recorder の `embed_pending!` は Embedder Ractor を spawn → 未 embed の frame を順次 send → `:stop`。
+→ **Case B (subprocess + DRb) を採用、Case A は不採用**。
 
-### Case B: subprocess + DRb (Thread フォールバック禁止対応)
+### 採用路線: Case B (subprocess + DRb)
 
-別プロセスで informers を隔離。DRb は **well-known な標準ライブラリ** やから自作コード最小化の方針に合致。
+informers を別プロセスで隔離。DRb は **well-known な標準ライブラリ** で自作コード最小化方針に合致。Thread はゼロ。
+
+### 採用路線の構造図
 
 ```
 ┌──────────────────────────────┐         ┌────────────────────────┐
@@ -270,13 +242,14 @@ end
 
 `EmbedStorageWriter` は extralite に書込専用の薄い Ractor (vec の bytes を受領して `frame_vec` に INSERT)。DRb は main Ractor で握る。**Thread はゼロ**。
 
-### 不変条件 (両 case 共通)
+### 不変条件
 
-- `embed_pending!` の外部 API は不変 (caller は case を意識せえへん)
-- live pipeline には embedder を含めへん (3 段純粋を維持)
-- DB 書込は Ractor 内に閉じる
-- DRb 操作は main Ractor のみ
+- `embed_pending!` の外部 API は不変 (現行と互換、caller は内部実装を意識せえへん)
+- live pipeline には embedder を含めへん (3 段純粋を維持、post-process bulk only)
+- DB 書込は `EmbedStorageWriter` Ractor (extralite) で完結
+- DRb 操作 (`DRbObject.new_with_uri`、`proxy.embed(...)`) は main Ractor のみ
 - subprocess 起動は ONNX SEGV からの隔離も兼ねる
+- subprocess の lifecycle: `Process.spawn` の pid を握って、`embed_pending!` の ensure で `Process.kill('TERM')` + `Process.wait` + sock cleanup
 
 ## Section 4: 本体 cclikesh の Thread 禁止徹底
 
@@ -394,9 +367,9 @@ end
 
 | Risk | Mitigation |
 |------|------------|
-| extralite で sqlite-vec がうまく load できない | `db.load_extension(SqliteVec.loadable_path)` を probe で先に確認、ダメならパス補正 |
+| extralite で sqlite-vec がうまく load できない | **probe 完了 (PASS)**: `db.load_extension(SqliteVec.loadable_path)` で OK、Ractor 内 vec0 動作確認済 |
 | extralite の API が想定外 (positional vs array args 等) | spec の対応表を migration で都度確認、test を先に書く |
-| informers Ractor 内で SEGV | Probe で確認 → Case B (subprocess + DRb) に switch |
+| informers Ractor 内で SEGV / IsolationError | **probe 完了 (FAIL)**: `Informers::NO_DEFAULT` 定数 non-shareable で `Ractor::IsolationError`、Case B (subprocess + DRb) を採用 |
 | DRb subprocess の lifecycle (orphan 化) | `Process.spawn` の親プロセス監視 + `at_exit` で kill、sock cleanup |
 | PTY allocate で TTY 取れず E2E test が動かん | rake task 分離して手動実行扱い |
 | chiebukuro-mcp 側の sqlite3 が VEC table 読めない | DB ファイル形式は SQLite 標準、sqlite-vec の vec0 virtual table は SqliteVec.load 後ならどの driver でも見える |

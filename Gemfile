@@ -17,4 +17,5 @@ gem "unicode-display_width", "~> 3.0"
 
 group :development do
   gem "cclikesh-debug", path: "cclikesh-debug"
+  gem "extralite", "~> 2.12"  # probe + migration target for sqlite3-ruby (Ractor-safe)
 end
