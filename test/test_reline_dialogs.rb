@@ -2,6 +2,8 @@
 
 require_relative "test_helper"
 require "cclikesh/reline_dialogs"
+require "logger"
+require "stringio"
 
 class TestRelineDialogs < Test::Unit::TestCase
   def test_format_slash_line_without_description_is_just_name
@@ -59,5 +61,36 @@ class TestRelineDialogs < Test::Unit::TestCase
   def test_format_ghost_hint_returns_nil_for_empty
     assert_nil Cclikesh::RelineDialogs.format_ghost_hint("")
     assert_nil Cclikesh::RelineDialogs.format_ghost_hint(nil)
+  end
+
+  def test_drain_main_mailbox_dispatches_via_apply_command
+    require "cclikesh/reline_dialogs"
+    main = Ractor.current
+    main.send([:append, "drained", { style: :result }])
+    applied = []
+    Cclikesh::RelineDialogs.stub_apply_command_for_test = ->(msg) { applied << msg }
+    Cclikesh::RelineDialogs.drain_main_mailbox
+    assert_equal 1, applied.size
+    assert_equal :append, applied.first[0]
+  ensure
+    Cclikesh::RelineDialogs.stub_apply_command_for_test = nil
+  end
+
+  def test_apply_command_state_set_updates_context
+    require "cclikesh/context"
+    require "cclikesh/reline_dialogs"
+    Cclikesh::Context.reset!
+    Cclikesh::Context.init(logger: Logger.new(StringIO.new))
+    Cclikesh::RelineDialogs.apply_command([:state_set, :phase, :working])
+    assert_equal :working, Cclikesh::Context.state[:phase]
+  end
+
+  def test_apply_command_quit_sets_quit_flag
+    require "cclikesh/context"
+    require "cclikesh/reline_dialogs"
+    Cclikesh::Context.reset!
+    Cclikesh::Context.init(logger: Logger.new(StringIO.new))
+    Cclikesh::RelineDialogs.apply_command([:quit])
+    assert Cclikesh::Context.quit?
   end
 end
