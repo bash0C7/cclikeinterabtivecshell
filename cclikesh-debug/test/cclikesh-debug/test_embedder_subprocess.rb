@@ -13,11 +13,11 @@ class TestEmbedderSubprocess < Test::Unit::TestCase
     sock = File.join(dir, "e.sock")
 
     pid = spawn(
-      { "BUNDLE_GEMFILE" => File.expand_path("Gemfile", File.dirname(File.dirname(ROOT))) },
+      { "BUNDLE_GEMFILE" => File.join(ROOT, "Gemfile") },
       "bundle", "exec", "ruby",
-      File.join(ROOT, "exe/cclikesh-debug-embedder"),
+      File.join(ROOT, "cclikesh-debug/exe/cclikesh-debug-embedder"),
       sock,
-      chdir: File.dirname(File.dirname(ROOT)),
+      chdir: ROOT,
       out: File.join(dir, "out.log"), err: [:child, :out]
     )
 
