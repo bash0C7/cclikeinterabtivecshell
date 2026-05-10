@@ -15,6 +15,7 @@ module Cclikesh
         Cclikesh::DebugEndpoint.start_if_enabled(builder)
       end
 
+      install_completion(builder)
       RelineDialogs.install(builder)
       Chrome.update_header(builder.header_lines)
       Chrome.update_footer(
@@ -82,6 +83,11 @@ module Cclikesh
 
     def self.prompt_text(_builder)
       "> "
+    end
+
+    def self.install_completion(builder)
+      return unless builder.on_tab_handler
+      Reline.completion_proc = builder.on_tab_handler
     end
   end
 end
