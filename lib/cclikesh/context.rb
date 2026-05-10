@@ -1,57 +1,62 @@
 # frozen_string_literal: true
 
-require "drb/drb"
 require "tmpdir"
-require_relative "display"
-require_relative "state"
-require_relative "dialog"
 require_relative "transcript"
 
 module Cclikesh
-  class Context
-    include DRb::DRbUndumped
+  module Context
+    @mutex = Mutex.new
+    @state = {}
+    @logger = nil
+    @quit = false
 
-    def initialize(tuple_space, registry: nil)
-      @ts = tuple_space
-      @registry = registry
+    def self.init(logger:)
+      @mutex.synchronize do
+        @logger = logger
+        @state = {}
+        @quit = false
+      end
     end
 
-    def display
-      @display ||= Display.new(@ts)
+    def self.reset!
+      @mutex.synchronize do
+        @state = {}
+        @logger = nil
+        @quit = false
+      end
     end
 
-    def state
-      @state ||= State.new(@ts)
+    def self.state
+      @mutex.synchronize { @state.dup }
     end
 
-    def dialog
-      @dialog ||= Dialog.new(display)
+    def self.state_set(key, value)
+      @mutex.synchronize { @state[key.to_sym] = value }
     end
 
-    def logger
-      raise "Context has no registry; cannot provide logger" unless @registry
-      @registry.logger
+    def self.state_clear(key)
+      @mutex.synchronize { @state.delete(key.to_sym) }
     end
 
-    def quit
-      @ts.write([:key, nil])
+    def self.logger
+      @logger or raise "Cclikesh::Context not initialized"
     end
 
-    def refresh
-      @ts.write([:cmd, :refresh])
+    def self.quit
+      @mutex.synchronize { @quit = true }
     end
 
-    def transcript_lines
+    def self.quit?
+      @mutex.synchronize { @quit }
+    end
+
+    def self.transcript_lines
       Transcript.lines
     end
 
-    def transcript_save(path = nil)
-      target = path || default_transcript_path
+    def self.transcript_save(path = nil)
+      target = path || File.join(Dir.tmpdir, "cclikesh-transcript-#{Process.pid}.log")
       Transcript.save(target)
-    end
-
-    def default_transcript_path
-      File.join(Dir.tmpdir, "cclikesh-transcript-#{Process.pid}.log")
     end
   end
 end
