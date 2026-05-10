@@ -1,53 +1,66 @@
 # frozen_string_literal: true
 
+require "curses"
+
 module Cclikesh
   module Style
-    BUILTINS = {
-      default:   nil,
-      result:    { fg: :green },
-      error:     { fg: :red },
-      prompt:    { fg: :cyan },
-      thinking:  { fg: :magenta },
-      dim:       { dim: true },
-      slash_tag: { bg: 245, fg: 15, bold: true }
-    }.freeze
+    BUILTIN = {
+      result:   { fg: Curses::COLOR_GREEN },
+      error:    { fg: Curses::COLOR_RED },
+      thinking: { fg: Curses::COLOR_MAGENTA },
+      dim:      { attr_only: Curses::A_DIM },
+      gray:     { attr_only: Curses::A_DIM },
+    }
 
-    FG_CODES = {
-      black: 30, red: 31, green: 32, yellow: 33,
-      blue: 34, magenta: 35, cyan: 36, white: 37
-    }.freeze
+    @custom = {}
+    @pairs  = {}
+    @next_pair_id = 1
 
-    BG_CODES = {
-      black: 40, red: 41, green: 42, yellow: 43,
-      blue: 44, magenta: 45, cyan: 46, white: 47
-    }.freeze
-
-    def self.wrap(text, name, custom: nil)
-      spec = custom || BUILTINS[name&.to_sym]
-      return text if spec.nil? || spec.empty?
-
-      codes = []
-      codes << 1 if spec[:bold]
-      codes << 2 if spec[:dim]
-      codes.concat(fg_codes(spec[:fg]))
-      codes.concat(bg_codes(spec[:bg]))
-      return text if codes.empty?
-
-      "\e[#{codes.join(';')}m#{text}\e[0m"
+    def self.init!
+      @custom = {}
+      @pairs  = {}
+      @next_pair_id = 1
+      BUILTIN.each_key { |name| ensure_pair(name, BUILTIN[name]) }
     end
 
-    def self.fg_codes(fg)
-      return [] if fg.nil?
-      return ["38;5;#{fg}"] if fg.is_a?(Integer)
-      return [FG_CODES[fg]] if FG_CODES.key?(fg)
-      []
+    def self.define(name, fg: nil, bg: nil, bold: false, dim: false, italic: false, underline: false, reverse: false)
+      spec = { fg: fg, bg: bg, bold: bold, dim: dim, italic: italic, underline: underline, reverse: reverse }.compact
+      @custom[name.to_sym] = spec
+      ensure_pair(name, spec)
     end
 
-    def self.bg_codes(bg)
-      return [] if bg.nil?
-      return ["48;5;#{bg}"] if bg.is_a?(Integer)
-      return [BG_CODES[bg]] if BG_CODES.key?(bg)
-      []
+    def self.lookup(name)
+      key = name&.to_sym
+      info = @pairs[key]
+      return [nil, 0] unless info
+      [info[:pair], info[:attr]]
+    end
+
+    def self.with(window, name)
+      pair, attr = lookup(name)
+      composed = (pair || 0) | attr
+      window.attron(composed) if composed != 0
+      yield
+    ensure
+      window.attroff(composed) if composed && composed != 0
+    end
+
+    def self.ensure_pair(name, spec)
+      key = name.to_sym
+      return @pairs[key] if @pairs.key?(key)
+      pair_id = nil
+      if spec[:fg] || spec[:bg]
+        pair_id = @next_pair_id
+        @next_pair_id += 1
+        Curses.init_pair(pair_id, spec[:fg] || -1, spec[:bg] || -1)
+      end
+      attr = 0
+      attr |= Curses::A_BOLD      if spec[:bold]
+      attr |= Curses::A_DIM       if spec[:dim] || spec[:attr_only] == Curses::A_DIM
+      attr |= Curses::A_UNDERLINE if spec[:underline]
+      attr |= Curses::A_REVERSE   if spec[:reverse]
+      pair = pair_id ? Curses.color_pair(pair_id) : 0
+      @pairs[key] = { pair: pair, attr: attr }
     end
   end
 end
