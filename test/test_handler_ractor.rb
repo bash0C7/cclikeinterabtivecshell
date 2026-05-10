@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "timeout"
 require_relative "test_helper"
 require "cclikesh/handler_ractor"
 require "cclikesh/ctx_proxy"
@@ -10,7 +11,7 @@ class TestHandlerRactor < Test::Unit::TestCase
     main = Ractor.current
     bp = Cclikesh::CtxProxy.blueprint(main, {})
     Cclikesh::HandlerRactor.spawn(body: body, args: ["hello"].freeze, ctx_blueprint: bp)
-    msg = Ractor.receive
+    msg = Timeout.timeout(2.0) { Ractor.receive }
     assert_equal :append, msg[0]
     assert_equal "got: hello", msg[1]
   end
@@ -20,13 +21,12 @@ class TestHandlerRactor < Test::Unit::TestCase
     main = Ractor.current
     bp = Cclikesh::CtxProxy.blueprint(main, {})
     Cclikesh::HandlerRactor.spawn(body: body, args: [].freeze, ctx_blueprint: bp)
-    # Drain messages until we see logger:error
+    # Drain messages with a deadline until we see logger:error
     msgs = []
-    5.times do
-      begin
+    Timeout.timeout(2.0) do
+      loop do
         msgs << Ractor.receive
-      rescue Ractor::ClosedError
-        break
+        break if msgs.any? { |m| m[0] == :logger && m[1] == :error }
       end
     end
     assert msgs.any? { |m| m[0] == :logger && m[1] == :error }, "expected :logger error msg, got #{msgs.inspect}"
