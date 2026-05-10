@@ -1,150 +1,79 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
-require "cclikesh/tuple_space"
+require "curses"
+require "cclikesh/style"
+require "cclikesh/chrome"
 require "cclikesh/display"
+require "cclikesh/transcript"
 
 class TestDisplay < Test::Unit::TestCase
-  def test_append_writes_render_tuple
-    ts = Cclikesh::TupleSpace.new
-    d = Cclikesh::Display.new(ts)
-    d.append("hello")
-    assert_equal [:render, :display_append, "hello", {}], ts.take([:render, :display_append, nil, nil])
+  def setup
+    Curses.init_screen
+    Curses.start_color
+    Curses.use_default_colors
+    Cclikesh::Style.init!
+    Cclikesh::Chrome.init
+    Cclikesh::Display.init
+    Cclikesh::Transcript.clear!
   end
 
-  def test_append_with_style_and_prompt
-    ts = Cclikesh::TupleSpace.new
-    d = Cclikesh::Display.new(ts)
-    d.append("=> 42", style: :result)
-    d.append("x = 1", prompt: "irb> ")
-    assert_equal [:render, :display_append, "=> 42", {style: :result}],
-                 ts.take([:render, :display_append, "=> 42", nil])
-    assert_equal [:render, :display_append, "x = 1", {prompt: "irb> "}],
-                 ts.take([:render, :display_append, "x = 1", nil])
+  def teardown
+    Cclikesh::Display.close
+    Cclikesh::Chrome.close
+    Curses.close_screen
+    Cclikesh::Transcript.clear!
+  rescue
+    nil
   end
 
-  def test_open_live_returns_live_slot
-    ts = Cclikesh::TupleSpace.new
-    d = Cclikesh::Display.new(ts)
-    slot = d.open_live(style: :thinking)
-    assert_kind_of Cclikesh::LiveSlot, slot
-    assert_equal :thinking, slot.style
-    assert_equal true, slot.open?
+  def test_append_writes_to_pad_and_records_transcript
+    Cclikesh::Display.append("hello world")
+    assert_equal ["hello world"], Cclikesh::Transcript.lines
   end
 
-  def test_open_live_writes_live_open_tuple
-    ts = Cclikesh::TupleSpace.new
-    d = Cclikesh::Display.new(ts)
-    slot = d.open_live(style: :thinking)
-    tuple = ts.take([:render, :live_open, slot.id, nil], 0)
-    assert_equal [:render, :live_open, slot.id, { style: :thinking }], tuple
+  def test_append_with_prompt_concatenates
+    Cclikesh::Display.append("ok", prompt: "> ")
+    assert_equal ["> ok"], Cclikesh::Transcript.lines
   end
 
-  def test_open_live_assigns_unique_ids
-    ts = Cclikesh::TupleSpace.new
-    d = Cclikesh::Display.new(ts)
-    s1 = d.open_live
-    # s2 open triggers auto-commit of s1
-    s2 = d.open_live
-    refute_equal s1.id, s2.id
+  def test_open_live_returns_sid_and_increments
+    s1 = Cclikesh::Display.open_live(style: :thinking)
+    s2 = Cclikesh::Display.open_live
+    assert s1.is_a?(Integer)
+    assert_not_equal s1, s2
   end
 
-  def test_second_open_live_auto_commits_first
-    ts = Cclikesh::TupleSpace.new
-    d = Cclikesh::Display.new(ts)
-    s1 = d.open_live
-    s2 = d.open_live
-    assert_equal false, s1.open?
-    assert_equal true, s2.open?
+  def test_live_update_overwrites_slot_text
+    sid = Cclikesh::Display.open_live
+    Cclikesh::Display.live_update(sid, "step 1")
+    Cclikesh::Display.live_update(sid, "step 2")
+    state = Cclikesh::Display.live_slot_state[sid]
+    assert_equal "step 2", state[:last_text]
   end
 
-  def test_open_live_block_form_yields_slot_and_commits
-    ts = Cclikesh::TupleSpace.new
-    d = Cclikesh::Display.new(ts)
-
-    captured = nil
-    result = d.open_live(style: :thinking) do |slot|
-      captured = slot
-      slot.update("...")
-    end
-
-    assert_kind_of Cclikesh::LiveSlot, captured
-    assert_equal false, captured.open?  # auto-committed
-    assert_equal captured, result        # returned slot
+  def test_live_commit_writes_to_transcript_and_removes_slot
+    sid = Cclikesh::Display.open_live
+    Cclikesh::Display.live_update(sid, "tmp")
+    Cclikesh::Display.live_commit(sid, "DONE")
+    assert_includes Cclikesh::Transcript.lines, "DONE"
+    assert_nil Cclikesh::Display.live_slot_state[sid]
   end
 
-  def test_open_live_block_form_discards_on_exception
-    ts = Cclikesh::TupleSpace.new
-    d = Cclikesh::Display.new(ts)
-
-    raised = nil
-    captured = nil
-    begin
-      d.open_live do |slot|
-        captured = slot
-        raise "boom"
-      end
-    rescue => e
-      raised = e
-    end
-
-    assert_equal "boom", raised.message
-    assert_equal false, captured.open?
-    # discard tuple was emitted, not commit
-    discard = ts.take([:render, :live_discard, captured.id, nil], 0)
-    assert_equal [:render, :live_discard, captured.id, nil], discard
+  def test_live_discard_removes_slot_without_transcript
+    sid = Cclikesh::Display.open_live
+    Cclikesh::Display.live_update(sid, "abc")
+    Cclikesh::Display.live_discard(sid)
+    refute_includes Cclikesh::Transcript.lines, "abc"
+    assert_nil Cclikesh::Display.live_slot_state[sid]
   end
 
-  def test_open_live_block_form_discards_on_non_standard_error
-    ts = Cclikesh::TupleSpace.new
-    d = Cclikesh::Display.new(ts)
-
-    captured = nil
-    raised = nil
-    begin
-      d.open_live do |slot|
-        captured = slot
-        raise Interrupt, "ctrl-c"
-      end
-    rescue Interrupt => e
-      raised = e
-    end
-
-    assert_kind_of Interrupt, raised
-    assert_equal false, captured.open?
-    discard = ts.take([:render, :live_discard, captured.id, nil], 0)
-    assert_equal [:render, :live_discard, captured.id, nil], discard
-  end
-
-  def test_indent_block_first_append_uses_first_prefix
-    ts = Cclikesh::TupleSpace.new
-    d = Cclikesh::Display.new(ts)
-    d.begin_indent_block(first: "  ⎿  ", rest: "     ")
-    d.append("first line")
-    tuple = ts.take([:render, :display_append, "  ⎿  first line", nil])
-    assert_equal "  ⎿  first line", tuple[2]
-  end
-
-  def test_indent_block_subsequent_appends_use_rest_prefix
-    ts = Cclikesh::TupleSpace.new
-    d = Cclikesh::Display.new(ts)
-    d.begin_indent_block(first: "  ⎿  ", rest: "     ")
-    d.append("first")
-    d.append("second")
-    d.append("third")
-    assert ts.take([:render, :display_append, "  ⎿  first",  nil], 0)
-    assert ts.take([:render, :display_append, "     second", nil], 0)
-    assert ts.take([:render, :display_append, "     third",  nil], 0)
-  end
-
-  def test_end_indent_block_resumes_unindented_appends
-    ts = Cclikesh::TupleSpace.new
-    d = Cclikesh::Display.new(ts)
-    d.begin_indent_block(first: "  ⎿  ", rest: "     ")
-    d.append("inside")
-    d.end_indent_block
-    d.append("outside")
-    assert ts.take([:render, :display_append, "  ⎿  inside", nil], 0)
-    assert ts.take([:render, :display_append, "outside",     nil], 0)
+  def test_dialog_appends_box_lines_to_transcript
+    Cclikesh::Display.dialog("hello\nworld")
+    lines = Cclikesh::Transcript.lines
+    assert lines.first.start_with?("┌"), "first line should start with ┌, got #{lines.first.inspect}"
+    assert(lines.any? { |l| l.include?("hello") })
+    assert(lines.any? { |l| l.include?("world") })
+    assert lines.last.start_with?("└"), "last line should start with └, got #{lines.last.inspect}"
   end
 end
