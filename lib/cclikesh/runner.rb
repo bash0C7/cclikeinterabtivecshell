@@ -78,11 +78,17 @@ module Cclikesh
       # Drain any pending DSR/CPR responses Reline queried but didn't read,
       # otherwise they leak as literal characters into the next shell prompt.
       drain_stdin_residue
+      # Explicitly emit terminal-restore sequences before redirecting stdout:
+      #   \e[?1049l  -- exit alt-screen back to main buffer
+      #   \e[r       -- reset scroll region to full screen
+      #   \e[?25h    -- show cursor
+      #   \e[m       -- reset SGR (colors/attrs)
+      # Some terminals (ghostty on macOS) don't see ncurses' own restore
+      # escapes from close_screen reliably, so do it ourselves first.
+      $stdout.print("\e[?1049l\e[r\e[?25h\e[m")
+      $stdout.flush
       # Redirect stdout to /dev/null before close_screen so that ncurses'
       # terminal-restore writes don't block on an unread PTY (e.g. in tests).
-      # On a real interactive TTY, curses internals hold the original tty fd
-      # from initscr, so close_screen still emits alt-screen exit / scroll
-      # reset via that fd even after we redirect the Ruby $stdout constant.
       $stdout.reopen("/dev/null", "w") rescue nil
       STDOUT.reopen("/dev/null", "w") rescue nil
       Curses.close_screen
