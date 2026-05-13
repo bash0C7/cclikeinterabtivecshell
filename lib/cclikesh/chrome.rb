@@ -83,16 +83,22 @@ module Cclikesh
     #   - below the body  (separates body from prompt)
     #   - below the prompt (separates prompt from footer)
     def self.draw_dividers
-      line = "─" * Curses.cols
-      # Row just below header (0-indexed = HEADER_HEIGHT)
-      Curses.stdscr.setpos(HEADER_HEIGHT, 0)
-      Curses.stdscr.addstr(line)
-      # Row just below body (body ends at lines - FOOTER_HEIGHT - 4, 0-indexed)
-      Curses.stdscr.setpos(Curses.lines - FOOTER_HEIGHT - 3, 0)
-      Curses.stdscr.addstr(line)
-      # Row just below prompt (0-indexed = lines - FOOTER_HEIGHT - 1)
-      Curses.stdscr.setpos(Curses.lines - FOOTER_HEIGHT - 1, 0)
-      Curses.stdscr.addstr(line)
+      width = Curses.cols
+      # Use the alternate-character-set horizontal line (ACS 'q' = 0x71) via
+      # addch so we work on byte-oriented ncurses (macOS system ncurses 6.0
+      # without wide-char support) where addstr("─" * cols) only renders the
+      # leftmost cell due to the 3-byte UTF-8 encoding being treated as raw
+      # bytes. A_ALTCHARSET | 0x71 renders as ─ on ACS-capable terminals and
+      # as - otherwise, without relying on addch looping over multi-byte chars.
+      acs_hline = Curses::A_ALTCHARSET | 0x71
+      [
+        HEADER_HEIGHT,                            # below header
+        Curses.lines - FOOTER_HEIGHT - 3,         # below body (above prompt)
+        Curses.lines - FOOTER_HEIGHT - 1          # below prompt (above footer)
+      ].each do |row|
+        Curses.stdscr.setpos(row, 0)
+        width.times { Curses.stdscr.addch(acs_hline) }
+      end
       Curses.stdscr.noutrefresh
     end
 
