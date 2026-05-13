@@ -1,5 +1,6 @@
 require "curses"
 require "reline"
+require_relative "reline_idle_patch"
 
 Warning[:experimental] = false # suppress "Ractor API is experimental" on every spawn
 
@@ -28,6 +29,22 @@ module Cclikesh
       )
       Curses.doupdate
       park_cursor_on_prompt_row
+
+      # Run the same chrome repaint that Reline's periodic_tick uses,
+      # but call it from inside Reline::ANSI#inner_getc's 10ms poll
+      # loop (see reline_idle_patch.rb). This lets the footer/spinner
+      # animate while the user is idle and while a handler Ractor is
+      # busy on a long-running command, without spawning any Thread
+      # (which is forbidden by test/test_thread_zero.rb).
+      Cclikesh::RelineIdlePatch.callback = lambda do
+        RelineDialogs.run_chrome_tick(builder, main_ctx)
+      rescue StandardError => e
+        # The tick fires from inside Reline's input loop — letting an
+        # exception escape would crash the whole shell. Log + continue,
+        # so a broken info block doesn't blow up the prompt.
+        Cclikesh::Context.logger.error("chrome tick failed: #{e.class}: #{e.message}") rescue nil
+        nil
+      end
 
       builder.on_start_handlers.each { |h| h.call(nil) rescue nil }
 
@@ -67,6 +84,7 @@ module Cclikesh
 
       builder.on_quit_handlers.each { |h| h.call(nil) rescue nil }
     ensure
+      Cclikesh::RelineIdlePatch.callback = nil
       teardown_curses
       builder.state_refs.each_value { |ref| ref.stop rescue nil }
     end

@@ -135,27 +135,35 @@ module Cclikesh
         jd = (completion_journey_data rescue nil)
         next nil if jd
 
-        # Wrap the curses repaint in DECSC / DECRC (\e7 / \e8) so the
-        # physical cursor returns to whatever column Reline last placed it
-        # at. Using \e[N;1H (CUP, absolute) here desynced Reline's relative
-        # cursor tracking and caused it to erase the prompt prefix `>` on
-        # the next keystroke.
-        phase = Cclikesh::Context.state[:phase]
-        Cclikesh::Chrome.tick_spinner(phase)
-        $stdout.print("\e7")
-        $stdout.flush
-        Cclikesh::RelineDialogs.drain_main_mailbox
-        Cclikesh::Chrome.update_footer(
-          info_bar:       builder.evaluate_info_bar(main_ctx),
-          status_rows:    builder.evaluate_status_rows(main_ctx),
-          shortcuts_hint: builder.shortcuts_hint_text,
-          phase:          phase
-        )
-        Curses.doupdate rescue nil
-        $stdout.print("\e8")
-        $stdout.flush
+        Cclikesh::RelineDialogs.run_chrome_tick(builder, main_ctx)
         nil
       end
+    end
+
+    # Shared body of the chrome repaint. Called from periodic_tick_proc
+    # (on key input) and from the background tick thread started by
+    # Runner.run (on a 100ms timer while idle). The caller is responsible
+    # for holding the curses mutex.
+    def self.run_chrome_tick(builder, main_ctx)
+      # Wrap the curses repaint in DECSC / DECRC (\e7 / \e8) so the
+      # physical cursor returns to whatever column Reline last placed it
+      # at. Using \e[N;1H (CUP, absolute) here desynced Reline's relative
+      # cursor tracking and caused it to erase the prompt prefix `>` on
+      # the next keystroke.
+      phase = Cclikesh::Context.state[:phase]
+      Cclikesh::Chrome.tick_spinner(phase)
+      $stdout.print("\e7")
+      $stdout.flush
+      drain_main_mailbox
+      Cclikesh::Chrome.update_footer(
+        info_bar:       builder.evaluate_info_bar(main_ctx),
+        status_rows:    builder.evaluate_status_rows(main_ctx),
+        shortcuts_hint: builder.shortcuts_hint_text,
+        phase:          phase
+      )
+      Curses.doupdate rescue nil
+      $stdout.print("\e8")
+      $stdout.flush
     end
 
     def self.drain_main_mailbox
