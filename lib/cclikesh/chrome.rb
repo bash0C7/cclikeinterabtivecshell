@@ -50,10 +50,10 @@ module Cclikesh
       @footer_win.addstr(truncate_to_width(info_text, Curses.cols - 4))
       # row 1: status_rows
       @footer_win.setpos(1, 0)
-      status_text = status_rows.flat_map do |r|
+      status_text = status_rows.map do |r|
         segs = r[:segments] || r["segments"] || []
-        segs.map { |s| s[:text] || s["text"] || "" }
-      end.join(" · ")
+        segs.map { |s| s[:text] || s["text"] }.compact.join(" ")
+      end.reject { |row_text| row_text.to_s.empty? }.join(" · ")
       @footer_win.addstr(truncate_to_width(status_text, Curses.cols - 1))
       # row 2: shortcuts hint
       @footer_win.setpos(2, 0)
