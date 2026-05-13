@@ -5,7 +5,11 @@ require_relative "cwd_holder"
 require_relative "env_holder"
 require_relative "zsh_runner"
 
-start_at = Time.now.freeze
+PROGRESS_WORDS = %w[
+  Synchronizing Brewing Conjuring Pondering Marinating Untangling
+  Hatching Sketching Forecasting Excavating Polishing Reassembling
+  Calibrating Interpolating Fermenting Embroidering Stargazing
+].freeze
 
 Cclikesh.run do |shell|
   shell.shareable_ref(:cwd) { CwdHolder.new }
@@ -22,10 +26,18 @@ Cclikesh.run do |shell|
     h.note     "cd/export intercepted · /exit to quit"
   end
 
-  shell.info(:elapsed, order: 10) do |_ctx|
-    sec = (Time.now - start_at).to_i
-    m, s = sec.divmod(60)
-    m.zero? ? "#{s}s" : "#{m}m #{s}s"
+  shell.info(:elapsed, order: 10) do |ctx|
+    if ctx.state[:phase] == :working
+      started = ctx.state[:command_start_time]
+      elapsed = started ? (Time.now - started) : 0.0
+      # Rotate the word every 0.5s based on integer half-seconds since
+      # command start, so the user perceives the indicator as alive.
+      idx = (elapsed * 2).to_i % PROGRESS_WORDS.size
+      word = PROGRESS_WORDS[idx]
+      "#{word}… #{elapsed.round(1)}s"
+    else
+      ""
+    end
   end
 
   shell.status_row(:cwd) do |row, ctx|
@@ -115,6 +127,7 @@ Cclikesh.run do |shell|
       ctx.display.append("unset #{parsed[:name]}", style: :dim)
     when :run
       ctx.state[:phase] = :working
+      ctx.state[:command_start_time] = Time.now
       slot = ctx.display.open_live(style: :thinking)
       cwd = ctx.shareable(:cwd).call(:pwd)
       env = ctx.shareable(:env).call(:snapshot)
