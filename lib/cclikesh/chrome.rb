@@ -17,7 +17,7 @@ module Cclikesh
     def self.init
       @header_win = Curses::Window.new(HEADER_HEIGHT, Curses.cols, 0, 0)
       @footer_win = Curses::Window.new(FOOTER_HEIGHT, Curses.cols,
-                                        Curses.lines - FOOTER_HEIGHT - 1, 0)
+                                        Curses.lines - FOOTER_HEIGHT, 0)
       @spinner_index = 0
     end
 
@@ -72,7 +72,7 @@ module Cclikesh
       return unless @header_win && @footer_win
       @header_win.resize(HEADER_HEIGHT, Curses.cols)
       @footer_win.resize(FOOTER_HEIGHT, Curses.cols)
-      @footer_win.move(Curses.lines - FOOTER_HEIGHT - 1, 0)
+      @footer_win.move(Curses.lines - FOOTER_HEIGHT, 0)
     end
 
     def self.truncate_to_width(s, max_cols)

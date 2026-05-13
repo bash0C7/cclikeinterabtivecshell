@@ -89,11 +89,12 @@ module Cclikesh
     end
 
     # Push the terminal cursor to the row reserved for Reline's prompt.
-    # Curses leaves the cursor at the end of the last painted footer row
-    # (`lines - 2`); without this, Reline anchors its readline UI there and
-    # the user's input overwrites the shortcuts_hint.
+    # The prompt sits just above the footer (one row above footer_win top).
+    # Curses leaves the cursor at some painted footer row; without this,
+    # Reline anchors its readline UI there and the user's input overwrites
+    # the footer content.
     def self.park_cursor_on_prompt_row
-      $stdout.print("\e[#{Curses.lines};1H")
+      $stdout.print("\e[#{Curses.lines - Chrome::FOOTER_HEIGHT};1H")
       $stdout.flush
     end
 
