@@ -93,8 +93,20 @@ module Cclikesh
       }
     end
 
+    # Reline's default keyseq_timeout (500ms) doubles as the periodic_tick
+    # cadence — dialog procs only re-fire after a keystroke OR a timeout.
+    # We want the footer spinner to animate at roughly Claude Code's speed
+    # (~105ms/frame), so shorten the timeout enough that periodic_tick
+    # fires several times per second when the user is idle. We keep it at
+    # >= 100ms so that genuine escape-sequence input (arrow keys etc.)
+    # still gets time to arrive as a single keyseq.
+    PERIODIC_TICK_TIMEOUT_MS = 120
+
     def self.install(builder)
       registry = builder.slash_registry
+      if Reline.core.config.keyseq_timeout > PERIODIC_TICK_TIMEOUT_MS
+        Reline.core.config.keyseq_timeout = PERIODIC_TICK_TIMEOUT_MS
+      end
       Reline.add_dialog_proc(:periodic_tick, periodic_tick_proc(builder), Reline::DEFAULT_DIALOG_CONTEXT)
       Reline.add_dialog_proc(:autocomplete, slash_menu_dialog_proc(registry), Reline::DEFAULT_DIALOG_CONTEXT)
       Reline.add_dialog_proc(:ghost_text, ghost_text_dialog_proc(registry, nil), Reline::DEFAULT_DIALOG_CONTEXT)
@@ -115,15 +127,17 @@ module Cclikesh
         # at. Using \e[N;1H (CUP, absolute) here desynced Reline's relative
         # cursor tracking and caused it to erase the prompt prefix `>` on
         # the next keystroke.
+        phase = Cclikesh::Context.state[:phase]
+        Cclikesh::Chrome.tick_spinner(phase)
         $stdout.print("\e7")
         $stdout.flush
         Cclikesh::RelineDialogs.drain_main_mailbox
         Cclikesh::Chrome.update_footer(
           info_bar:       builder.evaluate_info_bar(main_ctx),
           status_rows:    builder.evaluate_status_rows(main_ctx),
-          shortcuts_hint: builder.shortcuts_hint_text
+          shortcuts_hint: builder.shortcuts_hint_text,
+          phase:          phase
         )
-        Cclikesh::Chrome.tick_spinner(Cclikesh::Context.state[:phase]) rescue nil
         Curses.doupdate rescue nil
         $stdout.print("\e8")
         $stdout.flush

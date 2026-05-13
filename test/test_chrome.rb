@@ -33,16 +33,38 @@ class TestChrome < Test::Unit::TestCase
     assert_match(/\? for shortcuts/, cells)
   end
 
-  def test_tick_spinner_advances_index_when_phase_working
-    initial = Cclikesh::Chrome.spinner_index
+  def test_tick_spinner_sets_start_time_on_working
+    Cclikesh::Chrome.tick_spinner(:idle)
+    assert_nil Cclikesh::Chrome.spinner_started_at
     Cclikesh::Chrome.tick_spinner(:working)
-    assert_not_equal initial, Cclikesh::Chrome.spinner_index
+    assert_not_nil Cclikesh::Chrome.spinner_started_at
   end
 
-  def test_tick_spinner_noop_when_idle
-    initial = Cclikesh::Chrome.spinner_index
+  def test_tick_spinner_clears_start_time_on_idle
+    Cclikesh::Chrome.tick_spinner(:working)
+    assert_not_nil Cclikesh::Chrome.spinner_started_at
     Cclikesh::Chrome.tick_spinner(:idle)
-    assert_equal initial, Cclikesh::Chrome.spinner_index
+    assert_nil Cclikesh::Chrome.spinner_started_at
+  end
+
+  def test_spinner_glyph_returns_first_glyph_when_idle
+    Cclikesh::Chrome.tick_spinner(:idle)
+    assert_equal Cclikesh::Chrome::SPINNER_GLYPHS.first, Cclikesh::Chrome.spinner_glyph(:idle)
+  end
+
+  def test_spinner_glyph_advances_with_elapsed_time_when_working
+    Cclikesh::Chrome.tick_spinner(:idle)
+    Cclikesh::Chrome.tick_spinner(:working)
+    glyph_at_start = Cclikesh::Chrome.spinner_glyph(:working)
+    # Advance @spinner_started_at backwards by 5 frames so spinner_glyph
+    # computes a different index without sleeping.
+    frames = 5
+    Cclikesh::Chrome.instance_variable_set(
+      :@spinner_started_at,
+      Time.now - (Cclikesh::Chrome::SPINNER_FRAME_MS * frames / 1000.0)
+    )
+    glyph_after = Cclikesh::Chrome.spinner_glyph(:working)
+    assert_not_equal glyph_at_start, glyph_after
   end
 
   def test_truncate_to_width_handles_cjk
