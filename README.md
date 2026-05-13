@@ -36,6 +36,141 @@ end
 
 Run: `bundle exec ruby examples/echo_shell.rb`
 
+## Using cclikesh from your own gem / project
+
+cclikesh is not (yet) on RubyGems. Pull it directly from GitHub.
+
+### 1. Add to your `Gemfile`
+
+```ruby
+source "https://rubygems.org"
+
+gem "cclikesh", github: "bash0C7/cclikeinterabtivecshell"
+```
+
+Then:
+
+```bash
+bundle install
+```
+
+This brings in `cclikesh` itself plus its hard dependencies (`curses`, `reline`, `drb`, `rinda`, `unicode-display_width`). `informers` is only needed if you also opt into `cclikesh-debug` (see below).
+
+### 2. Write a shell
+
+The single entry point is `Cclikesh.run`, which yields a Builder DSL:
+
+```ruby
+# my_shell.rb
+require "cclikesh"
+
+Cclikesh.run do |shell|
+  shell.header do |h|
+    h.logo     "✻"
+    h.title    "my-shell"
+    h.version  "v0.1.0"
+    h.subtitle "Ruby #{RUBY_VERSION} · #{Dir.pwd}"
+    h.note     "press /q to quit"
+  end
+
+  shell.shortcuts_hint "/q to quit"
+
+  shell.on_submit do |args, ctx|
+    line = args.first
+    ctx.display.append("you typed: #{line}", style: :result)
+  end
+
+  shell.slash(:q, description: "exit") { |_args, ctx| ctx.quit }
+end
+```
+
+Run it:
+
+```bash
+bundle exec ruby my_shell.rb
+```
+
+### 3. DSL reference (what you call on `shell`)
+
+| Method | Purpose |
+|---|---|
+| `shell.header { \|h\| ... }` | Top banner. `h.logo / h.title / h.version / h.subtitle / h.note` (all optional). |
+| `shell.info(name, order: N) { \|ctx\| ... }` | One segment of the info bar. Block returns a `String`. |
+| `shell.status_row(name) { \|row, ctx\| ... }` | One row in the status footer. Use `row.icon`, `row.text`, `row.link(text:, state:)`, `row.bar(percent:, width:)`. |
+| `shell.spinner_label { \|ctx\| ... }` | Spinner label. Return `:auto` or a custom `String`. |
+| `shell.prompt_suggestion { \|ctx\| ... }` | Dimmed inline hint shown above the prompt. |
+| `shell.shortcuts_hint "text"` | One-line shortcuts hint shown in the footer. |
+| `shell.define_style(:name, fg:, bold:)` | Register a Curses color/attr (e.g. `fg: Curses::COLOR_YELLOW, bold: true`). |
+| `shell.shareable_ref(:name) { Obj.new }` | Wrap a mutable object in its own Ractor; call it via `ctx.shareable(:name).call(:method, *args)`. |
+| `shell.on_start { \|ctx\| ... }` | Runs once right after curses init. Use for warm-up output. |
+| `shell.on_quit { \|ctx\| ... }` | Runs once right before teardown. Use for save/cleanup. |
+| `shell.on_submit { \|args, ctx\| ... }` | Fires when the user presses Enter. `args == [line].freeze`. Runs in a Handler Ractor. |
+| `shell.on_tab { \|buf, pos\| ... }` | Reline completion proc. Return `Array<String>` (or `nil`). |
+| `shell.slash(:name, description: ...) { \|args, ctx\| ... }` | Register `/name`. `args` is the parsed rest of the line. |
+| `shell.btw { \|question, ctx\| ... }` | Register `/btw <text>`. Whatever the block returns is appended to the display. |
+
+### 4. Inside your handler — what `ctx` lets you do
+
+`ctx` is a thin proxy that talks to the main Ractor; it's safe to use from inside `on_submit` / slash blocks.
+
+```ruby
+# --- Output ---
+ctx.display.append("line of text", style: :result, prompt: "irb> ")
+ctx.display.dialog("boxed text", style: :result)
+
+# Streaming "live" slot — show progress, then commit or discard
+slot = ctx.display.open_live(style: :thinking)
+3.times { |i| slot.update("step #{i + 1}/3 ..."); sleep 0.1 }
+slot.commit                # finalize
+# slot.discard             # erase if cancelled
+
+# --- State (key/value, written values are auto-frozen) ---
+ctx.state[:phase] = :working
+phase = ctx.state[:phase]
+
+# --- Shareable refs (mutable objects living in their own Ractor) ---
+result = ctx.shareable(:evaluator).call(:evaluate, line)
+
+# --- Logging (goes to the shell's stderr logger) ---
+ctx.logger.info("submit: #{line.inspect}")
+
+# --- Quit ---
+ctx.quit
+```
+
+Built-in styles include `:result`, `:thinking`, `:dim`, `:error`. Add your own via `shell.define_style(...)`.
+
+### 5. Concurrency rules for your own handlers
+
+- `on_submit` runs in a **per-invocation Handler Ractor** — long work doesn't block the UI.
+- Mutable state goes in `shareable_ref` (one Ractor per ref) or `ctx.state` (key/value on the main Ractor).
+- Don't `Thread.new` inside handlers. If you need concurrency, spawn another Ractor or push work to a `shareable_ref`.
+- Messages you pass across Ractor boundaries must be frozen / shareable; `ctx.state[...]=` freezes for you.
+
+### 6. Optional: cclikesh-debug for session recording
+
+`cclikesh-debug` is a separate sub-gem in the same repo. Add it to `:development` only:
+
+```ruby
+group :development do
+  gem "cclikesh-debug",
+      github: "bash0C7/cclikeinterabtivecshell",
+      glob:   "cclikesh-debug/*.gemspec"
+end
+```
+
+Then record a session of *your* shell:
+
+```bash
+bundle exec cclikesh-debug start my_shell.rb
+bundle exec cclikesh-debug input  <session> "hello\r"
+bundle exec cclikesh-debug capture <session>
+bundle exec cclikesh-debug stop   <session>
+bundle exec cclikesh-debug frames <session>
+```
+
+The resulting SQLite DB is chiebukuro-mcp compatible — you can grep / vec-search frames with the standard tooling.
+
 ## Examples
 
 - `examples/echo_shell.rb` — minimal demo
