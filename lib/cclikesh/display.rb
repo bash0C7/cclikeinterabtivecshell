@@ -92,14 +92,21 @@ module Cclikesh
 
     def self.refresh
       return unless @pad
-      visible_h = Curses.lines - Chrome::HEADER_HEIGHT - Chrome::FOOTER_HEIGHT - 1
+      # Body occupies the rows between the header divider and the body/prompt
+      # divider.  All row indices are 0-based (curses convention).
+      #   body_top    = HEADER_HEIGHT + 1   (row just below the header divider)
+      #   body_bottom = lines - FOOTER_HEIGHT - 4
+      #                 (row just above the body/prompt divider at lines-F-3)
+      body_top    = Chrome::HEADER_HEIGHT + 1
+      body_bottom = Curses.lines - Chrome::FOOTER_HEIGHT - 4
+      visible_h   = body_bottom - body_top + 1
+      return if visible_h <= 0
       visible_top = [@row - visible_h, 0].max
-      bottom_row = Chrome::HEADER_HEIGHT + visible_h - 1
-      bottom_col = Curses.cols - 1
-      return if bottom_row < Chrome::HEADER_HEIGHT || bottom_col < 0
+      bottom_col  = Curses.cols - 1
+      return if bottom_col < 0
       @pad.noutrefresh(visible_top, 0,
-                       Chrome::HEADER_HEIGHT, 0,
-                       bottom_row, bottom_col)
+                       body_top, 0,
+                       body_bottom, bottom_col)
     end
   end
 end

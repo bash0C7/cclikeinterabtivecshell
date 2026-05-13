@@ -19,6 +19,7 @@ module Cclikesh
       @footer_win = Curses::Window.new(FOOTER_HEIGHT, Curses.cols,
                                         Curses.lines - FOOTER_HEIGHT, 0)
       @spinner_index = 0
+      draw_dividers
     end
 
     def self.close
@@ -73,6 +74,26 @@ module Cclikesh
       @header_win.resize(HEADER_HEIGHT, Curses.cols)
       @footer_win.resize(FOOTER_HEIGHT, Curses.cols)
       @footer_win.move(Curses.lines - FOOTER_HEIGHT, 0)
+      Curses.stdscr.clear
+      draw_dividers
+    end
+
+    # Draw three full-width horizontal rules on stdscr:
+    #   - below the header (separates header from body)
+    #   - below the body  (separates body from prompt)
+    #   - below the prompt (separates prompt from footer)
+    def self.draw_dividers
+      line = "─" * Curses.cols
+      # Row just below header (0-indexed = HEADER_HEIGHT)
+      Curses.stdscr.setpos(HEADER_HEIGHT, 0)
+      Curses.stdscr.addstr(line)
+      # Row just below body (body ends at lines - FOOTER_HEIGHT - 4, 0-indexed)
+      Curses.stdscr.setpos(Curses.lines - FOOTER_HEIGHT - 3, 0)
+      Curses.stdscr.addstr(line)
+      # Row just below prompt (0-indexed = lines - FOOTER_HEIGHT - 1)
+      Curses.stdscr.setpos(Curses.lines - FOOTER_HEIGHT - 1, 0)
+      Curses.stdscr.addstr(line)
+      Curses.stdscr.noutrefresh
     end
 
     def self.truncate_to_width(s, max_cols)
