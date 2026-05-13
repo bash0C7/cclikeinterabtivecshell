@@ -175,6 +175,7 @@ The resulting SQLite DB is chiebukuro-mcp compatible — you can grep / vec-sear
 
 - `examples/echo_shell.rb` — minimal demo
 - `examples/irb_shell/irb_shell.rb` — irb on cclikesh, uses `shell.shareable_ref(:evaluator) { IrbEvaluator.new }`
+- `examples/zsh_shell/zsh_shell.rb` — zsh wrapper. Uses `shareable_ref(:cwd)` and `shareable_ref(:env)` to intercept `cd`/`export`/`unset`; everything else streams through `zsh -c` with `IO.select` line read.
 
 ## cclikesh-debug
 
