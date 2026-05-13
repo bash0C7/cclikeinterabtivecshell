@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "open3"
 require "shellwords"
 
 module ZshRunner
@@ -69,5 +70,44 @@ module ZshRunner
     else
       {kind: :unset, name: rest[0]}.freeze
     end
+  end
+
+  def run(line, cwd:, env:, on_stdout:, on_stderr:, on_tick:)
+    start = Time.now
+    spawn_env = (env || {}).each_with_object({}) { |(k, v), h| h[k.to_s] = v.to_s }
+    stdin, stdout, stderr, wait_thr = Open3.popen3(spawn_env, "zsh", "-c", line, chdir: cwd)
+    stdin.close
+
+    streams = [stdout, stderr]
+    last_tick = start
+
+    until streams.empty?
+      ready, = IO.select(streams, nil, nil, TICK_INTERVAL)
+      now = Time.now
+      if now - last_tick >= TICK_INTERVAL
+        on_tick.call(now - start)
+        last_tick = now
+      end
+      next unless ready
+
+      ready.each do |io|
+        begin
+          line_read = io.readline
+        rescue EOFError
+          streams.delete(io)
+          next
+        end
+        if io == stdout
+          on_stdout.call(line_read)
+        else
+          on_stderr.call(line_read)
+        end
+      end
+    end
+
+    status = wait_thr.value
+    [status, Time.now - start]
+  ensure
+    [stdout, stderr].each { |io| io&.close unless io&.closed? }
   end
 end
