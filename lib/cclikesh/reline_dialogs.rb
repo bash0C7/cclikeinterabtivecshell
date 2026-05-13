@@ -102,10 +102,23 @@ module Cclikesh
     # still gets time to arrive as a single keyseq.
     PERIODIC_TICK_TIMEOUT_MS = 120
 
+    # Byte sequences emitted by terminals for Shift+Enter when
+    # modifyOtherKeys mode 2 is enabled (xterm/iTerm2/ghostty/wezterm) or
+    # the kitty keyboard protocol is in use. Both decode to "Enter with
+    # the Shift modifier" — we bind them to key_newline so they insert a
+    # literal newline instead of submitting the line.
+    SHIFT_ENTER_KEYSTROKES = [
+      "\e[27;2;13~".bytes,  # modifyOtherKeys mode 2 (xterm/iTerm2)
+      "\e[13;2u".bytes      # CSI u / kitty kbd protocol
+    ].freeze
+
     def self.install(builder)
       registry = builder.slash_registry
       if Reline.core.config.keyseq_timeout > PERIODIC_TICK_TIMEOUT_MS
         Reline.core.config.keyseq_timeout = PERIODIC_TICK_TIMEOUT_MS
+      end
+      SHIFT_ENTER_KEYSTROKES.each do |keys|
+        Reline.core.config.add_default_key_binding(keys, :key_newline)
       end
       Reline.add_dialog_proc(:periodic_tick, periodic_tick_proc(builder), Reline::DEFAULT_DIALOG_CONTEXT)
       Reline.add_dialog_proc(:autocomplete, slash_menu_dialog_proc(registry), Reline::DEFAULT_DIALOG_CONTEXT)

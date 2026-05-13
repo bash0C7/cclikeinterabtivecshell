@@ -36,7 +36,11 @@ module Cclikesh
           park_cursor_on_prompt_row
           line = nil
           begin
-            line = Reline.readline(prompt_text(builder), true)
+            # readmultiline with an always-true confirmation block: Enter
+            # alone always submits, while Shift+Enter (bound to key_newline
+            # in RelineDialogs.install) inserts a literal newline into the
+            # buffer without ending the readline call.
+            line = Reline.readmultiline(prompt_text(builder), true) { true }
           rescue Interrupt
             RelineDialogs.drain_main_mailbox
             throw :quit if Context.quit?
@@ -74,6 +78,14 @@ module Cclikesh
       Curses.start_color
       Curses.use_default_colors
       Curses.stdscr.keypad(true)
+      # xterm "modifyOtherKeys" mode 2: ask the terminal to encode
+      # modifier+key combinations as CSI 27;<mods>;<code>~ so we can
+      # distinguish Shift+Enter (\e[27;2;13~) from plain Enter (\r).
+      # Combined with the keymap added in RelineDialogs.install, this
+      # gives Claude Code's prompt behavior: Enter submits, Shift+Enter
+      # inserts a newline.
+      $stdout.print("\e[>4;2m")
+      $stdout.flush
     end
 
     def self.teardown_curses
@@ -81,13 +93,14 @@ module Cclikesh
       # otherwise they leak as literal characters into the next shell prompt.
       drain_stdin_residue
       # Explicitly emit terminal-restore sequences before redirecting stdout:
+      #   \e[>4;0m   -- disable xterm modifyOtherKeys (paired with init)
       #   \e[?1049l  -- exit alt-screen back to main buffer
       #   \e[r       -- reset scroll region to full screen
       #   \e[?25h    -- show cursor
       #   \e[m       -- reset SGR (colors/attrs)
       # Some terminals (ghostty on macOS) don't see ncurses' own restore
       # escapes from close_screen reliably, so do it ourselves first.
-      $stdout.print("\e[?1049l\e[r\e[?25h\e[m")
+      $stdout.print("\e[>4;0m\e[?1049l\e[r\e[?25h\e[m")
       $stdout.flush
       # Redirect stdout to /dev/null before close_screen so that ncurses'
       # terminal-restore writes don't block on an unread PTY (e.g. in tests).
