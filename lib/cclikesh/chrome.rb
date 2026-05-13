@@ -31,7 +31,11 @@ module Cclikesh
 
     def self.update_header(lines)
       return unless @header_win
-      @header_win.clear
+      # erase (werase) clears the window buffer without setting clearok,
+      # so ncurses emits a per-cell diff on the next doupdate instead of
+      # \e[H\e[2J (full screen). Full-screen clear was bleeding through
+      # the prompt row managed by Reline, causing `> a` flicker.
+      @header_win.erase
       lines.each_with_index do |line, i|
         next if i >= HEADER_HEIGHT
         @header_win.setpos(i, 0)
@@ -42,7 +46,8 @@ module Cclikesh
 
     def self.update_footer(info_bar:, status_rows:, shortcuts_hint:)
       return unless @footer_win
-      @footer_win.clear
+      # See update_header for why erase (werase) is used instead of clear.
+      @footer_win.erase
       # row 0: spinner + info_bar segments
       @footer_win.setpos(0, 0)
       glyph = SPINNER_GLYPHS[@spinner_index % SPINNER_GLYPHS.size]
