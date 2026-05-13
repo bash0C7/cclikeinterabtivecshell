@@ -111,6 +111,7 @@ module Cclikesh
         )
         Cclikesh::Chrome.tick_spinner(Cclikesh::Context.state[:phase]) rescue nil
         Curses.doupdate rescue nil
+        Cclikesh::Runner.park_cursor_on_prompt_row
         nil
       end
     end

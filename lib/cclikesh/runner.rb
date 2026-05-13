@@ -25,11 +25,13 @@ module Cclikesh
         shortcuts_hint:  builder.shortcuts_hint_text
       )
       Curses.doupdate
+      park_cursor_on_prompt_row
 
       builder.on_start_handlers.each { |h| h.call(nil) rescue nil }
 
       catch(:quit) do
         loop do
+          park_cursor_on_prompt_row
           line = nil
           begin
             line = Reline.readline(prompt_text(builder), true)
@@ -84,6 +86,15 @@ module Cclikesh
 
     def self.prompt_text(_builder)
       "> "
+    end
+
+    # Push the terminal cursor to the row reserved for Reline's prompt.
+    # Curses leaves the cursor at the end of the last painted footer row
+    # (`lines - 2`); without this, Reline anchors its readline UI there and
+    # the user's input overwrites the shortcuts_hint.
+    def self.park_cursor_on_prompt_row
+      $stdout.print("\e[#{Curses.lines};1H")
+      $stdout.flush
     end
 
     def self.install_completion(builder)
