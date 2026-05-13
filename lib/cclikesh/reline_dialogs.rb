@@ -101,11 +101,12 @@ module Cclikesh
     end
 
     def self.periodic_tick_proc(builder)
+      main_ctx = Cclikesh::MainCtx.new(builder.state_refs)
       proc do
         Cclikesh::RelineDialogs.drain_main_mailbox
         Cclikesh::Chrome.update_footer(
-          info_bar:       builder.evaluate_info_bar,
-          status_rows:    builder.evaluate_status_rows,
+          info_bar:       builder.evaluate_info_bar(main_ctx),
+          status_rows:    builder.evaluate_status_rows(main_ctx),
           shortcuts_hint: builder.shortcuts_hint_text
         )
         Cclikesh::Chrome.tick_spinner(Cclikesh::Context.state[:phase]) rescue nil

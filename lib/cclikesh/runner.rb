@@ -17,10 +17,11 @@ module Cclikesh
 
       install_completion(builder)
       RelineDialogs.install(builder)
+      main_ctx = MainCtx.new(builder.state_refs)
       Chrome.update_header(builder.header_lines)
       Chrome.update_footer(
-        info_bar:        builder.evaluate_info_bar,
-        status_rows:     builder.evaluate_status_rows,
+        info_bar:        builder.evaluate_info_bar(main_ctx),
+        status_rows:     builder.evaluate_status_rows(main_ctx),
         shortcuts_hint:  builder.shortcuts_hint_text
       )
       Curses.doupdate

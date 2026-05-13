@@ -57,12 +57,13 @@ module Cclikesh
       def build_framework_state_hash
         require_relative "context"
         require_relative "transcript"
+        main_ctx = Cclikesh::MainCtx.new(@builder.state_refs)
         {
           phase:             Cclikesh::Context.state[:phase],
           focus_mode:        Cclikesh::Context.state[:focus_mode],
           header:            @builder.header_config,
-          info_bar:          @builder.evaluate_info_bar,
-          status_rows:       @builder.evaluate_status_rows,
+          info_bar:          @builder.evaluate_info_bar(main_ctx),
+          status_rows:       @builder.evaluate_status_rows(main_ctx),
           spinner_label:     @builder.evaluate_spinner_label,
           prompt_suggestion: @builder.evaluate_prompt_suggestion,
           shortcuts_hint:    @builder.shortcuts_hint_text,
