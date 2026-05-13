@@ -75,12 +75,33 @@ module Cclikesh
     end
 
     def self.teardown_curses
-      # Redirect stdout to /dev/null before calling endwin so that ncurses
+      # Drain any pending DSR/CPR responses Reline queried but didn't read,
+      # otherwise they leak as literal characters into the next shell prompt.
+      drain_stdin_residue
+      # Redirect stdout to /dev/null before close_screen so that ncurses'
       # terminal-restore writes don't block on an unread PTY (e.g. in tests).
+      # On a real interactive TTY, curses internals hold the original tty fd
+      # from initscr, so close_screen still emits alt-screen exit / scroll
+      # reset via that fd even after we redirect the Ruby $stdout constant.
       $stdout.reopen("/dev/null", "w") rescue nil
       STDOUT.reopen("/dev/null", "w") rescue nil
       Curses.close_screen
     rescue
+      nil
+    end
+
+    # Consume any pending DSR/CPR responses (`^[[…R`) Reline queried but
+    # didn't read, otherwise they leak as literal characters into the
+    # next shell prompt.  Capped at a small number of reads so a chatty
+    # PTY (e.g. in tests) cannot cause an infinite loop here.
+    def self.drain_stdin_residue
+      return unless $stdin.respond_to?(:read_nonblock)
+      8.times do
+        ready, = IO.select([$stdin], nil, nil, 0.02)
+        break unless ready
+        $stdin.read_nonblock(4096)
+      end
+    rescue IO::WaitReadable, EOFError, Errno::EBADF
       nil
     end
 
