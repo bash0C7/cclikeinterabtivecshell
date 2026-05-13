@@ -31,7 +31,13 @@ Cclikesh.run do |shell|
   shell.status_row(:cwd) do |row, ctx|
     cwd = ctx.shareable(:cwd).call(:pwd)
     home = ENV["HOME"] || ""
-    display = !home.empty? && cwd.start_with?(home) ? cwd.sub(home, "~") : cwd
+    home_prefix = home.empty? || home.end_with?("/") ? home : "#{home}/"
+    display =
+      if !home.empty? && (cwd == home || cwd.start_with?(home_prefix))
+        cwd.sub(home, "~")
+      else
+        cwd
+      end
     row.icon "📁"
     row.text display
   end
@@ -127,9 +133,10 @@ Cclikesh.run do |shell|
         ctx.display.append("exit #{status.exitstatus} · #{elapsed.round(2)}s", style: mark)
         ctx.state[:last_status] = status.exitstatus
         ctx.state[:last_elapsed] = elapsed
-      rescue Errno::ENOENT
+      rescue Errno::ENOENT => e
         slot.discard
-        ctx.display.append("zsh not found in PATH", style: :error)
+        msg = e.message.include?(cwd) ? "cwd no longer exists: #{cwd}" : "zsh not found in PATH"
+        ctx.display.append(msg, style: :error)
       ensure
         ctx.state[:phase] = :idle
       end
