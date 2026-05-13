@@ -22,21 +22,23 @@ class TestCwdHolder < Test::Unit::TestCase
 
   def test_cd_nil_goes_home
     @holder.cd(nil)
-    assert_equal ENV["HOME"], @holder.pwd
+    assert_equal File.realpath(ENV["HOME"]), @holder.pwd
   end
 
   def test_cd_empty_goes_home
     @holder.cd("")
-    assert_equal ENV["HOME"], @holder.pwd
+    assert_equal File.realpath(ENV["HOME"]), @holder.pwd
   end
 
   def test_cd_tilde_goes_home
     @holder.cd("~")
-    assert_equal ENV["HOME"], @holder.pwd
+    assert_equal File.realpath(ENV["HOME"]), @holder.pwd
   end
 
   def test_cd_nonexistent_raises_enoent
+    before = @holder.pwd
     assert_raise(Errno::ENOENT) { @holder.cd("/no/such/path/please") }
+    assert_equal before, @holder.pwd
   end
 
   def test_cd_relative_resolves_from_current_cwd

@@ -13,7 +13,7 @@ class CwdHolder
   def cd(path)
     target =
       if path.nil? || path.empty? || path == "~"
-        ENV["HOME"]
+        File.realpath(ENV["HOME"])
       else
         File.expand_path(path, @cwd)
       end
