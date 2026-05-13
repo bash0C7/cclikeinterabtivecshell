@@ -103,6 +103,13 @@ module Cclikesh
     def self.periodic_tick_proc(builder)
       main_ctx = Cclikesh::MainCtx.new(builder.state_refs)
       proc do
+        # If Reline is in completion-journey mode (Tab pressed and a journey
+        # is active), it owns the terminal — don't paint or park, otherwise
+        # our \e[N;1H park resets cursor mid-render and the input line
+        # disappears until the user types another character.
+        jd = (completion_journey_data rescue nil)
+        next nil if jd
+
         Cclikesh::RelineDialogs.drain_main_mailbox
         Cclikesh::Chrome.update_footer(
           info_bar:       builder.evaluate_info_bar(main_ctx),
