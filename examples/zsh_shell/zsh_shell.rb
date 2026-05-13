@@ -19,7 +19,7 @@ Cclikesh.run do |shell|
     h.title    "zsh-shell"
     h.version  "v#{Cclikesh::VERSION}"
     h.subtitle "Ruby #{RUBY_VERSION}"
-    h.note     "cd/export intercepted · /q to quit"
+    h.note     "cd/export intercepted · /exit to quit"
   end
 
   shell.info(:elapsed, order: 10) do |_ctx|
@@ -64,7 +64,7 @@ Cclikesh.run do |shell|
   end
 
   shell.spinner_label { |_| :auto }
-  shell.shortcuts_hint "/q quit · /pwd · /env · /reset"
+  shell.shortcuts_hint "/exit · /pwd · /env · /reset"
 
   shell.btw do |question, _ctx|
     "(zsh-shell heard: #{question})"
@@ -89,7 +89,7 @@ Cclikesh.run do |shell|
   end
 
   shell.slash(:q,    description: "exit") { |_args, ctx| ctx.quit }
-  shell.slash(:quit, description: "exit") { |_args, ctx| ctx.quit }
+  shell.slash(:exit, description: "exit") { |_args, ctx| ctx.quit }
 
   shell.on_submit do |args, ctx|
     line = args.first
