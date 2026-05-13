@@ -64,7 +64,6 @@ Cclikesh.run do |shell|
   end
 
   shell.spinner_label { |_| :auto }
-  shell.prompt_suggestion { |_| "ls / git status / find . -name '*.rb' …" }
   shell.shortcuts_hint "/q quit · /pwd · /env · /reset"
 
   shell.btw do |question, _ctx|
