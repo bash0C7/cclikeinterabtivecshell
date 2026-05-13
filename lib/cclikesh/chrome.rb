@@ -16,27 +16,22 @@ module Cclikesh
     SPINNER_GLYPHS = %w[* +].freeze
     SPINNER_FRAME_MS = 200
 
-    # Per-char italic sweep cadence across the info_bar text. One column
-    # advance per SWEEP_STEP_MS, cycling. 200 ms matches the bright-cell
-    # sweep observed on Claude Code's "Debugging…" echo.
+    # Per-char "bright cell" sweep cadence across the info_bar text. One
+    # column advance per SWEEP_STEP_MS, cycling. 200 ms matches the
+    # right-to-left bright cell observed on Claude Code's prompt echo.
     SWEEP_STEP_MS = 200
 
-    # ncurses' A_ITALIC attribute bit (NCURSES_BITS(1U, 23) = 1 << 31).
-    # The ruby curses gem 1.6 doesn't expose A_ITALIC as a constant, but
-    # passing the raw bit to attron still flows through to ncurses, which
-    # emits the terminfo `sitm`/`ritm` escapes when the terminfo entry
-    # (e.g. xterm-256color) defines them.
-    ITALIC_ATTR = (1 << 31)
-
-    # Uniform-grey "breathing" wave applied to the info_bar text while a
-    # working phase is active. 32 greys from RGB 153..184 (matching the
-    # palette observed on Claude Code's thinking word), triangle-wave
-    # over BREATH_PERIOD_MS. Indices 200..231 in the curses color table —
-    # chosen above Style's pair_id range (1..N) to avoid collision.
-    BREATH_COLOR_BASE = 200
-    BREATH_STEPS = 32
-    BREATH_GREY_MIN = 153
-    BREATH_PERIOD_MS = 2100
+    # Two-color orange palette observed on Claude Code's thinking line.
+    # The sweep highlights ONE cell with the bright shade; every other
+    # cell of the info_bar is painted in the dim shade. Using a 2-color
+    # toggle (instead of a 32-step grey breath) makes the wave obvious
+    # even when the user's terminal won't redefine palette entries with
+    # subtle precision. Indices 200/201 stay clear of Style's pair_id
+    # range (1..N).
+    ORANGE_BRIGHT_RGB = [245, 149, 117].freeze
+    ORANGE_DIM_RGB    = [215, 119,  87].freeze
+    ORANGE_BRIGHT_INDEX = 200
+    ORANGE_DIM_INDEX    = 201
 
     class << self
       attr_reader :footer_win, :spinner_started_at
@@ -50,36 +45,29 @@ module Cclikesh
       draw_dividers
     end
 
-    # Allocate the 32 grey curses color pairs used by breath_color_pair.
-    # Falls back gracefully when the terminal can't redefine colors
-    # (e.g. macOS Terminal.app); breath_color_pair then returns nil and
-    # update_footer paints the info_bar with the terminal's default fg.
+    # Allocate the two orange curses color pairs used by the sweep.
+    # Falls back gracefully when the terminal can't redefine colors;
+    # bright_attr / dim_attr then return 0 and the info_bar paints in
+    # the terminal's default fg with no sweep highlight.
     def self.setup_breath_colors
       @breath_supported = false
       return unless Curses.respond_to?(:can_change_color?) && Curses.can_change_color?
-      BREATH_STEPS.times do |i|
-        grey = BREATH_GREY_MIN + i
-        rgb_milli = grey * 1000 / 255
-        Curses.init_color(BREATH_COLOR_BASE + i, rgb_milli, rgb_milli, rgb_milli)
-        Curses.init_pair(BREATH_COLOR_BASE + i, BREATH_COLOR_BASE + i, -1)
+      [[ORANGE_BRIGHT_INDEX, ORANGE_BRIGHT_RGB],
+       [ORANGE_DIM_INDEX,    ORANGE_DIM_RGB]].each do |idx, (r, g, b)|
+        Curses.init_color(idx, r * 1000 / 255, g * 1000 / 255, b * 1000 / 255)
+        Curses.init_pair(idx, idx, -1)
       end
       @breath_supported = true
     rescue StandardError
       @breath_supported = false
     end
 
-    # Triangle-wave grey color pair tied to wall-clock since the working
-    # phase began. Returns nil when not in :working, when the spinner
-    # hasn't started yet, or when the terminal can't redefine colors.
-    def self.breath_color_pair(phase)
-      return nil unless @breath_supported
-      return nil unless phase == :working
-      return nil unless @spinner_started_at
-      elapsed_ms = (Time.now - @spinner_started_at) * 1000
-      phase_pos = (elapsed_ms % BREATH_PERIOD_MS) / BREATH_PERIOD_MS.to_f
-      level = phase_pos < 0.5 ? phase_pos * 2 : (1.0 - phase_pos) * 2
-      idx = (level * (BREATH_STEPS - 1)).round.clamp(0, BREATH_STEPS - 1)
-      Curses.color_pair(BREATH_COLOR_BASE + idx)
+    def self.bright_attr
+      @breath_supported ? Curses.color_pair(ORANGE_BRIGHT_INDEX) : 0
+    end
+
+    def self.dim_attr
+      @breath_supported ? Curses.color_pair(ORANGE_DIM_INDEX) : 0
     end
 
     def self.close
@@ -125,24 +113,21 @@ module Cclikesh
       draw_dividers
     end
 
-    # Paint the info_bar text one character at a time, applying the
-    # grey breath color (if available) and an italic sweep that walks
-    # one column per SWEEP_STEP_MS while a working phase is active.
+    # Paint info_bar text in dim orange, with one cell highlighted in
+    # bright orange that sweeps one column per SWEEP_STEP_MS while a
+    # working phase is active. Mirrors Claude Code's bright-cell sweep
+    # observed on its prompt echo (see tmp/longrun/pty_claude_thinking
+    # capture memo for the source palette).
     def self.draw_info_bar_with_sweep(text, phase)
-      breath = breath_color_pair(phase)
       sweep = sweep_position(phase, text.length)
       if sweep.nil?
-        if breath
-          @footer_win.attron(breath); @footer_win.addstr(text); @footer_win.attroff(breath)
-        else
-          @footer_win.addstr(text)
-        end
+        @footer_win.addstr(text)
         return
       end
+      bright = bright_attr
+      dim    = dim_attr
       text.each_char.with_index do |ch, i|
-        attrs = 0
-        attrs |= breath if breath
-        attrs |= ITALIC_ATTR if i == sweep
+        attrs = i == sweep ? bright : dim
         if attrs != 0
           @footer_win.attron(attrs); @footer_win.addstr(ch); @footer_win.attroff(attrs)
         else
@@ -151,9 +136,9 @@ module Cclikesh
       end
     end
 
-    # Index of the character currently rendered italic in the info_bar,
-    # or nil when no sweep is active (phase != :working, no spinner
-    # start time yet, or empty text).
+    # Index of the character currently rendered in bright orange (the
+    # sweeping cell), or nil when no sweep is active (phase != :working,
+    # no spinner start time yet, or empty text).
     def self.sweep_position(phase, len)
       return nil unless phase == :working
       return nil unless @spinner_started_at
