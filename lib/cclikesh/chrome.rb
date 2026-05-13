@@ -9,12 +9,24 @@ module Cclikesh
     # No header window: header content is appended into the body at boot
     # by Runner.run, so the top of the alt-screen is just the body pad.
     FOOTER_HEIGHT = 3
-    SPINNER_GLYPHS = %w[⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏].freeze
-    # Per-frame cadence in milliseconds. ~105ms ≈ 9.5 fps, matching the
-    # Claude Code thinking spinner. The actual rendered cadence is bounded
-    # by the Reline periodic_tick rate (see RelineDialogs.install), so the
-    # observed motion will be the slower of the two.
-    SPINNER_FRAME_MS = 105
+    # Two-glyph blink (asterisk/plus) — picked over braille after the user
+    # reported the braille rotation read as static on his terminals. With
+    # only two distinct shapes alternating at ~200 ms, the motion is
+    # unmistakably "blinking" rather than "spinning".
+    SPINNER_GLYPHS = %w[* +].freeze
+    SPINNER_FRAME_MS = 200
+
+    # Per-char italic sweep cadence across the info_bar text. One column
+    # advance per SWEEP_STEP_MS, cycling. 200 ms matches the bright-cell
+    # sweep observed on Claude Code's "Debugging…" echo.
+    SWEEP_STEP_MS = 200
+
+    # ncurses' A_ITALIC attribute bit (NCURSES_BITS(1U, 23) = 1 << 31).
+    # The ruby curses gem 1.6 doesn't expose A_ITALIC as a constant, but
+    # passing the raw bit to attron still flows through to ncurses, which
+    # emits the terminfo `sitm`/`ritm` escapes when the terminfo entry
+    # (e.g. xterm-256color) defines them.
+    ITALIC_ATTR = (1 << 31)
 
     # Uniform-grey "breathing" wave applied to the info_bar text while a
     # working phase is active. 32 greys from RGB 153..184 (matching the
@@ -87,14 +99,7 @@ module Cclikesh
       @footer_win.addstr(spinner_glyph(phase) + " ")
       info_text = info_bar.map { |item| item[:text] || item["text"] }.compact.join(" · ")
       info_truncated = truncate_to_width(info_text, Curses.cols - 4)
-      breath = breath_color_pair(phase)
-      if breath
-        @footer_win.attron(breath)
-        @footer_win.addstr(info_truncated)
-        @footer_win.attroff(breath)
-      else
-        @footer_win.addstr(info_truncated)
-      end
+      draw_info_bar_with_sweep(info_truncated, phase)
       # row 1: status_rows
       @footer_win.setpos(1, 0)
       status_text = status_rows.map do |r|
@@ -107,7 +112,54 @@ module Cclikesh
       Style.with(@footer_win, :dim) do
         @footer_win.addstr(truncate_to_width(shortcuts_hint.to_s, Curses.cols - 1))
       end
+      # Reline.readmultiline writes raw escape sequences into rows it
+      # treats as its input territory; when input grows past the prompt
+      # row, those writes physically overwrite the divider and footer
+      # cells. Curses's internal cell cache still thinks those cells are
+      # clean, so without an explicit touch + draw_dividers each tick,
+      # the chrome never comes back even after the user backspaces the
+      # newlines away. Touch is cheap (3 rows * cols) and we already pay
+      # for one doupdate per periodic_tick.
+      @footer_win.touch
       @footer_win.noutrefresh
+      draw_dividers
+    end
+
+    # Paint the info_bar text one character at a time, applying the
+    # grey breath color (if available) and an italic sweep that walks
+    # one column per SWEEP_STEP_MS while a working phase is active.
+    def self.draw_info_bar_with_sweep(text, phase)
+      breath = breath_color_pair(phase)
+      sweep = sweep_position(phase, text.length)
+      if sweep.nil?
+        if breath
+          @footer_win.attron(breath); @footer_win.addstr(text); @footer_win.attroff(breath)
+        else
+          @footer_win.addstr(text)
+        end
+        return
+      end
+      text.each_char.with_index do |ch, i|
+        attrs = 0
+        attrs |= breath if breath
+        attrs |= ITALIC_ATTR if i == sweep
+        if attrs != 0
+          @footer_win.attron(attrs); @footer_win.addstr(ch); @footer_win.attroff(attrs)
+        else
+          @footer_win.addstr(ch)
+        end
+      end
+    end
+
+    # Index of the character currently rendered italic in the info_bar,
+    # or nil when no sweep is active (phase != :working, no spinner
+    # start time yet, or empty text).
+    def self.sweep_position(phase, len)
+      return nil unless phase == :working
+      return nil unless @spinner_started_at
+      return nil if len <= 0
+      elapsed_ms = (Time.now - @spinner_started_at) * 1000
+      (elapsed_ms / SWEEP_STEP_MS).to_i % len
     end
 
     # tick_spinner is invoked once per periodic_tick to mark whether a
