@@ -6,7 +6,8 @@ require_relative "style"
 
 module Cclikesh
   module Chrome
-    HEADER_HEIGHT = 3
+    # No header window: header content is appended into the body at boot
+    # by Runner.run, so the top of the alt-screen is just the body pad.
     FOOTER_HEIGHT = 3
     SPINNER_GLYPHS = %w[⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏].freeze
     # Per-frame cadence in milliseconds. ~105ms ≈ 9.5 fps, matching the
@@ -26,11 +27,10 @@ module Cclikesh
     BREATH_PERIOD_MS = 2100
 
     class << self
-      attr_reader :header_win, :footer_win, :spinner_started_at
+      attr_reader :footer_win, :spinner_started_at
     end
 
     def self.init
-      @header_win = Curses::Window.new(HEADER_HEIGHT, Curses.cols, 0, 0)
       @footer_win = Curses::Window.new(FOOTER_HEIGHT, Curses.cols,
                                         Curses.lines - FOOTER_HEIGHT, 0)
       @spinner_started_at = nil
@@ -71,30 +71,16 @@ module Cclikesh
     end
 
     def self.close
-      @header_win&.close
       @footer_win&.close
-      @header_win = nil
       @footer_win = nil
-    end
-
-    def self.update_header(lines)
-      return unless @header_win
-      # erase (werase) clears the window buffer without setting clearok,
-      # so ncurses emits a per-cell diff on the next doupdate instead of
-      # \e[H\e[2J (full screen). Full-screen clear was bleeding through
-      # the prompt row managed by Reline, causing `> a` flicker.
-      @header_win.erase
-      lines.each_with_index do |line, i|
-        next if i >= HEADER_HEIGHT
-        @header_win.setpos(i, 0)
-        @header_win.addstr(truncate_to_width(line.to_s, Curses.cols - 1))
-      end
-      @header_win.noutrefresh
     end
 
     def self.update_footer(info_bar:, status_rows:, shortcuts_hint:, phase: nil)
       return unless @footer_win
-      # See update_header for why erase (werase) is used instead of clear.
+      # erase (werase) clears the window buffer without setting clearok,
+      # so ncurses emits a per-cell diff on the next doupdate instead of
+      # \e[H\e[2J (full screen). Full-screen clear was bleeding through
+      # the prompt row managed by Reline, causing `> a` flicker.
       @footer_win.erase
       # row 0: spinner + info_bar segments
       @footer_win.setpos(0, 0)
@@ -145,18 +131,18 @@ module Cclikesh
     end
 
     def self.handle_resize
-      return unless @header_win && @footer_win
-      @header_win.resize(HEADER_HEIGHT, Curses.cols)
+      return unless @footer_win
       @footer_win.resize(FOOTER_HEIGHT, Curses.cols)
       @footer_win.move(Curses.lines - FOOTER_HEIGHT, 0)
       Curses.stdscr.clear
       draw_dividers
     end
 
-    # Draw three full-width horizontal rules on stdscr:
-    #   - below the header (separates header from body)
+    # Draw two full-width horizontal rules on stdscr:
     #   - below the body  (separates body from prompt)
     #   - below the prompt (separates prompt from footer)
+    # The body fills from row 0 down to the body/prompt divider; header
+    # content lives inside the body and scrolls with it.
     def self.draw_dividers
       width = Curses.cols
       # Use the alternate-character-set horizontal line (ACS 'q' = 0x71) via
@@ -167,7 +153,6 @@ module Cclikesh
       # as - otherwise, without relying on addch looping over multi-byte chars.
       acs_hline = Curses::A_ALTCHARSET | 0x71
       [
-        HEADER_HEIGHT,                            # below header
         Curses.lines - FOOTER_HEIGHT - 3,         # below body (above prompt)
         Curses.lines - FOOTER_HEIGHT - 1          # below prompt (above footer)
       ].each do |row|

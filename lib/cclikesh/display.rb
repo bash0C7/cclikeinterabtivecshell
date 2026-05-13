@@ -92,12 +92,13 @@ module Cclikesh
 
     def self.refresh
       return unless @pad
-      # Body occupies the rows between the header divider and the body/prompt
+      # Body fills from the top of the alt-screen down to the body/prompt
       # divider.  All row indices are 0-based (curses convention).
-      #   body_top    = HEADER_HEIGHT + 1   (row just below the header divider)
+      #   body_top    = 0  (no header window — header is appended to the
+      #                     body as regular content at boot)
       #   body_bottom = lines - FOOTER_HEIGHT - 4
       #                 (row just above the body/prompt divider at lines-F-3)
-      body_top    = Chrome::HEADER_HEIGHT + 1
+      body_top    = 0
       body_bottom = Curses.lines - Chrome::FOOTER_HEIGHT - 4
       visible_h   = body_bottom - body_top + 1
       return if visible_h <= 0

@@ -18,7 +18,9 @@ module Cclikesh
       install_completion(builder)
       RelineDialogs.install(builder)
       main_ctx = MainCtx.new(builder.state_refs)
-      Chrome.update_header(builder.header_lines)
+      # Header lines now live inside the body as regular append-only
+      # output, so they scroll with the rest of the transcript.
+      builder.header_lines.each { |line| Display.append(line) }
       Chrome.update_footer(
         info_bar:        builder.evaluate_info_bar(main_ctx),
         status_rows:     builder.evaluate_status_rows(main_ctx),
