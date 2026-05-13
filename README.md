@@ -9,6 +9,17 @@ Claude Code-style 3-region interactive CLI shell framework, built on curses + Ra
 - Slash handlers run in per-invocation Handler Ractors (true parallelism with UI)
 - Mutable user state opt-in via `shareable_ref { ... }` State Ractor wrapper
 
+### Concurrency principles
+
+Application code follows six rules, enforced by an audit test (`test/test_thread_zero.rb`):
+
+1. No `Thread.new` in application code (Ractor only)
+2. Concurrency is `Ractor::Port` + `shareable_proc` based
+3. Ractor-unsafe C extensions are isolated in a subprocess and reached via DRb
+4. Unshareable resources (sockets, DB handles) are opened inside the owning Ractor
+5. Messages crossing Ractor boundaries are frozen / shareable
+6. Ruby 4.0+ Ractor API only (`#take` / `#yield` are not used)
+
 ## Quick start
 
 ```ruby
@@ -34,9 +45,29 @@ Run: `bundle exec ruby examples/echo_shell.rb`
 
 Separate sub-gem (`cclikesh-debug/cclikesh-debug.gemspec`) for per-session debug recording:
 
-- Per-session SQLite DB (chiebukuro-mcp compatible schema)
-- sqlite-vec semantic search via informers + ruri-v3-310m-onnx
+- Per-session SQLite DB via `extralite` (Ractor-safe; chiebukuro-mcp compatible schema)
+- sqlite-vec semantic search via `informers` + ruri-v3-310m-onnx
 - asciinema cast export, agg/ffmpeg pipeline for gif/mp4/webm
+
+### Recorder pipeline (v0.2.1)
+
+Three Ractors stream the live session, and a subprocess hosts the embedder so the Ractor-unsafe ONNX layer never enters the main process:
+
+```
+PtyReader ──[:bytes]──▶ FrameBuilder ──[:frame]──▶ StorageWriter (extralite)
+                            ▲
+                            │ [:capture_with_snapshot]
+                            │
+                       Orchestrator (main Ractor)
+                         ・DRb pulls debug_snapshot from the shell child
+                         ・on stop, triggers embed_pending
+
+on stop:
+  exe/cclikesh-debug-embedder (subprocess, DRb)
+        ──── proxy.embed(content) ────▶ EmbedStorageWriter (extralite, frame_vec)
+```
+
+`Thread.new` count in application code is 0.
 
 ```bash
 bundle exec cclikesh-debug start examples/echo_shell.rb
@@ -49,9 +80,7 @@ bundle exec cclikesh-debug frames <session>
 ## Known v1 limitations
 
 - macOS only (curses + PTY usage is macOS-specific)
-- cclikesh-debug recorder pipeline has Ractor-safety issues with sqlite3 (StorageWriter needs to be a Thread, not a Ractor — planned for v0.2.1)
-- cclikesh-debug E2E test is omitted in headless test runs (requires a real TTY; manual verification needed)
-- `on_tab` handler in the DSL is captured but not yet wired into Reline's tab completion path
+- cclikesh-debug E2E test requires a real TTY; manual smoke (WINCH / popup) on iTerm2 still pending
 
 ## Development
 
