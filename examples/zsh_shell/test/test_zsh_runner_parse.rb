@@ -4,8 +4,11 @@ require "test/unit"
 require_relative "../zsh_runner"
 
 class TestZshRunnerParse < Test::Unit::TestCase
-  def test_empty_line
+  def test_empty_string
     assert_equal({kind: :empty}, ZshRunner.parse(""))
+  end
+
+  def test_whitespace_only_line
     assert_equal({kind: :empty}, ZshRunner.parse("   "))
   end
 
@@ -35,6 +38,10 @@ class TestZshRunnerParse < Test::Unit::TestCase
 
   def test_export_assignment
     assert_equal({kind: :export, name: "FOO", value: "bar"}, ZshRunner.parse("export FOO=bar"))
+  end
+
+  def test_export_empty_value
+    assert_equal({kind: :export, name: "FOO", value: ""}, ZshRunner.parse("export FOO="))
   end
 
   def test_export_quoted_value

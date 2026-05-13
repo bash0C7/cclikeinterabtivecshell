@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "shellwords"
-require "open3"
 
 module ZshRunner
   TICK_INTERVAL = 0.1
@@ -9,7 +8,7 @@ module ZshRunner
   module_function
 
   def parse(line)
-    stripped = line.to_s.strip
+    stripped = line.strip
     return {kind: :empty}.freeze if stripped.empty?
 
     tokens =
@@ -20,7 +19,7 @@ module ZshRunner
       end
 
     head = tokens[0]
-    rest = tokens[1..] || []
+    rest = tokens[1..]
 
     case head
     when "cd"
