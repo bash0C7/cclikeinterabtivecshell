@@ -56,12 +56,20 @@ class TestZshRunnerRun < Test::Unit::TestCase
   end
 
   def test_tick_called_for_slow_command
-    run_line("sleep 0.3")
+    run_line("sleep 0.5")
     assert @ticks.length >= 1, "expected at least one tick, got #{@ticks.length}"
   end
 
   def test_multiple_stdout_lines
     run_line("printf 'a\\nb\\nc\\n'")
     assert_equal %W[a\n b\n c\n], @stdout
+  end
+
+  def test_invalid_utf8_bytes_do_not_crash
+    status, _ = run_line("printf '\\xff\\xfe\\n'")
+    assert_predicate status, :success?
+    # The invalid bytes get replaced with "?" by set_encoding(invalid: :replace),
+    # so we just verify we got a line and didn't raise.
+    assert_equal 1, @stdout.length
   end
 end

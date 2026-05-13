@@ -77,6 +77,8 @@ module ZshRunner
     spawn_env = (env || {}).each_with_object({}) { |(k, v), h| h[k.to_s] = v.to_s }
     stdin, stdout, stderr, wait_thr = Open3.popen3(spawn_env, "zsh", "-c", line, chdir: cwd)
     stdin.close
+    stdout.set_encoding("UTF-8", invalid: :replace, undef: :replace)
+    stderr.set_encoding("UTF-8", invalid: :replace, undef: :replace)
 
     streams = [stdout, stderr]
     last_tick = start
