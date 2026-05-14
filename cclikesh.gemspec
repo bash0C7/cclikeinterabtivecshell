@@ -6,7 +6,7 @@ Gem::Specification.new do |spec|
   spec.name          = "cclikesh"
   spec.version       = Cclikesh::VERSION
   spec.authors       = ["bash0C7"]
-  spec.summary       = "Claude Code-style 3-region interactive CLI shell framework (curses + Ractor)"
+  spec.summary       = "Claude Code-style 3-region interactive CLI shell framework (line-mode + Ractor)"
   spec.license       = "MIT"
   spec.required_ruby_version = ">= 4.0.0"
 

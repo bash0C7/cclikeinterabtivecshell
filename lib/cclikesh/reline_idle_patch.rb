@@ -13,7 +13,7 @@ require "reline/io/ansi"
 # callback at most once per IDLE_TICK_INTERVAL seconds. Concurrency is
 # kept on the main Ractor (no Thread.new — cclikesh forbids that via
 # test/test_thread_zero.rb), so callers don't need locking around
-# curses access.
+# shared state in line-mode.
 module Cclikesh
   module RelineIdlePatch
     IDLE_TICK_INTERVAL = 0.1  # seconds between idle-tick callbacks

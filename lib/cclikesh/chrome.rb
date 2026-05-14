@@ -25,7 +25,6 @@ module Cclikesh
     def self.init
       @spinner_started_at = nil
       @working_line_active = false
-      @winsize_dirty = false
     end
 
     def self.close
@@ -61,15 +60,6 @@ module Cclikesh
       $stdout.flush
     end
 
-    def self.print_turn_chrome(status_rows:, shortcuts_hint:)
-      cols = winsize[1]
-      $stdout.write("─" * cols); $stdout.write("\n")
-      footer_text = footer_line_text(status_rows: status_rows, shortcuts_hint: shortcuts_hint)
-      Style.with($stdout, :dim) { $stdout.write(truncate_to_width(footer_text, cols)) }
-      $stdout.write("\n")
-      $stdout.flush
-    end
-
     def self.update_status_line(phase:, info_bar:)
       cols = winsize[1]
       if phase == :working
@@ -99,34 +89,12 @@ module Cclikesh
       SPINNER_GLYPHS[(elapsed / SPINNER_FRAME_MS).to_i % SPINNER_GLYPHS.size]
     end
 
-    def self.update_footer(info_bar:, status_rows:, shortcuts_hint:, phase: nil)
-      # Compatibility shim during the transition. RelineDialogs is being
-      # migrated to call print_post_prompt_chrome + update_status_line
-      # directly. Until that migration lands (Task 6) keep this no-op so we
-      # don't double-print at every tick.
-      nil
-    end
-
     def self.tick_spinner(phase)
       if phase == :working
         @spinner_started_at ||= Process.clock_gettime(Process::CLOCK_MONOTONIC)
       else
         @spinner_started_at = nil
       end
-    end
-
-    def self.handle_resize
-      @winsize_dirty = true
-    end
-
-    def self.winsize_dirty?
-      @winsize_dirty ? true : false
-    end
-
-    def self.consume_winsize_dirty
-      v = @winsize_dirty ? true : false
-      @winsize_dirty = false
-      v
     end
 
     def self.footer_line_text(status_rows:, shortcuts_hint:)

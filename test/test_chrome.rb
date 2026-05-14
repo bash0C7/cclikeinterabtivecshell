@@ -24,20 +24,20 @@ class TestChrome < Test::Unit::TestCase
     refute Cclikesh::Chrome.working_line_active?
   end
 
-  def test_print_turn_chrome_emits_dividers_and_footer
-    stub_winsize(25, 24)
-    Cclikesh::Chrome.print_turn_chrome(
+  def test_print_post_prompt_chrome_emits_divider_and_footer
+    stub_winsize(40, 24)
+    Cclikesh::Chrome.print_post_prompt_chrome(
       status_rows:    [{ segments: [{ text: "ready" }] }],
       shortcuts_hint: "Type / for cmds"
     )
     s = @captured.string
-    assert_match(/─{25}/, s)
+    assert_match(/─{40}/, s)
     assert_match(/ready · Type \/ for cmds/, s)
   end
 
-  def test_print_turn_chrome_truncates_to_winsize
+  def test_print_post_prompt_chrome_truncates_to_winsize
     stub_winsize(10, 24)
-    Cclikesh::Chrome.print_turn_chrome(
+    Cclikesh::Chrome.print_post_prompt_chrome(
       status_rows:    [],
       shortcuts_hint: "very long shortcuts hint that should be cut"
     )
@@ -67,10 +67,4 @@ class TestChrome < Test::Unit::TestCase
     refute Cclikesh::Chrome.working_line_active?
   end
 
-  def test_handle_resize_marks_dirty_and_clears_on_next_winsize_call
-    Cclikesh::Chrome.handle_resize
-    assert Cclikesh::Chrome.winsize_dirty?
-    Cclikesh::Chrome.consume_winsize_dirty
-    refute Cclikesh::Chrome.winsize_dirty?
-  end
 end

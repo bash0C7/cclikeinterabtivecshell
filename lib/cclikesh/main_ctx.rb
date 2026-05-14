@@ -2,7 +2,7 @@
 
 module Cclikesh
   # Read-only context passed to status_row / info blocks during footer redraw.
-  # These blocks run on the Main thread (curses), not inside a handler Ractor,
+  # These blocks run on the main Ractor, not inside a handler Ractor,
   # so they get a subset of CtxProxy's surface: shareable_ref lookup and state read.
   class MainCtx
     def initialize(state_refs)

@@ -152,8 +152,8 @@ module Cclikesh
       main_ctx = Cclikesh::MainCtx.new(builder.state_refs)
       proc do
         # If Reline is in completion-journey mode (Tab pressed and a journey
-        # is active), it owns the terminal — don't paint, otherwise our
-        # curses repaint resets cursor mid-render and the input line
+        # is active), it owns the terminal — don't paint, otherwise the
+        # status-line rewrite resets cursor mid-render and the input line
         # disappears until the user types another character.
         jd = (completion_journey_data rescue nil)
         next nil if jd
@@ -164,9 +164,8 @@ module Cclikesh
     end
 
     # Shared body of the chrome repaint. Called from periodic_tick_proc
-    # (on key input) and from the background tick thread started by
-    # Runner.run (on a 100ms timer while idle). The caller is responsible
-    # for holding the curses mutex.
+    # (on key input) and from the idle-tick callback installed by
+    # Runner.run (on a 100ms timer while idle). Runs on the main Ractor.
     def self.run_chrome_tick(builder, main_ctx)
       phase = Cclikesh::Context.state[:phase]
       Cclikesh::Chrome.tick_spinner(phase)

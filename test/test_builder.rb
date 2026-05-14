@@ -47,8 +47,7 @@ class TestBuilder < Test::Unit::TestCase
 
   def test_define_style_does_not_raise
     b = Cclikesh::Builder.new
-    # Style.define calls Curses.init_pair in a full init context;
-    # outside curses init it may raise — just ensure Builder.define_style exists.
+    # Just ensure Builder.define_style exists.
     assert_respond_to b, :define_style
   end
 
