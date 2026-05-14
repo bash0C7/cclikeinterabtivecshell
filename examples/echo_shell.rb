@@ -13,6 +13,8 @@ Cclikesh.run do |shell|
     h.note     "echo-back demo · /q to exit"
   end
 
+  shell.enable_debug_commands
+
   shell.define_style(:warn, fg: Curses::COLOR_YELLOW, bold: true)
 
   shell.info(:elapsed, order: 10) do |_ctx|
