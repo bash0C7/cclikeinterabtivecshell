@@ -26,10 +26,12 @@ module Cclikesh
         term = ENV["TERM"].to_s
         return false if term.empty?
         return false if term == "dumb"
-        # Re-entry after a previous install in the same process: ENV["TERM"]
-        # already ends with "-noalt", so `term` here does too. Treat as
-        # success without redoing the infocmp / tic / ENV work.
-        return true if @installed && term.end_with?("-noalt")
+        # Idempotent: second call within the same process is a no-op success.
+        # We trust @installed regardless of current ENV["TERM"], because if a
+        # caller has rewritten TERM after our first install, redoing the
+        # infocmp/tic pipeline against the rewritten value could produce a
+        # nonsensical "<orig>-noalt-noalt" entry name. Better to no-op.
+        return true if @installed
 
         raw = read_terminfo_source(term)
         return false if raw.nil?
@@ -84,6 +86,8 @@ module Cclikesh
       # the command is missing, fails, or produces empty output.
       def read_terminfo_source(term)
         out = nil
+        # -1 forces one capability per line; strip_smcup_rmcup depends on this
+        # format and would silently miss smcup on folded/continued input.
         IO.popen(["infocmp", "-1", term, { err: :close }], "r") do |io|
           out = io.read
         end
