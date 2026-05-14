@@ -38,7 +38,7 @@ module Cclikesh
     ORANGE_DIM_INDEX    = 201
 
     class << self
-      attr_reader :footer_win, :spinner_started_at
+      attr_reader :footer_win, :spinner_started_at, :breath_supported
     end
 
     def self.init
