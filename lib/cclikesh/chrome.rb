@@ -173,6 +173,11 @@ module Cclikesh
 
     def self.handle_resize
       return unless @footer_win
+      # Pull the new terminal size from the kernel via TIOCGWINSZ and tell
+      # ncurses about it before touching any window dimensions. Without this,
+      # Curses.lines/Curses.cols still reflect the pre-resize (or init-time)
+      # dimensions and the window moves/resizes land in the wrong position.
+      Cclikesh::Runner.sync_curses_to_terminal_size if Cclikesh::Runner.respond_to?(:sync_curses_to_terminal_size)
       @footer_win.resize(FOOTER_HEIGHT, Curses.cols)
       @footer_win.move(Curses.lines - FOOTER_HEIGHT, 0)
       Curses.stdscr.clear

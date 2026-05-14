@@ -119,6 +119,12 @@ module Cclikesh
 
     def self.init_curses
       Curses.init_screen
+      # Sync ncurses LINES/COLS to the actual terminal size immediately.
+      # Curses.init_screen reads dimensions from LINES/COLUMNS env vars or
+      # terminfo defaults (often 24x80) rather than from TIOCGWINSZ. On
+      # terminals taller/wider than the default, every window is laid out
+      # at the wrong size until we explicitly tell ncurses the real size.
+      sync_curses_to_terminal_size
       Curses.cbreak
       Curses.noecho
       Curses.start_color
@@ -132,6 +138,23 @@ module Cclikesh
       # inserts a newline.
       $stdout.print("\e[>4;2m")
       $stdout.flush
+    end
+
+    # Sync ncurses LINES/COLS to the actual terminal size via TIOCGWINSZ.
+    # At init_screen time ncurses may use terminfo defaults (24x80) instead
+    # of the real winsize; without this call, all curses windows lay out
+    # at the wrong size on terminals that don't match the default. Also
+    # called from the SIGWINCH consumer (via Chrome.handle_resize) to
+    # follow resizes.
+    def self.sync_curses_to_terminal_size
+      require "io/console"
+      console = IO.console
+      return if console.nil?
+      rows, cols = console.winsize
+      return if rows.nil? || cols.nil? || rows <= 0 || cols <= 0
+      Curses.resize_term(rows, cols) if Curses.respond_to?(:resize_term)
+    rescue Errno::ENOTTY, IOError => e
+      Cclikesh::Context.logger.error("winsize query failed: #{e.class}: #{e.message}") rescue nil
     end
 
     def self.teardown_curses
