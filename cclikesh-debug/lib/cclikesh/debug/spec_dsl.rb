@@ -101,6 +101,20 @@ module Cclikesh
           storage.close
         end
       end
+
+      def self.dispatch_expects(result)
+        result.expects.map do |label, blk|
+          pass  = false
+          err   = nil
+          begin
+            pass = !!blk.call(result.captured)
+          rescue StandardError => e
+            err  = e
+            pass = false
+          end
+          { label: label, pass: pass, error: err }
+        end
+      end
     end
   end
 end

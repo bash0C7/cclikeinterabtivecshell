@@ -66,4 +66,33 @@ class TestSpecDsl < Test::Unit::TestCase
       Cclikesh::Debug::SpecDSL.evaluate(src, db_path: @db_path, spec_path: "<inline>")
     end
   end
+
+  def test_expect_blocks_run_after_session_and_aggregate_pass_fail
+    src = <<~RUBY
+      session "with expects" do
+        spawn argv: ["/bin/echo", "OK-MARK"], cols: 40, rows: 10, env: {}
+      end
+      expect("output contains OK-MARK") { |c| c.contains?("OK-MARK") }
+      expect("intentional failure")     { |_c| false }
+    RUBY
+    result = Cclikesh::Debug::SpecDSL.evaluate(src, db_path: @db_path, spec_path: "<inline>")
+    outcomes = Cclikesh::Debug::SpecDSL.dispatch_expects(result)
+    assert_equal "output contains OK-MARK", outcomes[0][:label]
+    assert_equal true,  outcomes[0][:pass]
+    assert_equal "intentional failure", outcomes[1][:label]
+    assert_equal false, outcomes[1][:pass]
+  end
+
+  def test_expect_block_raising_counts_as_fail
+    src = <<~RUBY
+      session "boom" do
+        spawn argv: ["/bin/echo", "x"], cols: 1, rows: 1, env: {}
+      end
+      expect("raises an error") { |_c| raise "kaboom" }
+    RUBY
+    result = Cclikesh::Debug::SpecDSL.evaluate(src, db_path: @db_path, spec_path: "<inline>")
+    outcomes = Cclikesh::Debug::SpecDSL.dispatch_expects(result)
+    assert_equal false, outcomes.first[:pass]
+    assert_match(/kaboom/, outcomes.first[:error].to_s)
+  end
 end
