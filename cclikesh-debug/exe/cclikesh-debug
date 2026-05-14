@@ -6,8 +6,9 @@ case cmd
 when nil, "-h", "--help"
   puts <<~USAGE
     usage: cclikesh-debug <subcommand> [args]
-    driver: start input capture wait stop tail
-    viewer: list info frames grid query semantic export clean
+    driver:    start input capture wait stop tail
+    viewer:    list info frames grid query semantic export clean
+    pty (B):   play replay dump pty-list
   USAGE
   exit 0
 when "start"   then require "cclikesh/debug/driver/start";   Cclikesh::Debug::Driver::Start.call(ARGV)
@@ -16,6 +17,9 @@ when "capture" then require "cclikesh/debug/driver/capture"; Cclikesh::Debug::Dr
 when "wait"    then require "cclikesh/debug/driver/wait";    Cclikesh::Debug::Driver::Wait.call(ARGV)
 when "stop"    then require "cclikesh/debug/driver/stop";    Cclikesh::Debug::Driver::Stop.call(ARGV)
 when "tail"    then require "cclikesh/debug/driver/tail";    Cclikesh::Debug::Driver::Tail.call(ARGV)
+when "play"
+  require "cclikesh/debug/cli/play"
+  exit Cclikesh::Debug::CLI::Play.call(argv: ARGV, stdout: $stdout)
 when "list"     then require "cclikesh/debug/viewer/list";     Cclikesh::Debug::Viewer::List.call(ARGV)
 when "info"     then require "cclikesh/debug/viewer/info";     Cclikesh::Debug::Viewer::Info.call(ARGV)
 when "frames"   then require "cclikesh/debug/viewer/frames";   Cclikesh::Debug::Viewer::Frames.call(ARGV)
