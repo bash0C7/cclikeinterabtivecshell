@@ -1,79 +1,69 @@
-# frozen_string_literal: true
-
-require_relative "test_helper"
-require "curses"
-require "cclikesh/style"
-require "cclikesh/chrome"
+require "test/unit"
+require "stringio"
 require "cclikesh/display"
 require "cclikesh/transcript"
 
 class TestDisplay < Test::Unit::TestCase
   def setup
-    Curses.init_screen
-    Curses.start_color
-    Curses.use_default_colors
-    Cclikesh::Style.init!
-    Cclikesh::Chrome.init
-    Cclikesh::Display.init
     Cclikesh::Transcript.clear!
+    Cclikesh::Style.init! if defined?(Cclikesh::Style)
+    @captured = StringIO.new
+    @orig_stdout = $stdout
+    $stdout = @captured
+    Cclikesh::Display.init
   end
 
   def teardown
+    $stdout = @orig_stdout
     Cclikesh::Display.close
-    Cclikesh::Chrome.close
-    Curses.close_screen
-    Cclikesh::Transcript.clear!
-  rescue
-    nil
   end
 
-  def test_append_writes_to_pad_and_records_transcript
-    Cclikesh::Display.append("hello world")
-    assert_equal ["hello world"], Cclikesh::Transcript.lines
+  def test_append_writes_line_and_records_transcript
+    Cclikesh::Display.append("hello")
+    assert_equal "hello\n", @captured.string
+    assert_equal ["hello"], Cclikesh::Transcript.lines
   end
 
   def test_append_with_prompt_concatenates
-    Cclikesh::Display.append("ok", prompt: "> ")
-    assert_equal ["> ok"], Cclikesh::Transcript.lines
+    Cclikesh::Display.append("world", prompt: "> ")
+    assert_equal "> world\n", @captured.string
   end
 
-  def test_open_live_returns_sid_and_increments
-    s1 = Cclikesh::Display.open_live(style: :thinking)
-    s2 = Cclikesh::Display.open_live
-    assert s1.is_a?(Integer)
-    assert_not_equal s1, s2
+  def test_append_with_style_wraps_sgr
+    require "cclikesh/style"
+    Cclikesh::Display.append("oops", style: :error)
+    assert_equal "\e[31moops\e[0m\n", @captured.string
   end
 
-  def test_live_update_overwrites_slot_text
+  def test_open_live_then_update_rewrites_last_line
     sid = Cclikesh::Display.open_live
     Cclikesh::Display.live_update(sid, "step 1")
     Cclikesh::Display.live_update(sid, "step 2")
-    state = Cclikesh::Display.live_slot_state[sid]
-    assert_equal "step 2", state[:last_text]
+    expected = "\n" + "\e[1A\r\e[K" + "step 1" + "\e[1A\r\e[K" + "step 2"
+    assert_equal expected, @captured.string
   end
 
-  def test_live_commit_writes_to_transcript_and_removes_slot
+  def test_live_commit_finalizes_with_newline_and_records
     sid = Cclikesh::Display.open_live
-    Cclikesh::Display.live_update(sid, "tmp")
-    Cclikesh::Display.live_commit(sid, "DONE")
-    assert_includes Cclikesh::Transcript.lines, "DONE"
-    assert_nil Cclikesh::Display.live_slot_state[sid]
+    Cclikesh::Display.live_update(sid, "progress")
+    Cclikesh::Display.live_commit(sid, "done")
+    assert @captured.string.end_with?("\e[1A\r\e[K" + "done\n"), @captured.string.inspect
+    assert_equal ["done"], Cclikesh::Transcript.lines
   end
 
-  def test_live_discard_removes_slot_without_transcript
+  def test_live_discard_clears_line
     sid = Cclikesh::Display.open_live
-    Cclikesh::Display.live_update(sid, "abc")
+    Cclikesh::Display.live_update(sid, "wip")
     Cclikesh::Display.live_discard(sid)
-    refute_includes Cclikesh::Transcript.lines, "abc"
-    assert_nil Cclikesh::Display.live_slot_state[sid]
+    assert @captured.string.end_with?("\e[1A\r\e[K"), @captured.string.inspect
+    assert_equal [], Cclikesh::Transcript.lines
   end
 
-  def test_dialog_appends_box_lines_to_transcript
-    Cclikesh::Display.dialog("hello\nworld")
-    lines = Cclikesh::Transcript.lines
-    assert lines.first.start_with?("┌"), "first line should start with ┌, got #{lines.first.inspect}"
-    assert(lines.any? { |l| l.include?("hello") })
-    assert(lines.any? { |l| l.include?("world") })
-    assert lines.last.start_with?("└"), "last line should start with └, got #{lines.last.inspect}"
+  def test_dialog_emits_box
+    Cclikesh::Display.dialog("hi")
+    lines = @captured.string.split("\n")
+    assert_match(/┌─+┐/, lines[0])
+    assert_match(/│ hi\s*│/, lines[1])
+    assert_match(/└─+┘/, lines[2])
   end
 end
