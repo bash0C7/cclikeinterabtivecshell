@@ -110,4 +110,22 @@ class TestPlayCli < Test::Unit::TestCase
       end
     end
   end
+
+  def test_no_alt_screen_spec_passes_under_play_cli
+    repo_root = File.expand_path("../../..", __dir__)
+    Dir.chdir(repo_root) do
+      spec = File.join(repo_root, "cclikesh-debug/test/specs/no_alt_screen.rb")
+      out  = StringIO.new
+      db   = File.join(Dir.tmpdir, "test-noalt-#{Process.pid}-#{rand(10000)}.sqlite")
+      begin
+        code = Cclikesh::Debug::CLI::Play.call(argv: [spec, "--db", db], stdout: out)
+        assert_equal 0, code, out.string
+        assert_match(/^PASS: session emits no smcup \(alt-screen enter\)$/, out.string)
+        assert_match(/^PASS: session emits no rmcup \(alt-screen leave\)$/, out.string)
+        assert_match(/^PASS: session exits cleanly$/, out.string)
+      ensure
+        [db, "#{db}-wal", "#{db}-shm"].each { |f| File.unlink(f) if File.exist?(f) }
+      end
+    end
+  end
 end
