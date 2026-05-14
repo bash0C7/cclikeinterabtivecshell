@@ -71,4 +71,36 @@ class TestTerminfoOverlay < Test::Unit::TestCase
   ensure
     ENV["PATH"] = old_path
   end
+
+  def test_rename_entry_replaces_header_aliases
+    source = <<~TI
+      xterm-ghostty|ghostty|Ghostty,
+        am,
+        cup=\\E[H,
+    TI
+    out = Cclikesh::TerminfoOverlay.send(:rename_entry, source, "xterm-ghostty-noalt")
+    assert_match(/\Axterm-ghostty-noalt\|xterm-ghostty without smcup,$/, out.lines.first.chomp)
+    assert_match(/^  am,/, out)
+  end
+
+  def test_rename_entry_preserves_comments_before_header
+    source = "# Reconstructed via infocmp\nxterm|x,\n  am,\n"
+    out = Cclikesh::TerminfoOverlay.send(:rename_entry, source, "xterm-noalt")
+    assert_match(/\A# Reconstructed/, out)
+    assert_match(/^xterm-noalt\|xterm without smcup,/, out)
+  end
+
+  def test_digest_of_is_stable_for_same_input
+    s = "xterm|x,\n  am,\n"
+    a = Cclikesh::TerminfoOverlay.send(:digest_of, s)
+    b = Cclikesh::TerminfoOverlay.send(:digest_of, s)
+    assert_equal a, b
+    assert_match(/\A[0-9a-f]{8,}\z/, a)
+  end
+
+  def test_digest_of_differs_for_different_input
+    a = Cclikesh::TerminfoOverlay.send(:digest_of, "x|x,\n")
+    b = Cclikesh::TerminfoOverlay.send(:digest_of, "y|y,\n")
+    refute_equal a, b
+  end
 end

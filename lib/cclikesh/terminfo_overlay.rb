@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "digest"
+
 module Cclikesh
   # Strips smcup/rmcup from the user's terminfo entry at startup so that
   # Curses.init_screen does not enter the alt-screen buffer. This preserves
@@ -55,6 +57,24 @@ module Cclikesh
       # supported and would silently miss a smcup on a wrapped line.
       def strip_smcup_rmcup(source)
         source.each_line.reject { |l| l =~ /^\s*(smcup|rmcup)=/ }.join
+      end
+
+      # Returns `source` with the first non-comment, non-blank line
+      # (the terminfo entry header `name|alias|...,`) replaced by
+      # `<new_name>|<original first alias or name> without smcup,`.
+      def rename_entry(source, new_name)
+        lines = source.lines
+        idx = lines.index { |l| !l.start_with?("#") && !l.strip.empty? }
+        return source unless idx
+        original_first = lines[idx].split("|", 2).first
+        lines[idx] = "#{new_name}|#{original_first} without smcup,\n"
+        lines.join
+      end
+
+      # Stable short digest of the stripped+renamed source. Used to key
+      # the on-disk compile cache so terminfo changes invalidate it.
+      def digest_of(source)
+        Digest::SHA1.hexdigest(source)[0, 16]
       end
     end
   end
