@@ -173,9 +173,16 @@ module Cclikesh
       # at. Using \e[N;1H (CUP, absolute) here desynced Reline's relative
       # cursor tracking and caused it to erase the prompt prefix `>` on
       # the next keystroke.
+      #
+      # \e[1G (CHA col 1) after DECSC re-anchors the physical cursor to
+      # column 1 before any curses doupdate fires. Without this, ncurses
+      # emits VPA (vertical-only) to reach new body rows, keeping whatever
+      # column Reline left the cursor at (col 3 after "> "), causing body
+      # output to appear indented by ~2 columns on native TTY.  DECRC
+      # (\e8) still restores the Reline cursor afterwards.
       phase = Cclikesh::Context.state[:phase]
       Cclikesh::Chrome.tick_spinner(phase)
-      $stdout.print("\e7")
+      $stdout.print("\e7\e[1G")
       $stdout.flush
       drain_main_mailbox
       Cclikesh::Chrome.update_footer(
