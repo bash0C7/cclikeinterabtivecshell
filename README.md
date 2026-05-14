@@ -36,6 +36,14 @@ end
 
 Run: `bundle exec ruby examples/echo_shell.rb`
 
+## Terminal scrollback
+
+cclikesh runs as a curses TUI but does **not** enter the terminal's alt-screen buffer. On startup it generates a one-off terminfo entry derived from your `$TERM` with the `smcup`/`rmcup` capabilities stripped, caches the compiled entry under `$XDG_CACHE_HOME/cclikesh/terminfo/` (or `~/.cache/cclikesh/terminfo/`), and points the process at it by mutating `TERM`, `TERMINFO_DIRS`, and unsetting the singular `TERMINFO` (so it does not override the dirs lookup on macOS).
+
+The practical effect: your terminal's native scroll wheel and scrollback shortcuts keep working — past shell history before launch stays visible above the cclikesh UI, and lines that scroll out of cclikesh's main area remain readable in your terminal's scrollback buffer.
+
+Requires `infocmp` and `tic` (both part of system ncurses on macOS and Linux). When either is missing, cclikesh falls back transparently to legacy alt-screen mode.
+
 ## Using cclikesh from your own gem / project
 
 cclikesh is not (yet) on RubyGems. Pull it directly from GitHub.
