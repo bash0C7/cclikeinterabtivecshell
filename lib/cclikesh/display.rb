@@ -17,6 +17,7 @@ module Cclikesh
 
     def self.close
       @current_slot = nil
+      @next_sid = 0
     end
 
     def self.append(text, prompt: nil, style: nil)
@@ -51,8 +52,6 @@ module Cclikesh
       return if slot.nil? || slot[:sid] != sid || slot[:committed]
       text = final || slot[:last_text]
       rewrite_current_line(text, slot[:style])
-      $stdout.write("\n")
-      $stdout.flush
       Transcript.record(text)
       slot[:committed] = true
       @current_slot = nil
@@ -61,7 +60,7 @@ module Cclikesh
     def self.live_discard(sid)
       slot = @current_slot
       return if slot.nil? || slot[:sid] != sid || slot[:committed]
-      $stdout.write("\e[1A\r\e[K")
+      $stdout.write("\e[1A\r\e[K\n")
       $stdout.flush
       slot[:committed] = true
       @current_slot = nil
@@ -88,6 +87,7 @@ module Cclikesh
     def self.rewrite_current_line(text, style)
       $stdout.write("\e[1A\r\e[K")
       Style.with($stdout, style) { $stdout.write(text) }
+      $stdout.write("\n")
       $stdout.flush
     end
 

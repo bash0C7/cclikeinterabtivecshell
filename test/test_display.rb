@@ -39,7 +39,7 @@ class TestDisplay < Test::Unit::TestCase
     sid = Cclikesh::Display.open_live
     Cclikesh::Display.live_update(sid, "step 1")
     Cclikesh::Display.live_update(sid, "step 2")
-    expected = "\n" + "\e[1A\r\e[K" + "step 1" + "\e[1A\r\e[K" + "step 2"
+    expected = "\n" + "\e[1A\r\e[K" + "step 1" + "\n" + "\e[1A\r\e[K" + "step 2" + "\n"
     assert_equal expected, @captured.string
   end
 
@@ -55,7 +55,7 @@ class TestDisplay < Test::Unit::TestCase
     sid = Cclikesh::Display.open_live
     Cclikesh::Display.live_update(sid, "wip")
     Cclikesh::Display.live_discard(sid)
-    assert @captured.string.end_with?("\e[1A\r\e[K"), @captured.string.inspect
+    assert @captured.string.end_with?("\e[1A\r\e[K\n"), @captured.string.inspect
     assert_equal [], Cclikesh::Transcript.lines
   end
 
