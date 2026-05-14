@@ -55,8 +55,18 @@ module Cclikesh
           return false unless compiled
         end
 
-        prev = ENV["TERMINFO_DIRS"].to_s
-        ENV["TERMINFO_DIRS"] = prev.empty? ? dest_dir : "#{dest_dir}:#{prev}"
+        # macOS ncurses (and many Linux ncurses builds) consult the singular
+        # ENV["TERMINFO"] BEFORE TERMINFO_DIRS. If TERMINFO is set to a dir
+        # that doesn't contain our renamed entry, initscr silently strips
+        # the "-noalt" suffix and loads the original (smcup-bearing) entry,
+        # defeating the overlay. Remove TERMINFO and roll its value into
+        # TERMINFO_DIRS so non-cclikesh lookups still resolve.
+        prev_terminfo = ENV.delete("TERMINFO").to_s
+        prev_dirs     = ENV["TERMINFO_DIRS"].to_s
+        parts = [dest_dir]
+        parts << prev_terminfo unless prev_terminfo.empty?
+        parts << prev_dirs     unless prev_dirs.empty?
+        ENV["TERMINFO_DIRS"] = parts.join(":")
         ENV["TERM"] = new_name
         @installed = true
         true

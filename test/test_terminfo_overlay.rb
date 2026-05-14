@@ -196,4 +196,28 @@ class TestTerminfoOverlay < Test::Unit::TestCase
     Cclikesh::TerminfoOverlay.install_if_possible
     refute Cclikesh::TerminfoOverlay.installed?
   end
+
+  def test_install_unsets_terminfo_singular_and_preserves_value_in_dirs
+    real_term = ENV["TERM"]
+    omit "no TERM in test env" if real_term.to_s.empty? || real_term == "dumb"
+
+    Dir.mktmpdir do |dir|
+      ENV["XDG_CACHE_HOME"] = dir
+      ENV["TERMINFO"] = "/tmp/fake-terminfo-from-test"
+      ENV["TERMINFO_DIRS"] = "/tmp/fake-dirs-from-test"
+
+      ok = Cclikesh::TerminfoOverlay.install_if_possible
+      omit "infocmp/tic unavailable" unless ok
+
+      assert_nil ENV["TERMINFO"],
+        "TERMINFO must be removed so it does not override TERMINFO_DIRS"
+      dirs = ENV["TERMINFO_DIRS"].to_s
+      assert dirs.include?("/tmp/fake-terminfo-from-test"),
+        "the original TERMINFO value should be reachable via TERMINFO_DIRS"
+      assert dirs.include?("/tmp/fake-dirs-from-test"),
+        "the original TERMINFO_DIRS value should be preserved"
+      assert dirs.start_with?(Cclikesh::TerminfoOverlay.send(:cache_root)),
+        "the overlay cache dir should be first in TERMINFO_DIRS"
+    end
+  end
 end

@@ -21,6 +21,12 @@ require_relative "cclikesh/runner"
 
 module Cclikesh
   def self.run(&block)
+    # Install the terminfo overlay before the user's builder block runs,
+    # because define_style calls Curses.init_pair which implicitly triggers
+    # ncurses' setupterm()/initscr(). If TERMINFO is still pointing at a
+    # directory that lacks our "-noalt" entry at that point, ncurses loads
+    # the original (smcup-bearing) entry and the overlay is defeated.
+    TerminfoOverlay.install_if_possible
     builder = Builder.new
     block.call(builder)
     Runner.run(builder)
