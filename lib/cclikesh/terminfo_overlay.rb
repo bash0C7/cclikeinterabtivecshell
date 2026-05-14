@@ -45,12 +45,14 @@ module Cclikesh
         end
         return nil if out.nil? || out.strip.empty?
         out
-      rescue Errno::ENOENT, Errno::EPIPE
+      rescue Errno::ENOENT, Errno::EPIPE, Errno::EACCES
         nil
       end
 
       # Returns `source` with any line matching ^\s*(smcup|rmcup)= removed.
-      # Pure function: no I/O, no ENV access.
+      # Pure function: no I/O, no ENV access. Assumes one capability per
+      # line (the `infocmp -1` format); folded/continued-line input is not
+      # supported and would silently miss a smcup on a wrapped line.
       def strip_smcup_rmcup(source)
         source.each_line.reject { |l| l =~ /^\s*(smcup|rmcup)=/ }.join
       end
