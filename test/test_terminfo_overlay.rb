@@ -32,4 +32,43 @@ class TestTerminfoOverlay < Test::Unit::TestCase
     refute Cclikesh::TerminfoOverlay.installed?
     assert_equal "", ENV["TERM"]
   end
+
+  def test_strip_smcup_rmcup_removes_both_lines
+    source = <<~TI
+      xterm-ghostty|ghostty|Ghostty,
+        am,
+        smcup=\\E[?1049h,
+        rmcup=\\E[?1049l,
+        cup=\\E[%i%p1%d;%p2%dH,
+    TI
+    out = Cclikesh::TerminfoOverlay.send(:strip_smcup_rmcup, source)
+    refute_match(/smcup=/, out)
+    refute_match(/rmcup=/, out)
+    assert_match(/cup=/, out)  # unrelated caps survive
+    assert_match(/^xterm-ghostty/, out)  # header survives
+  end
+
+  def test_strip_smcup_rmcup_handles_lines_without_either
+    source = "xterm|x,\n  am,\n  cup=\\E[H,\n"
+    out = Cclikesh::TerminfoOverlay.send(:strip_smcup_rmcup, source)
+    assert_equal source, out
+  end
+
+  def test_strip_smcup_rmcup_is_whitespace_tolerant
+    source = "x|x,\n\tsmcup=foo,\n  rmcup=bar,\n  smkx=baz,\n"
+    out = Cclikesh::TerminfoOverlay.send(:strip_smcup_rmcup, source)
+    refute_match(/smcup=/, out)
+    refute_match(/rmcup=/, out)
+    assert_match(/smkx=/, out)  # do not strip caps that merely start with "sm"
+  end
+
+  def test_read_terminfo_source_returns_nil_when_infocmp_missing
+    # Simulate PATH without infocmp.
+    old_path = ENV["PATH"]
+    ENV["PATH"] = "/dev/null"
+    src = Cclikesh::TerminfoOverlay.send(:read_terminfo_source, "xterm-256color")
+    assert_nil src
+  ensure
+    ENV["PATH"] = old_path
+  end
 end

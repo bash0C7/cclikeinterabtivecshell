@@ -33,6 +33,27 @@ module Cclikesh
       def reset_state_for_test
         @installed = false
       end
+
+      private
+
+      # Returns the infocmp -1 output for `term` as a String, or nil if
+      # the command is missing, fails, or produces empty output.
+      def read_terminfo_source(term)
+        out = nil
+        IO.popen(["infocmp", "-1", term, { err: :close }], "r") do |io|
+          out = io.read
+        end
+        return nil if out.nil? || out.strip.empty?
+        out
+      rescue Errno::ENOENT, Errno::EPIPE
+        nil
+      end
+
+      # Returns `source` with any line matching ^\s*(smcup|rmcup)= removed.
+      # Pure function: no I/O, no ENV access.
+      def strip_smcup_rmcup(source)
+        source.each_line.reject { |l| l =~ /^\s*(smcup|rmcup)=/ }.join
+      end
     end
   end
 end
