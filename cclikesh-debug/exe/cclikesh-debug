@@ -23,6 +23,9 @@ when "play"
 when "replay"
   require "cclikesh/debug/cli/replay"
   exit Cclikesh::Debug::CLI::Replay.call(argv: ARGV, stdout: $stdout)
+when "dump"
+  require "cclikesh/debug/cli/dump"
+  exit Cclikesh::Debug::CLI::Dump.call(argv: ARGV, stdout: $stdout)
 when "list"     then require "cclikesh/debug/viewer/list";     Cclikesh::Debug::Viewer::List.call(ARGV)
 when "info"     then require "cclikesh/debug/viewer/info";     Cclikesh::Debug::Viewer::Info.call(ARGV)
 when "frames"   then require "cclikesh/debug/viewer/frames";   Cclikesh::Debug::Viewer::Frames.call(ARGV)
