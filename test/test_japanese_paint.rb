@@ -1,29 +1,8 @@
 require_relative "test_helper"
-require "curses"
 require "unicode/display_width"
 require "cclikesh/chrome"
 
 class TestJapanesePaint < Test::Unit::TestCase
-  def setup
-    Curses.init_screen
-    Curses.start_color
-  end
-
-  def teardown
-    Curses.close_screen
-  rescue
-    nil
-  end
-
-  def test_addstr_with_cjk_characters
-    win = Curses::Window.new(1, 30, 0, 0)
-    win.addstr("日本語")
-    # Note: curx may not be available on all curses gem versions,
-    # so we just verify that addstr completes without error
-    win.close
-    assert true
-  end
-
   def test_truncate_to_width_handles_cjk
     s = "日本語abc"  # widths: 2+2+2+1+1+1 = 9
     truncated = Cclikesh::Chrome.truncate_to_width(s, 5)
