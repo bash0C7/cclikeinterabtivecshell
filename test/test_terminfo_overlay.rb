@@ -95,7 +95,7 @@ class TestTerminfoOverlay < Test::Unit::TestCase
     a = Cclikesh::TerminfoOverlay.send(:digest_of, s)
     b = Cclikesh::TerminfoOverlay.send(:digest_of, s)
     assert_equal a, b
-    assert_match(/\A[0-9a-f]{8,}\z/, a)
+    assert_match(/\A[0-9a-f]{16}\z/, a)
   end
 
   def test_digest_of_differs_for_different_input

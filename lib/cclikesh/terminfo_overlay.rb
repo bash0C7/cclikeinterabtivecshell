@@ -66,7 +66,7 @@ module Cclikesh
         lines = source.lines
         idx = lines.index { |l| !l.start_with?("#") && !l.strip.empty? }
         return source unless idx
-        original_first = lines[idx].split("|", 2).first
+        original_first = lines[idx].split("|", 2).first.strip
         lines[idx] = "#{new_name}|#{original_first} without smcup,\n"
         lines.join
       end
