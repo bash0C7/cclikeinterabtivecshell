@@ -52,4 +52,33 @@ class TestPtyRunner < Test::Unit::TestCase
     assert_equal tss, tss.sort, "events must be timestamp-sorted"
     assert tss.first >= 0.0
   end
+
+  def test_runs_with_pty_storage_sink_and_persists_events
+    require "tmpdir"
+    require "cclikesh/debug/pty_storage"
+    db_path = File.join(Dir.tmpdir, "test-runner-store-#{Process.pid}-#{rand(10000)}.sqlite")
+    storage = Cclikesh::Debug::PtyStorage.open(db_path)
+    begin
+      uuid = "runner-#{rand(1<<32).to_s(16)}"
+      storage.insert_session(uuid: uuid, argv: ["/bin/echo", "ok"],
+                             cols: 80, rows: 24, env: {},
+                             spec_path: nil, timeout_sec: 5.0)
+      sink = ->(ts:, dir:, bytes:) {
+        storage.insert_event(session_uuid: uuid, ts: ts, dir: dir, bytes: bytes)
+      }
+      runner = Cclikesh::Debug::PtyRunner.new(
+        argv: ["/bin/echo", "ok"], cols: 80, rows: 24, env: {},
+        timeout_sec: 5.0, event_sink: sink
+      )
+      status = runner.run
+      storage.mark_ended(uuid: uuid, exit_status: status)
+      events = storage.each_event(uuid).to_a
+      output = events.select { |e| e[:dir] == "o" }.map { |e| e[:bytes] }.join.b
+      assert_match(/ok/, output)
+      assert_equal 0, storage.fetch_session(uuid)[:exit_status]
+    ensure
+      storage.close
+      [db_path, "#{db_path}-wal", "#{db_path}-shm"].each { |f| File.unlink(f) if File.exist?(f) }
+    end
+  end
 end
