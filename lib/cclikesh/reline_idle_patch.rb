@@ -17,9 +17,19 @@ require "reline/io/ansi"
 module Cclikesh
   module RelineIdlePatch
     IDLE_TICK_INTERVAL = 0.1  # seconds between idle-tick callbacks
+    TICK_HISTORY_WINDOW = 5.0
+
+    @tick_history = []
 
     class << self
       attr_accessor :callback
+      attr_reader :tick_history
+    end
+
+    def self.record_tick(now)
+      @tick_history << now
+      cutoff = now - TICK_HISTORY_WINDOW
+      @tick_history.shift while !@tick_history.empty? && @tick_history.first < cutoff
     end
   end
 end
@@ -41,6 +51,7 @@ class Reline::ANSI
         now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         if now - last_tick >= Cclikesh::RelineIdlePatch::IDLE_TICK_INTERVAL
           cb.call
+          Cclikesh::RelineIdlePatch.record_tick(now)
           last_tick = now
         end
       end
