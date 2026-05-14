@@ -103,4 +103,49 @@ class TestTerminfoOverlay < Test::Unit::TestCase
     b = Cclikesh::TerminfoOverlay.send(:digest_of, "y|y,\n")
     refute_equal a, b
   end
+
+  def test_cache_root_respects_xdg_cache_home
+    ENV["XDG_CACHE_HOME"] = "/tmp/xdg-cache-test"
+    root = Cclikesh::TerminfoOverlay.send(:cache_root)
+    assert_equal "/tmp/xdg-cache-test/cclikesh/terminfo", root
+  end
+
+  def test_cache_root_falls_back_to_home_dot_cache
+    ENV.delete("XDG_CACHE_HOME")
+    root = Cclikesh::TerminfoOverlay.send(:cache_root)
+    assert_match %r{/\.cache/cclikesh/terminfo\z}, root
+    assert root.start_with?(Dir.home)
+  end
+
+  def test_cache_dir_for_includes_term_and_digest
+    ENV["XDG_CACHE_HOME"] = "/tmp/xdg-cache-test"
+    dir = Cclikesh::TerminfoOverlay.send(:cache_dir_for, "xterm-ghostty", "deadbeefdeadbeef")
+    assert_equal "/tmp/xdg-cache-test/cclikesh/terminfo/xterm-ghostty-noalt-deadbeefdeadbeef", dir
+  end
+
+  def test_compile_terminfo_produces_loadable_entry
+    require "tmpdir"
+    Dir.mktmpdir do |dir|
+      src_path = File.join(dir, "src.ti")
+      # Use a real entry derived from the test runner's TERM so the
+      # tic on this machine accepts it.
+      term = ENV["TERM"] || "xterm-256color"
+      raw = Cclikesh::TerminfoOverlay.send(:read_terminfo_source, term)
+      omit "infocmp unavailable" if raw.nil?
+      stripped = Cclikesh::TerminfoOverlay.send(:strip_smcup_rmcup, raw)
+      renamed  = Cclikesh::TerminfoOverlay.send(:rename_entry, stripped, "cclikeshtest-noalt")
+      File.write(src_path, renamed)
+
+      out_dir = File.join(dir, "ti-out")
+      Dir.mkdir(out_dir)
+      ok = Cclikesh::TerminfoOverlay.send(:compile_terminfo, src_path, out_dir)
+      assert ok, "compile_terminfo returned false"
+
+      # Verify infocmp can read the compiled entry back, and that
+      # smcup/rmcup are absent.
+      verify = `TERMINFO_DIRS=#{out_dir} infocmp -1 cclikeshtest-noalt 2>/dev/null`
+      refute_match(/smcup=/, verify)
+      refute_match(/rmcup=/, verify)
+    end
+  end
 end

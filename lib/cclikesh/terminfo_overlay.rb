@@ -76,6 +76,32 @@ module Cclikesh
       def digest_of(source)
         Digest::SHA1.hexdigest(source)[0, 16]
       end
+
+      # Root directory under which terminfo overlay caches live.
+      # Honors XDG_CACHE_HOME; otherwise uses ~/.cache.
+      def cache_root
+        xdg = ENV["XDG_CACHE_HOME"]
+        base = (xdg && !xdg.empty?) ? xdg : File.join(Dir.home, ".cache")
+        File.join(base, "cclikesh", "terminfo")
+      end
+
+      # Cache directory for a given (term, digest) pair. Stable path so
+      # repeated runs reuse a single compiled entry.
+      def cache_dir_for(term, digest)
+        File.join(cache_root, "#{term}-noalt-#{digest}")
+      end
+
+      # Shells out to `tic -x -o <dest_dir> <src_path>`. Returns true on
+      # success, false on any failure (missing tic, invalid source, etc.).
+      def compile_terminfo(src_path, dest_dir)
+        require "fileutils"
+        FileUtils.mkdir_p(dest_dir)
+        ok = system("tic", "-x", "-o", dest_dir, src_path,
+                    out: File::NULL, err: File::NULL)
+        !!ok
+      rescue Errno::ENOENT, SystemCallError
+        false
+      end
     end
   end
 end
