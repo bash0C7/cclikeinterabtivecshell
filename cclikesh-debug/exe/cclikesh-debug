@@ -20,6 +20,9 @@ when "tail"    then require "cclikesh/debug/driver/tail";    Cclikesh::Debug::Dr
 when "play"
   require "cclikesh/debug/cli/play"
   exit Cclikesh::Debug::CLI::Play.call(argv: ARGV, stdout: $stdout)
+when "replay"
+  require "cclikesh/debug/cli/replay"
+  exit Cclikesh::Debug::CLI::Replay.call(argv: ARGV, stdout: $stdout)
 when "list"     then require "cclikesh/debug/viewer/list";     Cclikesh::Debug::Viewer::List.call(ARGV)
 when "info"     then require "cclikesh/debug/viewer/info";     Cclikesh::Debug::Viewer::Info.call(ARGV)
 when "frames"   then require "cclikesh/debug/viewer/frames";   Cclikesh::Debug::Viewer::Frames.call(ARGV)
