@@ -26,10 +26,10 @@ module Cclikesh
         term = ENV["TERM"].to_s
         return false if term.empty?
         return false if term == "dumb"
-        return true  if @installed && ENV["TERM"] == "#{term}-noalt"
-        # Re-entry after a previous install in the same process: TERM
-        # already ends with "-noalt"; treat as success without redoing work.
-        return true  if @installed && term.end_with?("-noalt")
+        # Re-entry after a previous install in the same process: ENV["TERM"]
+        # already ends with "-noalt", so `term` here does too. Treat as
+        # success without redoing the infocmp / tic / ENV work.
+        return true if @installed && term.end_with?("-noalt")
 
         raw = read_terminfo_source(term)
         return false if raw.nil?
@@ -46,11 +46,13 @@ module Cclikesh
         # any file under dest_dir to confirm a prior compile.
         unless cache_dir_populated?(dest_dir)
           require "tmpdir"
+          compiled = false
           Dir.mktmpdir do |tmp|
             src_path = File.join(tmp, "entry.ti")
             File.write(src_path, renamed)
-            return false unless compile_terminfo(src_path, dest_dir)
+            compiled = compile_terminfo(src_path, dest_dir)
           end
+          return false unless compiled
         end
 
         prev = ENV["TERMINFO_DIRS"].to_s
