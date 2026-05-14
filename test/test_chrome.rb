@@ -52,7 +52,11 @@ class TestChrome < Test::Unit::TestCase
     stub_winsize(40, 24)
     Cclikesh::Chrome.update_status_line(phase: :working, info_bar: [{ text: "loading" }])
     s = @captured.string
+    assert s.include?("\e7"),    s.inspect
+    assert s.include?("\e[2A"),  s.inspect
+    assert s.include?("\r\e[K"), s.inspect
     assert s.include?("loading"), s.inspect
+    assert s.end_with?("\e8"),   s.inspect
     assert Cclikesh::Chrome.working_line_active?
   end
 

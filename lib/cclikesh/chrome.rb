@@ -10,6 +10,14 @@ module Cclikesh
     SPINNER_FRAME_MS = 200
     SWEEP_STEP_MS = 200
 
+    # Cursor offset (rows above the prompt) for the status_line row. The
+    # layout is fixed:
+    #   ...output...
+    #   <status_line>          ← N=2 rows above the prompt
+    #   ─────────              ← divider 1, N=1
+    #   > _                    ← prompt cursor anchor (N=0)
+    STATUS_LINE_ROWS_ABOVE_PROMPT = 2
+
     class << self
       attr_reader :spinner_started_at
     end
@@ -61,16 +69,33 @@ module Cclikesh
       $stdout.flush
     end
 
-    # STUB in Task 3 — real ANSI rewrite cycle lands in Task 4.
     def self.update_status_line(phase:, info_bar:)
+      cols = winsize[1]
       if phase == :working
-        @working_line_active = true
         text = info_bar.map { |item| item[:text] || item["text"] }.compact.join(" · ")
-        $stdout.write(text) unless text.empty?
-        $stdout.flush
-      else
+        rendered = truncate_to_width(spinner_glyph(phase) + " " + text, cols)
+        emit_status_rewrite(rendered)
+        @working_line_active = true
+      elsif @working_line_active
+        emit_status_rewrite("")
         @working_line_active = false
       end
+    end
+
+    def self.emit_status_rewrite(text)
+      $stdout.write("\e7")                              # save
+      $stdout.write("\e[#{STATUS_LINE_ROWS_ABOVE_PROMPT}A")  # up N rows
+      $stdout.write("\r\e[K")                           # CR + erase line
+      $stdout.write(text)
+      $stdout.write("\e8")                              # restore
+      $stdout.flush
+    end
+
+    def self.spinner_glyph(phase)
+      return SPINNER_GLYPHS.first unless phase == :working
+      @spinner_started_at ||= Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - @spinner_started_at) * 1000
+      SPINNER_GLYPHS[(elapsed / SPINNER_FRAME_MS).to_i % SPINNER_GLYPHS.size]
     end
 
     def self.update_footer(info_bar:, status_rows:, shortcuts_hint:, phase: nil)
