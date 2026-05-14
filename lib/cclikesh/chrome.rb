@@ -39,12 +39,14 @@ module Cclikesh
 
     class << self
       attr_reader :footer_win, :spinner_started_at, :breath_supported
+      attr_accessor :winsize_dirty
     end
 
     def self.init
       @footer_win = Curses::Window.new(FOOTER_HEIGHT, Curses.cols,
                                         Curses.lines - FOOTER_HEIGHT, 0)
       @spinner_started_at = nil
+      @winsize_dirty = false
       setup_breath_colors
       draw_dividers
     end
@@ -175,6 +177,8 @@ module Cclikesh
       @footer_win.move(Curses.lines - FOOTER_HEIGHT, 0)
       Curses.stdscr.clear
       draw_dividers
+      Display.refresh if defined?(Display) && Display.respond_to?(:refresh)
+      Curses.doupdate
     end
 
     # Draw two full-width horizontal rules on stdscr:

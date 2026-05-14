@@ -18,6 +18,7 @@ module Cclikesh
       init_curses
       Style.init!
       Chrome.init
+      Signal.trap("WINCH") { Chrome.winsize_dirty = true }
       Display.init
       Context.init(logger: builder.logger)
       if defined?(Cclikesh::DebugEndpoint)
@@ -56,6 +57,14 @@ module Cclikesh
       # busy on a long-running command, without spawning any Thread
       # (which is forbidden by test/test_thread_zero.rb).
       Cclikesh::RelineIdlePatch.callback = lambda do
+        if Chrome.winsize_dirty
+          Chrome.winsize_dirty = false
+          begin
+            Chrome.handle_resize
+          rescue StandardError => e
+            Cclikesh::Context.logger.error("winsize resize failed: #{e.class}: #{e.message}") rescue nil
+          end
+        end
         RelineDialogs.run_chrome_tick(builder, main_ctx)
       rescue StandardError => e
         # The tick fires from inside Reline's input loop — letting an
@@ -126,6 +135,12 @@ module Cclikesh
     end
 
     def self.teardown_curses
+      begin
+        Signal.trap("WINCH", "DEFAULT")
+      rescue ArgumentError, Errno::EINVAL => e
+        # Best-effort: restore may fail on exotic platforms; log and proceed.
+        Cclikesh::Context.logger.error("trap restore failed: #{e.class}: #{e.message}") rescue nil
+      end
       # Drain any pending DSR/CPR responses Reline queried but didn't read,
       # otherwise they leak as literal characters into the next shell prompt.
       drain_stdin_residue
