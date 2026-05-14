@@ -117,7 +117,27 @@ module Cclikesh
       builder.state_refs.each_value { |ref| ref.stop rescue nil }
     end
 
+    # Some terminal multiplexers (cmux, tmux, screen) export stale LINES/
+    # COLUMNS env vars from when they were started, regardless of the
+    # current terminal's actual size. ncurses' initscr() consults these env
+    # vars BEFORE TIOCGWINSZ, so initialising curses without first clearing
+    # the staleness lays out every window at the wrong size. We sync the
+    # env vars from the kernel here, then call sync_curses_to_terminal_size
+    # again post-init and on SIGWINCH for subsequent resizes.
+    def self.sync_terminal_env_pre_init
+      require "io/console"
+      console = IO.console
+      return if console.nil?
+      rows, cols = console.winsize
+      return if rows.nil? || cols.nil? || rows <= 0 || cols <= 0
+      ENV["LINES"]   = rows.to_s
+      ENV["COLUMNS"] = cols.to_s
+    rescue Errno::ENOTTY, IOError => e
+      Cclikesh::Context.logger.error("pre-init winsize query failed: #{e.class}: #{e.message}") rescue nil
+    end
+
     def self.init_curses
+      sync_terminal_env_pre_init
       Curses.init_screen
       # Sync ncurses LINES/COLS to the actual terminal size immediately.
       # Curses.init_screen reads dimensions from LINES/COLUMNS env vars or
