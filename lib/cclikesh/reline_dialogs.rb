@@ -223,9 +223,9 @@ module Cclikesh
         reply_to.send([:state_get_reply, Cclikesh::Context.state[key]])
       in [:debug_snapshot_request, reply_to]
         snapshot = {
-          context_state:      Cclikesh::Context.state.inspect,
-          spinner_started_at: Cclikesh::Chrome.spinner_started_at.inspect,
-          breath_supported:   Cclikesh::Chrome.breath_supported.inspect
+          context_state:       Cclikesh::Context.state.inspect,
+          spinner_started_at:  Cclikesh::Chrome.spinner_started_at.inspect,
+          working_line_active: Cclikesh::Chrome.working_line_active?
         }.freeze
         reply_to.send([:debug_snapshot_reply, snapshot])
       in [:debug_tick_count_request, reply_to]

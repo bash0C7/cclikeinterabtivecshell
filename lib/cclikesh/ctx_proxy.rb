@@ -47,8 +47,8 @@ module Cclikesh
       msg[1]
     end
 
-    def debug_curses_caps
-      @main.send([:debug_curses_caps_request, Ractor.current])
+    def debug_terminal_caps
+      @main.send([:debug_terminal_caps_request, Ractor.current])
       msg = Ractor.receive
       msg[1]
     end
