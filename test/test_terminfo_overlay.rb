@@ -30,5 +30,6 @@ class TestTerminfoOverlay < Test::Unit::TestCase
     ENV["TERM"] = ""
     refute Cclikesh::TerminfoOverlay.install_if_possible
     refute Cclikesh::TerminfoOverlay.installed?
+    assert_equal "", ENV["TERM"]
   end
 end
