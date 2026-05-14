@@ -52,7 +52,6 @@ module Cclikesh
         @mutex.synchronize do
           {
             framework_state: build_framework_state_hash,
-            cursor:          current_cursor,
             ts_shell:        Process.clock_gettime(Process::CLOCK_MONOTONIC)
           }
         end
@@ -114,12 +113,6 @@ module Cclikesh
         { active: false, kind: nil, candidates_count: 0, selection_index: 0 }
       end
 
-      def current_cursor
-        require "curses"
-        [Curses.stdscr.cury, Curses.stdscr.curx]
-      rescue
-        [0, 0]
-      end
     end
   end
 end
