@@ -35,6 +35,7 @@ class TestDebugEndpoint < Test::Unit::TestCase
     Cclikesh::DebugEndpoint.start_if_enabled(builder)
     snap = Cclikesh::DebugEndpoint.adapter.debug_snapshot
     assert snap.key?(:framework_state)
+    assert snap.key?(:cursor)
     assert snap.key?(:ts_shell)
     assert_equal "? for help", snap[:framework_state][:shortcuts_hint]
   end

@@ -11,7 +11,7 @@ module Cclikesh
       register_emit(registry)
       register_color_probe(registry)
       register_tick_counter(registry, runtime_state)
-      register_terminal_caps(registry)
+      register_curses_caps(registry)
       register_snapshot(registry)
       register_frame_dump(registry)
     end
@@ -74,22 +74,22 @@ module Cclikesh
       }, description: "report RelineIdlePatch tick count for the last 5 seconds")
     end
 
-    def self.register_terminal_caps(registry)
-      registry.register(:"debug-terminal-caps", ->(_args, ctx) {
-        caps = ctx.debug_terminal_caps
-        ctx.display.append("TERM=#{caps[:term]}",                       style: :dim)
-        ctx.display.append("winsize=#{caps[:winsize].inspect}",         style: :dim)
-        ctx.display.append("colors=#{caps[:colors]}",                   style: :dim)
-        ctx.display.append("modify_other_keys=#{caps[:modify_other_keys]}", style: :dim)
-      }, description: "report terminal capabilities (TERM / winsize / colors)")
+    def self.register_curses_caps(registry)
+      registry.register(:"debug-curses-caps", ->(_args, ctx) {
+        caps = ctx.debug_curses_caps
+        ctx.display.append("TERM=#{caps[:term]}", style: :dim)
+        ctx.display.append("COLORS=#{caps[:colors]}  COLOR_PAIRS=#{caps[:color_pairs]}", style: :dim)
+        ctx.display.append("can_change_color?=#{caps[:can_change_color]}", style: :dim)
+        ctx.display.append("attrs defined: #{caps[:defined_attrs].join(', ')}", style: :dim)
+      }, description: "report curses / terminal capabilities")
     end
 
     def self.register_snapshot(registry)
       registry.register(:"debug-snapshot", ->(_args, ctx) {
         snap = ctx.debug_snapshot
-        ctx.display.append("Context.state = #{snap[:context_state]}",                       style: :dim)
-        ctx.display.append("Chrome.spinner_started_at = #{snap[:spinner_started_at]}",      style: :dim)
-        ctx.display.append("Chrome.working_line_active? = #{snap[:working_line_active]}",   style: :dim)
+        ctx.display.append("Context.state = #{snap[:context_state]}", style: :dim)
+        ctx.display.append("Chrome.spinner_started_at = #{snap[:spinner_started_at]}", style: :dim)
+        ctx.display.append("Chrome.breath_supported = #{snap[:breath_supported]}", style: :dim)
       }, description: "dump live framework state")
     end
 

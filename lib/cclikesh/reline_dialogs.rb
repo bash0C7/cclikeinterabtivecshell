@@ -152,8 +152,8 @@ module Cclikesh
       main_ctx = Cclikesh::MainCtx.new(builder.state_refs)
       proc do
         # If Reline is in completion-journey mode (Tab pressed and a journey
-        # is active), it owns the terminal — don't paint, otherwise the
-        # status-line rewrite resets cursor mid-render and the input line
+        # is active), it owns the terminal — don't paint, otherwise our
+        # curses repaint resets cursor mid-render and the input line
         # disappears until the user types another character.
         jd = (completion_journey_data rescue nil)
         next nil if jd
@@ -164,16 +164,29 @@ module Cclikesh
     end
 
     # Shared body of the chrome repaint. Called from periodic_tick_proc
-    # (on key input) and from the idle-tick callback installed by
-    # Runner.run (on a 100ms timer while idle). Runs on the main Ractor.
+    # (on key input) and from the background tick thread started by
+    # Runner.run (on a 100ms timer while idle). The caller is responsible
+    # for holding the curses mutex.
     def self.run_chrome_tick(builder, main_ctx)
+      # Wrap the curses repaint in DECSC / DECRC (\e7 / \e8) so the
+      # physical cursor returns to whatever column Reline last placed it
+      # at. Using \e[N;1H (CUP, absolute) here desynced Reline's relative
+      # cursor tracking and caused it to erase the prompt prefix `>` on
+      # the next keystroke.
       phase = Cclikesh::Context.state[:phase]
       Cclikesh::Chrome.tick_spinner(phase)
+      $stdout.print("\e7")
+      $stdout.flush
       drain_main_mailbox
-      Cclikesh::Chrome.update_status_line(
-        phase:    phase,
-        info_bar: builder.evaluate_info_bar(main_ctx)
+      Cclikesh::Chrome.update_footer(
+        info_bar:       builder.evaluate_info_bar(main_ctx),
+        status_rows:    builder.evaluate_status_rows(main_ctx),
+        shortcuts_hint: builder.shortcuts_hint_text,
+        phase:          phase
       )
+      Curses.doupdate rescue nil
+      $stdout.print("\e8")
+      $stdout.flush
     end
 
     def self.drain_main_mailbox
@@ -216,28 +229,32 @@ module Cclikesh
       in [:emit, bytes]
         $stdout.write(bytes)
         $stdout.flush
+        Curses.stdscr.touch
+        Curses.doupdate rescue nil
       in [:state_set, key, value]
         Cclikesh::Context.state_set(key, value)
       in [:state_get_request, reply_to, key]
         reply_to.send([:state_get_reply, Cclikesh::Context.state[key]])
       in [:debug_snapshot_request, reply_to]
         snapshot = {
-          context_state:       Cclikesh::Context.state.inspect,
-          spinner_started_at:  Cclikesh::Chrome.spinner_started_at.inspect,
-          working_line_active: Cclikesh::Chrome.working_line_active?
+          context_state:      Cclikesh::Context.state.inspect,
+          spinner_started_at: Cclikesh::Chrome.spinner_started_at.inspect,
+          breath_supported:   Cclikesh::Chrome.breath_supported.inspect
         }.freeze
         reply_to.send([:debug_snapshot_reply, snapshot])
       in [:debug_tick_count_request, reply_to]
         reply_to.send([:debug_tick_count_reply, Cclikesh::RelineIdlePatch.tick_history.size])
-      in [:debug_terminal_caps_request, reply_to]
-        require "io/console"
+      in [:debug_curses_caps_request, reply_to]
+        require "curses"
+        attrs = %w[A_NORMAL A_BOLD A_DIM A_UNDERLINE A_REVERSE A_STANDOUT A_BLINK A_INVIS A_PROTECT A_ALTCHARSET A_ITALIC]
         caps = {
           term:              ENV["TERM"].to_s.freeze,
-          winsize:           (IO.console&.winsize || [24, 80]).freeze,
-          colors:            ENV["COLORTERM"].to_s.include?("truecolor") ? "truecolor" : "256",
-          modify_other_keys: "sent (verify with Shift+Enter)"
+          colors:            (Curses::COLORS rescue "n/a"),
+          color_pairs:       (Curses::COLOR_PAIRS rescue "n/a"),
+          can_change_color:  (Curses.can_change_color? rescue "n/a"),
+          defined_attrs:     attrs.select { |a| Curses.const_defined?(a) }.freeze
         }.freeze
-        reply_to.send([:debug_terminal_caps_reply, caps])
+        reply_to.send([:debug_curses_caps_reply, caps])
       in [:logger, level, text]
         Cclikesh::Context.logger.send(level, text) rescue nil
       in [:quit]

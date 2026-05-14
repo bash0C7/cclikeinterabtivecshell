@@ -59,7 +59,7 @@ class TestDebugCommandsRegister < Test::Unit::TestCase
 
   def test_seven_commands_registered
     %i[debug-sleep debug-emit debug-color-probe debug-tick-counter
-       debug-terminal-caps debug-snapshot debug-frame-dump].each do |name|
+       debug-curses-caps debug-snapshot debug-frame-dump].each do |name|
       refute_nil @registry.lookup(name), "expected /#{name} to be registered"
     end
   end
@@ -109,11 +109,11 @@ class TestDebugCommandsRegister < Test::Unit::TestCase
     def display;         @display ||= StubDisplay.new(@appended); end
     def appended_texts;  @appended.map(&:first);                  end
     def debug_snapshot
-      { context_state: "{}", spinner_started_at: "nil", working_line_active: false }
+      { context_state: "{}", spinner_started_at: "nil", breath_supported: "true" }
     end
     def debug_tick_count;  5; end
-    def debug_terminal_caps
-      { term: "xterm-256color", winsize: [24, 80], colors: "256", modify_other_keys: "sent (verify with Shift+Enter)" }
+    def debug_curses_caps
+      { term: "test", colors: 256, color_pairs: 256, can_change_color: true, defined_attrs: [] }
     end
 
     class StubDisplay
@@ -134,40 +134,5 @@ class TestDebugCommandsOptIn < Test::Unit::TestCase
     builder = Cclikesh::Builder.new
     builder.enable_debug_commands
     assert builder.debug_commands_enabled?
-  end
-end
-
-class TestDebugCommandsTerminalCaps < Test::Unit::TestCase
-  def build_recording_display
-    Class.new {
-      attr_reader :lines
-      def initialize; @lines = []; end
-      def append(line, **_); @lines << line; end
-      def raw_emit(_); end
-    }.new
-  end
-
-  def test_terminal_caps_command_emits_term_winsize_colors
-    registry = Cclikesh::SlashRegistry.new
-    recording_display = build_recording_display
-    caps_data = {
-      term: "xterm-256color",
-      winsize: [24, 80],
-      colors: "256",
-      modify_other_keys: "sent (verify with Shift+Enter)"
-    }.freeze
-    fake_ctx = Class.new {
-      def initialize(disp, caps); @disp = disp; @caps = caps; end
-      def display; @disp; end
-      def debug_terminal_caps; @caps; end
-    }.new(recording_display, caps_data)
-    Cclikesh::DebugCommands.register(registry)
-    cmd = registry.lookup(:"debug-terminal-caps")
-    cmd[:body].call([], fake_ctx)
-    out = fake_ctx.display.lines
-    assert out.any? { |l| l.include?("TERM=xterm-256color") }
-    assert out.any? { |l| l.include?("winsize=[24, 80]") }
-    assert out.any? { |l| l.include?("colors=256") }
-    assert out.any? { |l| l.include?("modify_other_keys=sent") }
   end
 end

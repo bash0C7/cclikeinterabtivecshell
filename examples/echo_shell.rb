@@ -15,7 +15,7 @@ Cclikesh.run do |shell|
 
   shell.enable_debug_commands
 
-  shell.define_style(:warn, fg: 33, bold: true)  # 33 = yellow (ANSI)
+  shell.define_style(:warn, fg: Curses::COLOR_YELLOW, bold: true)
 
   shell.info(:elapsed, order: 10) do |_ctx|
     sec = (Time.now - start_at).to_i

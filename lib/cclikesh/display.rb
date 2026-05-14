@@ -1,69 +1,77 @@
 # frozen_string_literal: true
 
+require "curses"
 require "unicode/display_width"
 require_relative "style"
 require_relative "transcript"
+require_relative "chrome"
 
 module Cclikesh
   module Display
+    PAD_HEIGHT = 10_000
+
     class << self
-      attr_reader :current_slot
+      attr_reader :pad
     end
 
     def self.init
-      @current_slot = nil
+      @pad = Curses::Pad.new(PAD_HEIGHT, Curses.cols)
+      @pad.scrollok(true)
+      @row = 0
+      @live_slots = {}
       @next_sid = 0
     end
 
     def self.close
-      @current_slot = nil
-      @next_sid = 0
+      @pad&.close
+      @pad = nil
+      @live_slots = {}
     end
 
     def self.append(text, prompt: nil, style: nil)
       rendered = "#{prompt}#{text}"
-      Style.with($stdout, style) { $stdout.write(rendered) }
-      $stdout.write("\r\n")
-      $stdout.flush
+      @pad.setpos(@row, 0)
+      Style.with(@pad, style) do
+        @pad.addstr(rendered)
+      end
+      @row += 1
       Transcript.record(rendered)
+      refresh
     end
 
-    # Opens a "live" line: we write a placeholder newline so the cursor sits on
-    # a row dedicated to this slot, then each live_update rewinds and rewrites
-    # that row. Opening a new slot auto-commits any previous slot.
     def self.open_live(style: nil)
-      auto_commit_previous
       sid = (@next_sid += 1)
-      @current_slot = { sid: sid, last_text: "", style: style, committed: false }
-      $stdout.write("\r\n")  # reserve the row
-      $stdout.flush
+      @live_slots[sid] = { row: @row, last_text: "", style: style }
+      @pad.setpos(@row, 0)
+      @row += 1
       sid
     end
 
     def self.live_update(sid, text)
-      slot = @current_slot
-      return if slot.nil? || slot[:sid] != sid || slot[:committed]
-      rewrite_current_line(text, slot[:style])
+      slot = @live_slots[sid] or return
+      @pad.setpos(slot[:row], 0)
+      @pad.clrtoeol
+      Style.with(@pad, slot[:style]) { @pad.addstr(text) }
       slot[:last_text] = text
+      refresh
     end
 
     def self.live_commit(sid, final = nil)
-      slot = @current_slot
-      return if slot.nil? || slot[:sid] != sid || slot[:committed]
+      slot = @live_slots.delete(sid) or return
       text = final || slot[:last_text]
-      rewrite_current_line(text, slot[:style])
+      @pad.setpos(slot[:row], 0)
+      @pad.clrtoeol
+      Style.with(@pad, slot[:style]) { @pad.addstr(text) }
       Transcript.record(text)
-      slot[:committed] = true
-      @current_slot = nil
+      refresh
     end
 
     def self.live_discard(sid)
-      slot = @current_slot
-      return if slot.nil? || slot[:sid] != sid || slot[:committed]
-      $stdout.write("\e[1A\r\e[K\r\n")
-      $stdout.flush
-      slot[:committed] = true
-      @current_slot = nil
+      slot = @live_slots.delete(sid) or return
+      @pad.setpos(slot[:row], 0)
+      @pad.clrtoeol
+      @row -= 1 if slot[:row] == @row - 1
+      refresh
     end
 
     def self.dialog(content, style: nil)
@@ -79,24 +87,27 @@ module Cclikesh
     end
 
     def self.live_slot_state
-      slot = @current_slot
-      return {} unless slot && !slot[:committed]
-      { slot[:sid] => { row: nil, last_text: slot[:last_text], style: slot[:style] } }
+      @live_slots.dup
     end
 
-    def self.rewrite_current_line(text, style)
-      $stdout.write("\e[1A\r\e[K")
-      Style.with($stdout, style) { $stdout.write(text) }
-      $stdout.write("\r\n")
-      $stdout.flush
-    end
-
-    def self.auto_commit_previous
-      slot = @current_slot
-      return unless slot && !slot[:committed]
-      Transcript.record(slot[:last_text]) unless slot[:last_text].empty?
-      slot[:committed] = true
-      @current_slot = nil
+    def self.refresh
+      return unless @pad
+      # Body fills from the top of the alt-screen down to the body/prompt
+      # divider.  All row indices are 0-based (curses convention).
+      #   body_top    = 0  (no header window — header is appended to the
+      #                     body as regular content at boot)
+      #   body_bottom = lines - FOOTER_HEIGHT - 4
+      #                 (row just above the body/prompt divider at lines-F-3)
+      body_top    = 0
+      body_bottom = Curses.lines - Chrome::FOOTER_HEIGHT - 4
+      visible_h   = body_bottom - body_top + 1
+      return if visible_h <= 0
+      visible_top = [@row - visible_h, 0].max
+      bottom_col  = Curses.cols - 1
+      return if bottom_col < 0
+      @pad.noutrefresh(visible_top, 0,
+                       body_top, 0,
+                       body_bottom, bottom_col)
     end
   end
 end

@@ -1,46 +1,50 @@
-require "test/unit"
-require "stringio"
+# frozen_string_literal: true
+
+require_relative "test_helper"
+require "curses"
 require "cclikesh/style"
 
 class TestStyle < Test::Unit::TestCase
   def setup
+    Curses.init_screen
+    Curses.start_color
+    Curses.use_default_colors
     Cclikesh::Style.init!
   end
 
-  def test_builtin_styles_emit_sgr_pairs
-    on, off = Cclikesh::Style.lookup(:error)
-    assert_equal "\e[31m", on
-    assert_equal "\e[0m",  off
+  def teardown
+    Curses.close_screen
+  rescue
+    nil
   end
 
-  def test_dim_attr_only
-    on, off = Cclikesh::Style.lookup(:dim)
-    assert_equal "\e[2m", on
-    assert_equal "\e[0m", off
+  def test_builtin_result_returns_color_pair_and_attr
+    pair, attr = Cclikesh::Style.lookup(:result)
+    refute_nil pair
+    assert_equal 0, attr
   end
 
-  def test_define_custom_with_fg
-    Cclikesh::Style.define(:warn, fg: 214)
-    on, off = Cclikesh::Style.lookup(:warn)
-    assert_equal "\e[38;5;214m", on
-    assert_equal "\e[0m",        off
+  def test_builtin_dim_returns_a_dim_attr
+    pair, attr = Cclikesh::Style.lookup(:dim)
+    assert (attr & Curses::A_DIM) != 0
   end
 
-  def test_with_wraps_writes_in_sgr
-    io = StringIO.new
-    Cclikesh::Style.with(io, :error) { io.write("oops") }
-    assert_equal "\e[31moops\e[0m", io.string
+  def test_define_custom_style
+    Cclikesh::Style.define(:warn, fg: Curses::COLOR_YELLOW, bold: true)
+    pair, attr = Cclikesh::Style.lookup(:warn)
+    refute_nil pair
+    assert (attr & Curses::A_BOLD) != 0
   end
 
-  def test_lookup_unknown_returns_nil_pair
-    on, off = Cclikesh::Style.lookup(:does_not_exist)
-    assert_nil on
-    assert_nil off
+  def test_unknown_style_returns_nil
+    assert_equal [nil, 0], Cclikesh::Style.lookup(:nope)
   end
 
-  def test_with_unknown_style_passes_through
-    io = StringIO.new
-    Cclikesh::Style.with(io, :nope) { io.write("plain") }
-    assert_equal "plain", io.string
+  def test_with_yields_then_attroff
+    win = Curses::Window.new(1, 10, 0, 0)
+    captured = nil
+    Cclikesh::Style.with(win, :result) { captured = :inside }
+    assert_equal :inside, captured
+    win.close
   end
 end
