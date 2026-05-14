@@ -6,33 +6,38 @@ module Cclikesh
   # plugin command sets (debug, transcript, …) are layered on top with
   # their own `Cclikesh::XxxCommands.register(registry, ...)`.
   #
-  # /help iterates the slash registry at call time so it lists whatever
-  # else has been registered (default + plugin + example-specific).
-  # The registry reference lives in a module-level slot rather than as
-  # a closed-over local, so the /help body survives Ractor.shareable_proc
-  # wrapping inside SlashRegistry#register.
+  # /help must be registered AFTER all other commands via register_help(registry)
+  # so its frozen snapshot of the registry sees every registered command.
+  # Its body closes over an immutable array — no class instance variable
+  # is read inside the handler Ractor, avoiding Ractor::IsolationError.
   module DefaultCommands
-    @registry = nil
-
-    def self.current_registry
-      @registry
-    end
+    EXIT_BODY = Ractor.make_shareable(->(_args, ctx) { ctx.quit })
 
     def self.register(registry)
-      @registry = registry
       registry.register(:exit, EXIT_BODY, description: "exit")
       registry.register(:q,    EXIT_BODY, description: "exit")
-      registry.register(:help, HELP_BODY, description: "list slash commands")
     end
 
-    EXIT_BODY = ->(_args, ctx) { ctx.quit }
-
-    HELP_BODY = ->(_args, ctx) {
-      Cclikesh::DefaultCommands.current_registry.each do |name, entry|
-        desc = entry[:description].to_s
-        line = desc.empty? ? "/#{name}" : "/#{name}  - #{desc}"
-        ctx.display.append(line, style: :dim)
-      end
-    }
+    # Call this AFTER all other commands have been registered. Builds a
+    # /help body that closes over a frozen snapshot of the registry
+    # entries at the moment of the call. Subsequent registrations will
+    # not appear in /help (the snapshot is taken once).
+    def self.register_help(registry)
+      # Build snapshot of all commands registered so far, plus /help itself.
+      # The snapshot is taken before registry.register(:help) so we add the
+      # /help entry manually to keep it in the listing.
+      existing = registry.all.map { |name, entry|
+        [name.to_s, entry[:description].to_s].freeze
+      }
+      existing << ["help", "list slash commands"].freeze
+      snapshot = Ractor.make_shareable(existing.freeze)
+      help_body = Ractor.make_shareable(->(_, ctx) {
+        snapshot.each do |name, desc|
+          line = desc.empty? ? "/#{name}" : "/#{name}  - #{desc}"
+          ctx.display.append(line, style: :dim)
+        end
+      })
+      registry.register(:help, help_body, description: "list slash commands")
+    end
   end
 end

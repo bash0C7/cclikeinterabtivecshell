@@ -8,6 +8,7 @@ class TestDefaultCommands < Test::Unit::TestCase
   def setup
     @registry = Cclikesh::SlashRegistry.new
     Cclikesh::DefaultCommands.register(@registry)
+    Cclikesh::DefaultCommands.register_help(@registry)
   end
 
   def test_exit_command_registered

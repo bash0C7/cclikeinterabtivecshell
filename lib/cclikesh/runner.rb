@@ -33,6 +33,10 @@ module Cclikesh
           tick_counter: Cclikesh::RelineIdlePatch
         )
       end
+      # /help must be registered AFTER all other commands so its frozen
+      # snapshot of the registry sees them all. Cannot be merged into
+      # DefaultCommands.register above for the same reason.
+      DefaultCommands.register_help(builder.slash_registry)
       main_ctx = MainCtx.new(builder.state_refs)
       # Header lines now live inside the body as regular append-only
       # output, so they scroll with the rest of the transcript.
