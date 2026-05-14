@@ -41,42 +41,64 @@ module Cclikesh
       "\e[2;90m#{text}\e[0m"
     end
 
+    # Current line under the cursor in Reline's editor. Reline >= 0.6
+    # dropped the @line ivar in favor of @buffer_of_lines (Array<String>)
+    # + @line_index (Integer); reading @line directly silently returned
+    # nil and made the slash-menu dialog never fire. Returns "" instead
+    # of nil so callers can do `.start_with?` without an extra nil check.
+    def self.current_buffer_line(line_editor)
+      return "" unless line_editor
+      bol = line_editor.instance_variable_get(:@buffer_of_lines)
+      idx = line_editor.instance_variable_get(:@line_index) || 0
+      return "" unless bol.is_a?(Array)
+      bol[idx].to_s
+    end
+
+    # Build the autocomplete dialog proc bound to a SlashRegistry. The
+    # proc is invoked by Reline on every keystroke (and on periodic_tick
+    # timeout) with `self` set to Reline's line editor, so we can read
+    # the current buffer directly rather than waiting for a Tab-driven
+    # completion journey — that previously required the user to press
+    # Tab before the menu appeared at all. Claude Code's behavior shows
+    # the menu the moment "/" is typed, so we mirror that by inspecting
+    # `@line` ourselves. Returns nil when the cursor is not on a slash
+    # token so that Reline's default tab/journey autocomplete is left
+    # untouched.
     def self.slash_menu_dialog_proc(registry)
-      base = Reline::DEFAULT_DIALOG_PROC_AUTOCOMPLETE
       proc {
-        jd = completion_journey_data
-        target = jd && jd.list && jd.list.first
-        if target.is_a?(String) && target.start_with?("/")
-          prefix = target[1..]
-          items = begin
+        line = Cclikesh::RelineDialogs.current_buffer_line(@line_editor)
+        cx   = (cursor_pos.x rescue 0)
+        next nil unless line.is_a?(String) && line.start_with?("/")
+        typed = line[0, cx].to_s
+        m = typed.match(/\A\/(\S*)/)
+        next nil unless m
+        prefix = m[1]
+        items =
+          begin
             registry.slash_menu_items_starting_with(prefix)
-          rescue StandardError
+          rescue StandardError => err
+            Cclikesh::Context.logger.error(
+              "slash_menu lookup failed: #{err.class}: #{err.message}"
+            ) rescue nil
             []
           end
-          if items.empty?
-            instance_exec(&base)
-          else
-            contents = Cclikesh::RelineDialogs.format_slash_lines(items)
-            x = [cursor_pos.x - target.bytesize, 0].max
-            Reline::DialogRenderInfo.new(
-              pos:      Reline::CursorPos.new(x, 0),
-              contents: contents,
-              height:   contents.size,
-              width:    Cclikesh::RelineDialogs.dialog_width(contents),
-              face:     :default
-            )
-          end
-        else
-          instance_exec(&base)
-        end
+        next nil if items.empty?
+        contents = Cclikesh::RelineDialogs.format_slash_lines(items)
+        Reline::DialogRenderInfo.new(
+          pos:      Reline::CursorPos.new(0, 0),
+          contents: contents,
+          height:   contents.size,
+          width:    Cclikesh::RelineDialogs.dialog_width(contents),
+          face:     :default
+        )
       }
     end
 
     def self.ghost_text_dialog_proc(registry, ctx)
       proc {
         next nil if completion_journey_data
-        line = @line_editor.instance_variable_get(:@line) rescue nil
-        next nil unless line.nil? || line.empty?
+        line = Cclikesh::RelineDialogs.current_buffer_line(@line_editor)
+        next nil unless line.empty?
         hint = begin
           registry.current_prompt_suggestion(ctx)
         rescue StandardError

@@ -34,7 +34,7 @@ Cclikesh.run do |shell|
   end
 
   shell.prompt_suggestion { |_ctx| "type something and watch it echo back" }
-  shell.shortcuts_hint "? for shortcuts · /transcript to save log · /q to quit"
+  shell.shortcuts_hint "/help for commands · /transcript to save log · /q to quit"
 
   shell.btw do |question, _ctx|
     "echo-shell heard: #{question}"

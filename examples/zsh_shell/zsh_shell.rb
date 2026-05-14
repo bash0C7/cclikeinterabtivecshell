@@ -78,7 +78,7 @@ Cclikesh.run do |shell|
   end
 
   shell.spinner_label { |_| :auto }
-  shell.shortcuts_hint "/exit · /pwd · /env · /reset"
+  shell.shortcuts_hint "/help for commands · /exit · /pwd · /env · /reset"
 
   shell.btw do |question, _ctx|
     "(zsh-shell heard: #{question})"
