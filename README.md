@@ -1,11 +1,19 @@
 # cclikesh
 
-Claude Code-style 3-region interactive CLI shell framework, built on curses + Ractor.
+Claude Code-style interactive CLI shell framework, built on Reline + Ractor.
 
 ## Architecture
 
+cclikesh runs in line mode on the terminal's main screen. Each turn prints
+output, two `─` dividers, the Reline prompt, and a static footer
+(status_rows + shortcuts_hint) as inline lines. Past turns flow into the
+terminal's native scrollback. The animated working status_line above the
+top divider is rewritten in place via ANSI cursor save/move/erase/restore.
+
+Runtime dependencies: reline, unicode-display_width, logger.
+
 - Single-process Ruby 4.0+, macOS only
-- Main Ractor owns Reline + curses (3-region UI: header bar, scrollable body, input row)
+- Main Ractor owns Reline (line-mode rendering)
 - Slash handlers run in per-invocation Handler Ractors (true parallelism with UI)
 - Mutable user state opt-in via `shareable_ref { ... }` State Ractor wrapper
 
@@ -54,7 +62,7 @@ Then:
 bundle install
 ```
 
-This brings in `cclikesh` itself plus its hard dependencies (`curses`, `reline`, `drb`, `rinda`, `unicode-display_width`). `informers` is only needed if you also opt into `cclikesh-debug` (see below).
+This brings in `cclikesh` itself plus its hard dependencies (`reline`, `drb`, `rinda`, `unicode-display_width`). `informers` is only needed if you also opt into `cclikesh-debug` (see below).
 
 ### 2. Write a shell
 
@@ -100,9 +108,9 @@ bundle exec ruby my_shell.rb
 | `shell.spinner_label { \|ctx\| ... }` | Spinner label. Return `:auto` or a custom `String`. |
 | `shell.prompt_suggestion { \|ctx\| ... }` | Dimmed inline hint shown above the prompt. |
 | `shell.shortcuts_hint "text"` | One-line shortcuts hint shown in the footer. |
-| `shell.define_style(:name, fg:, bold:)` | Register a Curses color/attr (e.g. `fg: Curses::COLOR_YELLOW, bold: true`). |
+| `shell.define_style(:name, fg:, bold:)` | Register a named style (e.g. `fg: :yellow, bold: true`). |
 | `shell.shareable_ref(:name) { Obj.new }` | Wrap a mutable object in its own Ractor; call it via `ctx.shareable(:name).call(:method, *args)`. |
-| `shell.on_start { \|ctx\| ... }` | Runs once right after curses init. Use for warm-up output. |
+| `shell.on_start { \|ctx\| ... }` | Runs once right after shell init. Use for warm-up output. |
 | `shell.on_quit { \|ctx\| ... }` | Runs once right before teardown. Use for save/cleanup. |
 | `shell.on_submit { \|args, ctx\| ... }` | Fires when the user presses Enter. `args == [line].freeze`. Runs in a Handler Ractor. |
 | `shell.on_tab { \|buf, pos\| ... }` | Reline completion proc. Return `Array<String>` (or `nil`). |
@@ -215,8 +223,8 @@ bundle exec cclikesh-debug frames <session>
 
 ## Known v1 limitations
 
-- macOS only (curses + PTY usage is macOS-specific)
-- cclikesh-debug E2E test requires a real TTY; manual smoke (WINCH / popup) on iTerm2 still pending
+- macOS only (PTY usage in cclikesh-debug is macOS-specific)
+- cclikesh-debug E2E test requires a real TTY; manual smoke on iTerm2 still pending
 
 ## Development
 
