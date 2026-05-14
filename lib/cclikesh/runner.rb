@@ -145,14 +145,19 @@ module Cclikesh
     # of the real winsize; without this call, all curses windows lay out
     # at the wrong size on terminals that don't match the default. Also
     # called from the SIGWINCH consumer (via Chrome.handle_resize) to
-    # follow resizes.
+    # follow resizes after SIGWINCH.
+    #
+    # Note: Ruby's curses gem exposes `Curses.resizeterm` (no underscore),
+    # not `Curses.resize_term`. The two are different method names; the
+    # underscore variant is absent and the respond_to? guard would silently
+    # skip the call. We guard on the correct name.
     def self.sync_curses_to_terminal_size
       require "io/console"
       console = IO.console
       return if console.nil?
       rows, cols = console.winsize
       return if rows.nil? || cols.nil? || rows <= 0 || cols <= 0
-      Curses.resize_term(rows, cols) if Curses.respond_to?(:resize_term)
+      Curses.resizeterm(rows, cols) if Curses.respond_to?(:resizeterm)
     rescue Errno::ENOTTY, IOError => e
       Cclikesh::Context.logger.error("winsize query failed: #{e.class}: #{e.message}") rescue nil
     end

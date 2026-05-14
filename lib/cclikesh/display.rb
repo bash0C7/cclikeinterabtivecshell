@@ -102,12 +102,28 @@ module Cclikesh
       body_bottom = Curses.lines - Chrome::FOOTER_HEIGHT - 4
       visible_h   = body_bottom - body_top + 1
       return if visible_h <= 0
-      visible_top = [@row - visible_h, 0].max
       bottom_col  = Curses.cols - 1
       return if bottom_col < 0
-      @pad.noutrefresh(visible_top, 0,
-                       body_top, 0,
-                       body_bottom, bottom_col)
+
+      if @row <= visible_h
+        # Content fits within the body area.  Bottom-align it: map pad row 0
+        # to the screen row that puts the last content row flush against the
+        # body/prompt divider.  Rows above content are left as the terminal's
+        # default background (cleared by the initial [H[2J and not touched
+        # again), so no explicit clear loop is needed here.
+        screen_top = body_bottom - @row + 1
+        screen_top = body_top if screen_top < body_top
+        @pad.noutrefresh(0, 0,
+                         screen_top, 0,
+                         body_bottom, bottom_col)
+      else
+        # More content than the body can show: scroll so the latest content
+        # is always at the bottom (classic terminal behaviour).
+        visible_top = @row - visible_h
+        @pad.noutrefresh(visible_top, 0,
+                         body_top, 0,
+                         body_bottom, bottom_col)
+      end
     end
   end
 end
