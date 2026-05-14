@@ -21,6 +21,26 @@ module Cclikesh
       @service = nil
     end
 
+    # Returns the most recent captured raw bytes (zlib-inflated) from the
+    # cclikesh-debug session DB, or nil when:
+    #   - endpoint isn't holding a DB handle (@db unset)
+    #   - DB has no non-NULL raw_bytes_zlib rows
+    #   - decompress fails
+    # Errors are logged via Cclikesh::Context.logger and swallowed (returning nil),
+    # matching the runner.rb:47 pattern.
+    def self.latest_frame_bytes
+      db = @db rescue nil
+      return nil unless db
+      row = db.query("SELECT raw_bytes_zlib FROM frames WHERE raw_bytes_zlib IS NOT NULL ORDER BY id DESC LIMIT 1").first
+      blob = row.is_a?(Hash) ? row[:raw_bytes_zlib] : (row && row.first)
+      return nil unless blob
+      require "zlib"
+      Zlib::Inflate.inflate(blob)
+    rescue StandardError => e
+      Cclikesh::Context.logger.error("DebugEndpoint.latest_frame_bytes failed: #{e.class}: #{e.message}") rescue nil
+      nil
+    end
+
     class Adapter
       def initialize(builder)
         @builder = builder
