@@ -13,7 +13,6 @@ Gem::Specification.new do |spec|
   spec.files         = Dir["lib/**/*.rb", "README.md", "LICENSE"]
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "curses",                "~> 1.4"
   spec.add_dependency "reline",                "~> 0.6"
   spec.add_dependency "unicode-display_width", "~> 3.0"
   spec.add_dependency "logger"
