@@ -21,15 +21,19 @@ module Cclikesh
     # right-to-left bright cell observed on Claude Code's prompt echo.
     SWEEP_STEP_MS = 200
 
-    # Two-color orange palette observed on Claude Code's thinking line.
-    # The sweep highlights ONE cell with the bright shade; every other
-    # cell of the info_bar is painted in the dim shade. Using a 2-color
-    # toggle (instead of a 32-step grey breath) makes the wave obvious
-    # even when the user's terminal won't redefine palette entries with
-    # subtle precision. Indices 200/201 stay clear of Style's pair_id
-    # range (1..N).
-    ORANGE_BRIGHT_RGB = [245, 149, 117].freeze
-    ORANGE_DIM_RGB    = [215, 119,  87].freeze
+    # Two-color orange sweep on the info_bar, mirroring the bright-cell
+    # wave observed on Claude Code's thinking line. We use the
+    # terminal's standard 256-color palette directly rather than
+    # OSC 4 / init_color — palette redefines are silently ignored on
+    # many terminals (the user's setup did so), but stock 256-color
+    # entries render the same on every 256-color terminal.
+    #
+    #   ORANGE_BRIGHT_FG = 209  # xterm 256-color #ff875f (255,135,95)
+    #   ORANGE_DIM_FG    = 173  # xterm 256-color #d7875f (215,135,95)
+    #
+    # Pair ids 200/201 stay clear of Style's pair_id range (1..N).
+    ORANGE_BRIGHT_FG    = 209
+    ORANGE_DIM_FG       = 173
     ORANGE_BRIGHT_INDEX = 200
     ORANGE_DIM_INDEX    = 201
 
@@ -45,18 +49,16 @@ module Cclikesh
       draw_dividers
     end
 
-    # Allocate the two orange curses color pairs used by the sweep.
-    # Falls back gracefully when the terminal can't redefine colors;
-    # bright_attr / dim_attr then return 0 and the info_bar paints in
-    # the terminal's default fg with no sweep highlight.
+    # Allocate the two orange curses color pairs used by the sweep,
+    # using stock 256-color palette indices (no OSC 4 redefine). Falls
+    # back gracefully when the terminal has no color support; the sweep
+    # then paints in the terminal's default fg and the wave isn't
+    # visible (still better than ncurses raising).
     def self.setup_breath_colors
       @breath_supported = false
-      return unless Curses.respond_to?(:can_change_color?) && Curses.can_change_color?
-      [[ORANGE_BRIGHT_INDEX, ORANGE_BRIGHT_RGB],
-       [ORANGE_DIM_INDEX,    ORANGE_DIM_RGB]].each do |idx, (r, g, b)|
-        Curses.init_color(idx, r * 1000 / 255, g * 1000 / 255, b * 1000 / 255)
-        Curses.init_pair(idx, idx, -1)
-      end
+      return unless Curses.respond_to?(:has_colors?) && Curses.has_colors?
+      Curses.init_pair(ORANGE_BRIGHT_INDEX, ORANGE_BRIGHT_FG, -1)
+      Curses.init_pair(ORANGE_DIM_INDEX,    ORANGE_DIM_FG,    -1)
       @breath_supported = true
     rescue StandardError
       @breath_supported = false
