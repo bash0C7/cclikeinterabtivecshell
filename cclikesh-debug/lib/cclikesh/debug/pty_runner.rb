@@ -27,10 +27,7 @@ module Cclikesh
       def run
         @started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         @r, @w, @pid = PTY.spawn(env_for_spawn, *@argv)
-        begin
-          @r.winsize = [@rows, @cols] rescue nil
-        rescue Errno::ENOTTY
-        end
+        @r.winsize = [@rows, @cols] rescue nil  # Errno::ENOTTY on non-terminal fd (tests)
         @child_alive = true
         @timed_out   = false
         @script_pending_wait_until = nil
@@ -69,7 +66,7 @@ module Cclikesh
           resume_script_if_ready
           reap_no_hang
           break unless @child_alive
-          if elapsed_since_start > @timeout_sec
+          if now_ts > @timeout_sec
             send_signals_and_break
             break
           end
@@ -106,6 +103,8 @@ module Cclikesh
         return unless @script_fiber.alive?
         return if @script_pending_wait_until && now_ts < @script_pending_wait_until
         @script_pending_wait_until = nil
+        # Script exceptions propagate intentionally — a broken spec is the caller's fault
+        # and surfaces up through #run, with cleanup_child still running in the ensure.
         @script_fiber.resume
       end
 
@@ -159,10 +158,6 @@ module Cclikesh
       end
 
       def now_ts
-        Process.clock_gettime(Process::CLOCK_MONOTONIC) - @started_at
-      end
-
-      def elapsed_since_start
         Process.clock_gettime(Process::CLOCK_MONOTONIC) - @started_at
       end
     end

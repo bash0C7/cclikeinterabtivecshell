@@ -38,7 +38,7 @@ class TestPtyRunner < Test::Unit::TestCase
     assert_equal 7, status
     last_x = events.reverse.find { |e| e[:dir] == "x" }
     assert_not_nil last_x
-    assert_equal "7", last_x[:bytes]
+    assert_equal "7".b, last_x[:bytes]
   end
 
   def test_timeout_kills_child_and_marks_status_nil
