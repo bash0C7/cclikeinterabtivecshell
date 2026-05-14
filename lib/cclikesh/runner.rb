@@ -83,10 +83,16 @@ module Cclikesh
     def self.terminal_setup
       $stdout.write("\e[>4;2m")
       $stdout.flush
+      Signal.trap("WINCH") { Cclikesh::Chrome.handle_resize }
     end
 
     def self.terminal_teardown
       drain_stdin_residue
+      begin
+        Signal.trap("WINCH", "DEFAULT")
+      rescue ArgumentError, Errno::EINVAL => e
+        warn "terminal_teardown: could not reset WINCH trap: #{e.class}: #{e.message}"
+      end
       $stdout.write("\e[>4;0m\e[?25h\e[m")
       $stdout.flush
     rescue StandardError => e

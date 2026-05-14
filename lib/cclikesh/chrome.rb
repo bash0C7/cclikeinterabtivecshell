@@ -25,6 +25,7 @@ module Cclikesh
     def self.init
       @spinner_started_at = nil
       @working_line_active = false
+      @winsize_dirty = false
     end
 
     def self.close
@@ -115,7 +116,17 @@ module Cclikesh
     end
 
     def self.handle_resize
-      nil
+      @winsize_dirty = true
+    end
+
+    def self.winsize_dirty?
+      @winsize_dirty ? true : false
+    end
+
+    def self.consume_winsize_dirty
+      v = @winsize_dirty ? true : false
+      @winsize_dirty = false
+      v
     end
 
     def self.footer_line_text(status_rows:, shortcuts_hint:)

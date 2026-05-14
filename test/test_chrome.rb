@@ -66,4 +66,11 @@ class TestChrome < Test::Unit::TestCase
     Cclikesh::Chrome.update_status_line(phase: :idle,    info_bar: [])
     refute Cclikesh::Chrome.working_line_active?
   end
+
+  def test_handle_resize_marks_dirty_and_clears_on_next_winsize_call
+    Cclikesh::Chrome.handle_resize
+    assert Cclikesh::Chrome.winsize_dirty?
+    Cclikesh::Chrome.consume_winsize_dirty
+    refute Cclikesh::Chrome.winsize_dirty?
+  end
 end
