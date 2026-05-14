@@ -5,6 +5,7 @@ require "timeout"
 require_relative "chrome"
 require_relative "display"
 require_relative "context"
+require_relative "reline_idle_patch"
 
 module Cclikesh
   module RelineDialogs
@@ -212,6 +213,26 @@ module Cclikesh
         Cclikesh::Context.state_set(key, value)
       in [:state_get_request, reply_to, key]
         reply_to.send([:state_get_reply, Cclikesh::Context.state[key]])
+      in [:debug_snapshot_request, reply_to]
+        snapshot = {
+          context_state:      Cclikesh::Context.state.inspect,
+          spinner_started_at: Cclikesh::Chrome.spinner_started_at.inspect,
+          breath_supported:   Cclikesh::Chrome.breath_supported.inspect
+        }.freeze
+        reply_to.send([:debug_snapshot_reply, snapshot])
+      in [:debug_tick_count_request, reply_to]
+        reply_to.send([:debug_tick_count_reply, Cclikesh::RelineIdlePatch.tick_history.size])
+      in [:debug_curses_caps_request, reply_to]
+        require "curses"
+        attrs = %w[A_NORMAL A_BOLD A_DIM A_UNDERLINE A_REVERSE A_STANDOUT A_BLINK A_INVIS A_PROTECT A_ALTCHARSET A_ITALIC]
+        caps = {
+          term:              ENV["TERM"].to_s.freeze,
+          colors:            (Curses::COLORS rescue "n/a"),
+          color_pairs:       (Curses::COLOR_PAIRS rescue "n/a"),
+          can_change_color:  (Curses.can_change_color? rescue "n/a"),
+          defined_attrs:     attrs.select { |a| Curses.const_defined?(a) }.freeze
+        }.freeze
+        reply_to.send([:debug_curses_caps_reply, caps])
       in [:logger, level, text]
         Cclikesh::Context.logger.send(level, text) rescue nil
       in [:quit]

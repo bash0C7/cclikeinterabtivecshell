@@ -35,6 +35,24 @@ module Cclikesh
       end
     end
 
+    def debug_snapshot
+      @main.send([:debug_snapshot_request, Ractor.current])
+      msg = Ractor.receive
+      msg[1]
+    end
+
+    def debug_tick_count
+      @main.send([:debug_tick_count_request, Ractor.current])
+      msg = Ractor.receive
+      msg[1]
+    end
+
+    def debug_curses_caps
+      @main.send([:debug_curses_caps_request, Ractor.current])
+      msg = Ractor.receive
+      msg[1]
+    end
+
     # ------------------------------------------------------------------
     class DisplayProxy
       def initialize(main)

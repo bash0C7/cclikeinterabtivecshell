@@ -108,6 +108,13 @@ class TestDebugCommandsRegister < Test::Unit::TestCase
     def quit_called?;    @quit;              end
     def display;         @display ||= StubDisplay.new(@appended); end
     def appended_texts;  @appended.map(&:first);                  end
+    def debug_snapshot
+      { context_state: "{}", spinner_started_at: "nil", breath_supported: "true" }
+    end
+    def debug_tick_count;  5; end
+    def debug_curses_caps
+      { term: "test", colors: 256, color_pairs: 256, can_change_color: true, defined_attrs: [] }
+    end
 
     class StubDisplay
       def initialize(buf); @buf = buf; end

@@ -6,23 +6,11 @@ module Cclikesh
     USAGE_EMIT  = "usage: /debug-emit STRING  (\\e, \\xNN, \\n, \\r, \\t, \\\\)".freeze
     SLEEP_MAX = 60.0
 
-    # tick_counter slot used by /debug-tick-counter. SlashRegistry#register
-    # wraps bodies in Ractor.shareable_proc, so closing over a local var
-    # may freeze it; we store the reference on the module instead and
-    # have the lambda read it via current_tick_counter at call time. This
-    # mirrors the pattern in DefaultCommands.current_registry.
-    @tick_counter = nil
-
-    def self.current_tick_counter
-      @tick_counter
-    end
-
     def self.register(registry, runtime_state = {})
-      @tick_counter = runtime_state[:tick_counter]
       register_sleep(registry)
       register_emit(registry)
       register_color_probe(registry)
-      register_tick_counter(registry)
+      register_tick_counter(registry, runtime_state)
       register_curses_caps(registry)
       register_snapshot(registry)
       register_frame_dump(registry)
@@ -79,37 +67,29 @@ module Cclikesh
       }, description: "dump the 256-color palette as a 16x16 grid")
     end
 
-    def self.register_tick_counter(registry)
+    def self.register_tick_counter(registry, _runtime_state = {})
       registry.register(:"debug-tick-counter", ->(_args, ctx) {
-        tick_counter = Cclikesh::DebugCommands.current_tick_counter
-        if tick_counter.nil?
-          ctx.display.append("tick_counter not wired", style: :error)
-          next
-        end
-        ticks = tick_counter.tick_history.size
+        ticks = ctx.debug_tick_count
         ctx.display.append("last 5s: #{ticks} ticks (avg #{(ticks / 5.0).round(1)}/s)", style: :dim)
       }, description: "report RelineIdlePatch tick count for the last 5 seconds")
     end
 
     def self.register_curses_caps(registry)
       registry.register(:"debug-curses-caps", ->(_args, ctx) {
-        require "curses"
-        attrs = %w[A_NORMAL A_BOLD A_DIM A_UNDERLINE A_REVERSE A_STANDOUT A_BLINK A_INVIS A_PROTECT A_ALTCHARSET A_ITALIC]
-        defined_attrs = attrs.select { |a| Curses.const_defined?(a) }
-        ctx.display.append("TERM=#{ENV['TERM']}", style: :dim)
-        ctx.display.append("COLORS=#{Curses::COLORS rescue 'n/a'}  COLOR_PAIRS=#{Curses::COLOR_PAIRS rescue 'n/a'}", style: :dim)
-        ctx.display.append("can_change_color?=#{Curses.can_change_color? rescue 'n/a'}", style: :dim)
-        ctx.display.append("attrs defined: #{defined_attrs.join(', ')}", style: :dim)
+        caps = ctx.debug_curses_caps
+        ctx.display.append("TERM=#{caps[:term]}", style: :dim)
+        ctx.display.append("COLORS=#{caps[:colors]}  COLOR_PAIRS=#{caps[:color_pairs]}", style: :dim)
+        ctx.display.append("can_change_color?=#{caps[:can_change_color]}", style: :dim)
+        ctx.display.append("attrs defined: #{caps[:defined_attrs].join(', ')}", style: :dim)
       }, description: "report curses / terminal capabilities")
     end
 
     def self.register_snapshot(registry)
       registry.register(:"debug-snapshot", ->(_args, ctx) {
-        require "cclikesh/context"
-        require "cclikesh/chrome"
-        ctx.display.append("Context.state = #{Cclikesh::Context.state.inspect}", style: :dim)
-        ctx.display.append("Chrome.spinner_started_at = #{Cclikesh::Chrome.spinner_started_at.inspect}", style: :dim)
-        ctx.display.append("Chrome.breath_supported = #{Cclikesh::Chrome.breath_supported.inspect}", style: :dim)
+        snap = ctx.debug_snapshot
+        ctx.display.append("Context.state = #{snap[:context_state]}", style: :dim)
+        ctx.display.append("Chrome.spinner_started_at = #{snap[:spinner_started_at]}", style: :dim)
+        ctx.display.append("Chrome.breath_supported = #{snap[:breath_supported]}", style: :dim)
       }, description: "dump live framework state")
     end
 
