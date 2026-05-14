@@ -100,9 +100,6 @@ Cclikesh.run do |shell|
     ctx.display.append("session reset", style: :result)
   end
 
-  shell.slash(:q,    description: "exit") { |_args, ctx| ctx.quit }
-  shell.slash(:exit, description: "exit") { |_args, ctx| ctx.quit }
-
   shell.on_submit do |args, ctx|
     line = args.first
     parsed = ZshRunner.parse(line)

@@ -68,7 +68,4 @@ Cclikesh.run do |shell|
   shell.slash(:transcript, description: "show transcript hint") do |_args, ctx|
     ctx.display.append("transcript saving requires direct Main-Ractor access; not yet wired in v0.2.0", style: :dim)
   end
-
-  shell.slash(:quit, description: "exit") { |_args, ctx| ctx.quit }
-  shell.slash(:q,    description: "exit") { |_args, ctx| ctx.quit }
 end
