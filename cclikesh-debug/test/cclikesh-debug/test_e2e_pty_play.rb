@@ -146,4 +146,22 @@ class TestPlayCli < Test::Unit::TestCase
       end
     end
   end
+
+  def test_winsize_stale_env_spec_passes_under_play_cli
+    repo_root = File.expand_path("../../..", __dir__)
+    Dir.chdir(repo_root) do
+      spec = File.join(repo_root, "cclikesh-debug/test/specs/winsize_stale_env.rb")
+      out  = StringIO.new
+      db   = File.join(Dir.tmpdir, "test-stale-#{Process.pid}-#{rand(10000)}.sqlite")
+      begin
+        code = Cclikesh::Debug::CLI::Play.call(argv: [spec, "--db", db], stdout: out)
+        assert_equal 0, code, out.string
+        assert_match(/^PASS: shortcuts hint is painted \(footer survives stale env\)$/, out.string)
+        assert_match(/^PASS: \/pwd output visible$/, out.string)
+        assert_match(/^PASS: session exits cleanly$/, out.string)
+      ensure
+        [db, "#{db}-wal", "#{db}-shm"].each { |f| File.unlink(f) if File.exist?(f) }
+      end
+    end
+  end
 end
