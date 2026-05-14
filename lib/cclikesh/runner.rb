@@ -3,12 +3,14 @@ require "reline"
 require_relative "reline_idle_patch"
 require_relative "default_commands"
 require_relative "debug_commands"
+require_relative "terminfo_overlay"
 
 Warning[:experimental] = false # suppress "Ractor API is experimental" on every spawn
 
 module Cclikesh
   module Runner
     def self.run(builder)
+      TerminfoOverlay.install_if_possible
       init_curses
       Style.init!
       Chrome.init
@@ -127,7 +129,13 @@ module Cclikesh
       #   \e[m       -- reset SGR (colors/attrs)
       # Some terminals (ghostty on macOS) don't see ncurses' own restore
       # escapes from close_screen reliably, so do it ourselves first.
-      $stdout.print("\e[>4;0m\e[?1049l\e[r\e[?25h\e[m")
+      # \e[?1049l is the rmcup pair to \e[?1049h (smcup). If
+      # TerminfoOverlay.installed? is true, curses never emitted
+      # smcup (the terminfo entry has neither cap), so emitting
+      # rmcup here would have no buffer to leave — harmless, but
+      # noise. Skip it to keep the teardown bytes clean.
+      tail = TerminfoOverlay.installed? ? "" : "\e[?1049l"
+      $stdout.print("\e[>4;0m#{tail}\e[r\e[?25h\e[m")
       $stdout.flush
       # Redirect stdout to /dev/null before close_screen so that ncurses'
       # terminal-restore writes don't block on an unread PTY (e.g. in tests).
