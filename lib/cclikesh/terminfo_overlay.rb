@@ -26,8 +26,38 @@ module Cclikesh
         term = ENV["TERM"].to_s
         return false if term.empty?
         return false if term == "dumb"
-        # Full implementation arrives in later tasks.
-        false
+        return true  if @installed && ENV["TERM"] == "#{term}-noalt"
+        # Re-entry after a previous install in the same process: TERM
+        # already ends with "-noalt"; treat as success without redoing work.
+        return true  if @installed && term.end_with?("-noalt")
+
+        raw = read_terminfo_source(term)
+        return false if raw.nil?
+
+        stripped     = strip_smcup_rmcup(raw)
+        new_name     = "#{term}-noalt"
+        renamed      = rename_entry(stripped, new_name)
+        digest       = digest_of(renamed)
+        dest_dir     = cache_dir_for(term, digest)
+
+        # Check if a previous run already compiled this exact digest.
+        # `tic` outputs to a subdirectory named after the entry's first
+        # letter (e.g. cache/.../x/xterm-ghostty-noalt), so we look for
+        # any file under dest_dir to confirm a prior compile.
+        unless cache_dir_populated?(dest_dir)
+          require "tmpdir"
+          Dir.mktmpdir do |tmp|
+            src_path = File.join(tmp, "entry.ti")
+            File.write(src_path, renamed)
+            return false unless compile_terminfo(src_path, dest_dir)
+          end
+        end
+
+        prev = ENV["TERMINFO_DIRS"].to_s
+        ENV["TERMINFO_DIRS"] = prev.empty? ? dest_dir : "#{dest_dir}:#{prev}"
+        ENV["TERM"] = new_name
+        @installed = true
+        true
       end
 
       # Test-only: clear @installed so tests can re-exercise the install
@@ -100,6 +130,14 @@ module Cclikesh
                     out: File::NULL, err: File::NULL)
         !!ok
       rescue Errno::ENOENT, SystemCallError
+        false
+      end
+
+      def cache_dir_populated?(dir)
+        return false unless File.directory?(dir)
+        # Any non-dot entry inside means tic produced output.
+        Dir.children(dir).any?
+      rescue Errno::ENOENT
         false
       end
     end

@@ -2,6 +2,7 @@
 
 require_relative "test_helper"
 require "cclikesh/terminfo_overlay"
+require "tmpdir"
 
 class TestTerminfoOverlay < Test::Unit::TestCase
   def setup
@@ -124,7 +125,6 @@ class TestTerminfoOverlay < Test::Unit::TestCase
   end
 
   def test_compile_terminfo_produces_loadable_entry
-    require "tmpdir"
     Dir.mktmpdir do |dir|
       src_path = File.join(dir, "src.ti")
       # Use a real entry derived from the test runner's TERM so the
@@ -147,5 +147,53 @@ class TestTerminfoOverlay < Test::Unit::TestCase
       refute_match(/smcup=/, verify)
       refute_match(/rmcup=/, verify)
     end
+  end
+
+  def test_install_with_real_term_succeeds_and_mutates_env
+    # Use the runner's TERM so infocmp definitely has an entry.
+    real_term = ENV["TERM"]
+    omit "no TERM in test env" if real_term.to_s.empty? || real_term == "dumb"
+
+    Dir.mktmpdir do |dir|
+      ENV["XDG_CACHE_HOME"] = dir
+      original_dirs = ENV["TERMINFO_DIRS"]
+
+      ok = Cclikesh::TerminfoOverlay.install_if_possible
+      omit "infocmp/tic unavailable on this machine" unless ok
+
+      assert Cclikesh::TerminfoOverlay.installed?
+      assert_equal "#{real_term}-noalt", ENV["TERM"]
+      assert ENV["TERMINFO_DIRS"].to_s.start_with?(Cclikesh::TerminfoOverlay.send(:cache_root))
+      if original_dirs
+        assert ENV["TERMINFO_DIRS"].include?(original_dirs),
+               "original TERMINFO_DIRS should still be reachable"
+      end
+
+      # The compiled entry actually has no smcup/rmcup.
+      verify = `infocmp -1 #{ENV["TERM"]} 2>/dev/null`
+      refute_match(/smcup=/, verify)
+      refute_match(/rmcup=/, verify)
+    end
+  end
+
+  def test_install_is_idempotent_on_second_call
+    real_term = ENV["TERM"]
+    omit "no TERM in test env" if real_term.to_s.empty? || real_term == "dumb"
+
+    Dir.mktmpdir do |dir|
+      ENV["XDG_CACHE_HOME"] = dir
+      first  = Cclikesh::TerminfoOverlay.install_if_possible
+      omit "infocmp/tic unavailable" unless first
+      term_after_first = ENV["TERM"]
+      second = Cclikesh::TerminfoOverlay.install_if_possible
+      assert second
+      assert_equal term_after_first, ENV["TERM"]
+    end
+  end
+
+  def test_install_skip_does_not_set_installed_flag
+    ENV["TERM"] = "dumb"
+    Cclikesh::TerminfoOverlay.install_if_possible
+    refute Cclikesh::TerminfoOverlay.installed?
   end
 end
