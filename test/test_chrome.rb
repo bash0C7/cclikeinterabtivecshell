@@ -1,5 +1,6 @@
 require "test/unit"
 require "stringio"
+require "unicode/display_width"
 require "cclikesh/chrome"
 
 class TestChrome < Test::Unit::TestCase
@@ -24,13 +25,13 @@ class TestChrome < Test::Unit::TestCase
   end
 
   def test_print_turn_chrome_emits_dividers_and_footer
-    stub_winsize(20, 24)
+    stub_winsize(25, 24)
     Cclikesh::Chrome.print_turn_chrome(
       status_rows:    [{ segments: [{ text: "ready" }] }],
       shortcuts_hint: "Type / for cmds"
     )
     s = @captured.string
-    assert_match(/─{20}/, s)
+    assert_match(/─{25}/, s)
     assert_match(/ready · Type \/ for cmds/, s)
   end
 
@@ -43,7 +44,8 @@ class TestChrome < Test::Unit::TestCase
     s = @captured.string
     last_line = s.lines.reject(&:empty?).last
     plain = last_line.gsub(/\e\[[0-9;]*m/, "").chomp
-    assert plain.bytesize <= 10, "got: #{plain.inspect}"
+    dw = Unicode::DisplayWidth.of(plain)
+    assert dw <= 10, "display-width #{dw} exceeds 10: got #{plain.inspect}"
   end
 
   def test_update_status_line_writes_ansi_rewrite_when_working

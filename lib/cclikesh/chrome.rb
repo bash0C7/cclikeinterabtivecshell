@@ -102,16 +102,14 @@ module Cclikesh
     end
 
     def self.truncate_to_width(s, max_cols)
-      # Allow up to max_cols display-width characters. The 3-unit slack in
-      # the bypass check accounts for "…" being a 3-byte UTF-8 sequence so
-      # that near-limit strings are not truncated unnecessarily. When we do
-      # truncate we use byte-oriented accumulation to guarantee the total
-      # output (including the 3-byte "…" suffix) stays within max_cols bytes.
-      return s if Unicode::DisplayWidth.of(s) <= max_cols + 3
+      return s if Unicode::DisplayWidth.of(s) <= max_cols
       acc = +""
+      w = 0
       s.each_grapheme_cluster do |g|
-        break if acc.bytesize + g.bytesize + 3 > max_cols
+        gw = Unicode::DisplayWidth.of(g)
+        break if w + gw > max_cols - 1
         acc << g
+        w += gw
       end
       acc + "…"
     end
