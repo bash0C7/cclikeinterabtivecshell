@@ -41,7 +41,7 @@ module Cclikesh
       catch(:quit) do
         loop do
           line = nil
-          $stdout.write("\n")  # status_line placeholder row
+          $stdout.write("\r\n")  # status_line placeholder row
           Cclikesh::Chrome.print_pre_prompt_divider
           begin
             line = Reline.readmultiline(prompt_text(builder), true) { true }
@@ -50,21 +50,32 @@ module Cclikesh
             throw :quit if Context.quit?
             next
           end
-          Cclikesh::Chrome.print_post_prompt_chrome(
-            status_rows:    builder.evaluate_status_rows(main_ctx),
-            shortcuts_hint: builder.shortcuts_hint_text
-          )
           throw :quit if line.nil?
           throw :quit if Context.quit?
           line = line.to_s
-          next if line.strip.empty?
+          unless line.strip.empty?
+            begin
+              SlashDispatcher.handle(
+                line,
+                builder.slash_registry,
+                Ractor.current,
+                on_submit: builder.on_submit_handler,
+                state_refs: builder.state_refs
+              )
+            rescue Interrupt
+              RelineDialogs.drain_main_mailbox
+              throw :quit if Context.quit?
+            end
+          end
+          # Drain any handler-emitted output (ctx_proxy → mailbox) before closing the
+          # turn with chrome, so the command's output appears between prompt and
+          # footer, not after footer.
           begin
-            SlashDispatcher.handle(
-              line,
-              builder.slash_registry,
-              Ractor.current,
-              on_submit: builder.on_submit_handler,
-              state_refs: builder.state_refs
+            RelineDialogs.drain_main_mailbox
+            throw :quit if Context.quit?
+            Cclikesh::Chrome.print_post_prompt_chrome(
+              status_rows:    builder.evaluate_status_rows(main_ctx),
+              shortcuts_hint: builder.shortcuts_hint_text
             )
           rescue Interrupt
             RelineDialogs.drain_main_mailbox

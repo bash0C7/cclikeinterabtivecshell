@@ -45,18 +45,18 @@ module Cclikesh
 
     def self.print_pre_prompt_divider
       cols = winsize[1]
-      $stdout.write("─" * cols)
-      $stdout.write("\n")
+      $stdout.write("─" * (cols - 1))
+      $stdout.write("\r\n")
       $stdout.flush
     end
 
     def self.print_post_prompt_chrome(status_rows:, shortcuts_hint:)
       cols = winsize[1]
-      $stdout.write("─" * cols)
-      $stdout.write("\n")
+      $stdout.write("─" * (cols - 1))
+      $stdout.write("\r\n")
       footer_text = footer_line_text(status_rows: status_rows, shortcuts_hint: shortcuts_hint)
       Style.with($stdout, :dim) { $stdout.write(truncate_to_width(footer_text, cols)) }
-      $stdout.write("\n")
+      $stdout.write("\r\n")
       $stdout.flush
     end
 

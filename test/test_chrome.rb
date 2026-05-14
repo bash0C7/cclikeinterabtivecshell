@@ -31,7 +31,7 @@ class TestChrome < Test::Unit::TestCase
       shortcuts_hint: "Type / for cmds"
     )
     s = @captured.string
-    assert_match(/─{40}/, s)
+    assert_match(/─{39}/, s)
     assert_match(/ready · Type \/ for cmds/, s)
   end
 
