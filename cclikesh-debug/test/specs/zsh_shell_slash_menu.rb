@@ -15,7 +15,7 @@ session "zsh-shell slash menu shows /pwd on /p" do
   send "p"
   wait 1.0
   send "\b\b"
-  send "/q\r"
+  send "/q\n"
   wait 0.5
 end
 
