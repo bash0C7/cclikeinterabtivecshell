@@ -76,4 +76,10 @@ class TestPtyStorage < Test::Unit::TestCase
                       env: {}, spec_path: nil, timeout_sec: 30.0)
     assert_equal "u6", @s.fetch_session("u6")[:uuid]
   end
+
+  def test_fk_rejects_event_with_dangling_session_uuid
+    assert_raise(Extralite::Error) do
+      @s.insert_event(session_uuid: "nonexistent", ts: 0.0, dir: "o", bytes: "x")
+    end
+  end
 end
