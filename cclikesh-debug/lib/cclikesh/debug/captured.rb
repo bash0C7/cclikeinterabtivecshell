@@ -22,8 +22,9 @@ module Cclikesh
                                     .map { |f| f[:bytes] }.join.b.freeze
         @output_text       = @output_bytes.dup.force_encoding(Encoding::UTF_8).scrub.freeze
         @output_text_clean = @output_text
-                               .gsub(/\e\[[0-9;]*[A-Za-z]/, "")
-                               .gsub(/\e[78]/, "")
+                               .gsub(/\e\[[0-9;]*[A-Za-z]/, "")     # CSI (SGR, cursor, etc.)
+                               .gsub(/\e[78]/, "")                  # DECSC / DECRC
+                               .gsub(/\e\].*?(?:\a|\e\\)/m, "")     # OSC (zsh/claude title, hyperlinks)
                                .freeze
         freeze
       end

@@ -28,6 +28,10 @@ module Cclikesh
           @spawn_args = { argv: argv, cols: cols, rows: rows, env: env }
         end
         def wait(seconds);  @steps << [:wait, seconds.to_f]; end
+        # Intentionally shadows Kernel#send inside the DSL block. The DSL
+        # surface is locked by spec — do not rename. Internal code must never
+        # call scope.send(symbol, ...) with the dispatcher meaning; use the
+        # explicit accessors (each_step, spawn_args, timeout_sec) instead.
         def send(str);      @steps << [:send, str.to_s];    end
         def each_step(&blk); @steps.each(&blk); end
       end
