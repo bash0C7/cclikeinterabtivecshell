@@ -4,6 +4,7 @@ require_relative "test_helper"
 require "cclikesh/debug_commands"
 require "cclikesh/slash_registry"
 require "cclikesh/reline_idle_patch"
+require "cclikesh/builder"
 
 class TestDebugCommandsEscapeInterpreter < Test::Unit::TestCase
   P = Cclikesh::DebugCommands::EscapeInterpreter
@@ -113,5 +114,18 @@ class TestDebugCommandsRegister < Test::Unit::TestCase
       def append(text, style: nil); @buf << [text, style]; end
       def raw_emit(_bytes); end  # noop in tests
     end
+  end
+end
+
+class TestDebugCommandsOptIn < Test::Unit::TestCase
+  def test_default_off
+    builder = Cclikesh::Builder.new
+    refute builder.debug_commands_enabled?
+  end
+
+  def test_dsl_turns_on
+    builder = Cclikesh::Builder.new
+    builder.enable_debug_commands
+    assert builder.debug_commands_enabled?
   end
 end

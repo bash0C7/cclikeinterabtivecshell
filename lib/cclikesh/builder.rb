@@ -30,6 +30,7 @@ module Cclikesh
       @shortcuts_hint_text     = ""
       @header_config           = {}
       @logger                  = Logger.new($stderr).tap { |l| l.level = Logger::INFO; l.progname = "cclikesh" }
+      @debug_commands_enabled  = false
     end
 
     # --- ShareableRef ---
@@ -69,6 +70,16 @@ module Cclikesh
       @info_registration_counter += 1
       effective_order = order || (10_000 + @info_registration_counter)
       @info_blocks << { name: name.to_sym, order: effective_order, block: block }
+    end
+
+    # --- Debug commands opt-in ---
+
+    def enable_debug_commands
+      @debug_commands_enabled = true
+    end
+
+    def debug_commands_enabled?
+      @debug_commands_enabled == true
     end
 
     def evaluate_info_bar(ctx = nil)

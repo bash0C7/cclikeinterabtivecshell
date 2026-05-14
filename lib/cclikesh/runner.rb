@@ -2,6 +2,7 @@ require "curses"
 require "reline"
 require_relative "reline_idle_patch"
 require_relative "default_commands"
+require_relative "debug_commands"
 
 Warning[:experimental] = false # suppress "Ractor API is experimental" on every spawn
 
@@ -20,6 +21,12 @@ module Cclikesh
       install_completion(builder)
       RelineDialogs.install(builder)
       DefaultCommands.register(builder.slash_registry)
+      if builder.debug_commands_enabled? || ENV["CCLIKESH_DEBUG"]
+        Cclikesh::DebugCommands.register(
+          builder.slash_registry,
+          tick_counter: Cclikesh::RelineIdlePatch
+        )
+      end
       main_ctx = MainCtx.new(builder.state_refs)
       # Header lines now live inside the body as regular append-only
       # output, so they scroll with the rest of the transcript.
