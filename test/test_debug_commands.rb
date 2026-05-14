@@ -2,6 +2,8 @@
 
 require_relative "test_helper"
 require "cclikesh/debug_commands"
+require "cclikesh/slash_registry"
+require "cclikesh/reline_idle_patch"
 
 class TestDebugCommandsEscapeInterpreter < Test::Unit::TestCase
   P = Cclikesh::DebugCommands::EscapeInterpreter
@@ -44,5 +46,72 @@ class TestDebugCommandsEscapeInterpreter < Test::Unit::TestCase
 
   def test_trailing_backslash_raises
     assert_raise(ArgumentError) { P.parse("foo\\") }
+  end
+end
+
+class TestDebugCommandsRegister < Test::Unit::TestCase
+  def setup
+    @registry = Cclikesh::SlashRegistry.new
+    @runtime_state = { tick_counter: Cclikesh::RelineIdlePatch }
+    Cclikesh::DebugCommands.register(@registry, @runtime_state)
+  end
+
+  def test_seven_commands_registered
+    %i[debug-sleep debug-emit debug-color-probe debug-tick-counter
+       debug-curses-caps debug-snapshot debug-frame-dump].each do |name|
+      refute_nil @registry.lookup(name), "expected /#{name} to be registered"
+    end
+  end
+
+  def test_debug_sleep_rejects_non_numeric
+    ctx = StubCtx.new
+    @registry.lookup(:"debug-sleep")[:body].call(["abc"], ctx)
+    assert(ctx.appended_texts.any? { |t| t.include?("usage:") }, ctx.appended_texts.inspect)
+    refute ctx.quit_called?
+  end
+
+  def test_debug_sleep_rejects_negative
+    ctx = StubCtx.new
+    @registry.lookup(:"debug-sleep")[:body].call(["-1"], ctx)
+    assert(ctx.appended_texts.any? { |t| t.include?("usage:") })
+  end
+
+  def test_debug_sleep_rejects_too_large
+    ctx = StubCtx.new
+    @registry.lookup(:"debug-sleep")[:body].call(["61"], ctx)
+    assert(ctx.appended_texts.any? { |t| t.include?("usage:") })
+  end
+
+  def test_debug_emit_rejects_empty
+    ctx = StubCtx.new
+    @registry.lookup(:"debug-emit")[:body].call([], ctx)
+    assert(ctx.appended_texts.any? { |t| t.include?("usage:") })
+  end
+
+  def test_debug_emit_rejects_bad_escape
+    ctx = StubCtx.new
+    @registry.lookup(:"debug-emit")[:body].call(["\\z"], ctx)
+    assert(ctx.appended_texts.any? { |t| t.include?("usage:") || t.include?("unknown escape") }, ctx.appended_texts.inspect)
+  end
+
+  class StubCtx
+    def initialize
+      @quit = false
+      @appended = []
+      @state = {}
+    end
+
+    attr_reader :state
+
+    def quit;            @quit = true;       end
+    def quit_called?;    @quit;              end
+    def display;         @display ||= StubDisplay.new(@appended); end
+    def appended_texts;  @appended.map(&:first);                  end
+
+    class StubDisplay
+      def initialize(buf); @buf = buf; end
+      def append(text, style: nil); @buf << [text, style]; end
+      def raw_emit(_bytes); end  # noop in tests
+    end
   end
 end

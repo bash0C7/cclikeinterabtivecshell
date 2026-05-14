@@ -73,6 +73,10 @@ module Cclikesh
         opts[:style] = style unless style.nil?
         @main.send([:dialog, content.to_s.freeze, opts.freeze])
       end
+
+      def raw_emit(bytes)
+        @main.send([:emit, bytes.b.freeze])
+      end
     end
 
     # ------------------------------------------------------------------

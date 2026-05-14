@@ -203,6 +203,11 @@ module Cclikesh
         Cclikesh::Display.live_discard(sid)
       in [:dialog, content, opts]
         Cclikesh::Display.dialog(content, **opts)
+      in [:emit, bytes]
+        $stdout.write(bytes)
+        $stdout.flush
+        Curses.stdscr.touch
+        Curses.doupdate rescue nil
       in [:state_set, key, value]
         Cclikesh::Context.state_set(key, value)
       in [:state_get_request, reply_to, key]
