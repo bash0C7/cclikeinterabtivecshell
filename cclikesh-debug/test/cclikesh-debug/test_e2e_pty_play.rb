@@ -92,4 +92,22 @@ class TestPlayCli < Test::Unit::TestCase
       end
     end
   end
+
+  def test_pwd_output_in_body_spec_passes_under_play_cli
+    repo_root = File.expand_path("../../..", __dir__)
+    Dir.chdir(repo_root) do
+      spec = File.join(repo_root, "cclikesh-debug/test/specs/pwd_output_in_body.rb")
+      out  = StringIO.new
+      db   = File.join(Dir.tmpdir, "test-pwd-#{Process.pid}-#{rand(10000)}.sqlite")
+      begin
+        code = Cclikesh::Debug::CLI::Play.call(argv: [spec, "--db", db], stdout: out)
+        assert_equal 0, code, out.string
+        assert_match(/^PASS: \/pwd output \(current working directory\) appears in the recorded stream$/, out.string)
+        assert_match(/^PASS: the shortcuts hint is visible in the recorded stream$/, out.string)
+        assert_match(/^PASS: session exits cleanly$/, out.string)
+      ensure
+        [db, "#{db}-wal", "#{db}-shm"].each { |f| File.unlink(f) if File.exist?(f) }
+      end
+    end
+  end
 end
