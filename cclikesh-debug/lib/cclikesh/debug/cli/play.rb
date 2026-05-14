@@ -5,8 +5,20 @@ module Cclikesh
     module CLI
       module Play
         def self.call(argv:, stdout:)
-          opts = parse(argv)
-          src  = File.read(opts.fetch(:spec_path))
+          opts =
+            begin
+              parse(argv)
+            rescue ArgumentError => e
+              stdout.puts "spec error: #{e.message}"
+              return 3
+            end
+          src =
+            begin
+              File.read(opts.fetch(:spec_path))
+            rescue Errno::ENOENT => e
+              stdout.puts "spec error: #{e.message}"
+              return 3
+            end
           result =
             begin
               SpecDSL.evaluate(src, db_path: opts.fetch(:db_path),

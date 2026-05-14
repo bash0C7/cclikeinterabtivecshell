@@ -35,7 +35,8 @@ class TestPlayCli < Test::Unit::TestCase
 
   def teardown
     FileUtils.remove_entry(@dir)
-  rescue StandardError
+  rescue StandardError => e
+    warn "teardown cleanup failed: #{e.message}"
   end
 
   def run_play(spec_path)
