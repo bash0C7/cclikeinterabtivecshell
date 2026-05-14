@@ -10,6 +10,10 @@ Warning[:experimental] = false # suppress "Ractor API is experimental" on every 
 module Cclikesh
   module Runner
     def self.run(builder)
+      # Defence-in-depth: Cclikesh.run normally calls this first so the
+      # mutation is in place before user code in the builder block can
+      # trigger an implicit Curses init. The call here covers direct
+      # Runner.run invocations (tests, future embedders).
       TerminfoOverlay.install_if_possible
       init_curses
       Style.init!
