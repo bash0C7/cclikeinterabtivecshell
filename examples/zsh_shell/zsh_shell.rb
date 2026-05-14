@@ -15,8 +15,8 @@ Cclikesh.run do |shell|
   shell.shareable_ref(:cwd) { CwdHolder.new }
   shell.shareable_ref(:env) { EnvHolder.new }
 
-  shell.define_style(:ok, fg: Curses::COLOR_GREEN, bold: true)
-  shell.define_style(:ng, fg: Curses::COLOR_RED,   bold: true)
+  shell.define_style(:ok, fg: 32, bold: true)  # 32 = green (ANSI)
+  shell.define_style(:ng, fg: 31, bold: true)  # 31 = red (ANSI)
 
   shell.header do |h|
     h.logo     "✻"
