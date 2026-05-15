@@ -5,6 +5,7 @@ require "unicode/display_width"
 require_relative "style"
 require_relative "transcript"
 require_relative "chrome"
+require_relative "layout_diag"
 
 module Cclikesh
   module Display
@@ -91,6 +92,7 @@ module Cclikesh
     end
 
     def self.refresh
+      Cclikesh::LayoutDiag.log("Display.refresh")
       return unless @pad
       # Body fills from the top of the alt-screen down to the body/prompt
       # divider.  All row indices are 0-based (curses convention).
