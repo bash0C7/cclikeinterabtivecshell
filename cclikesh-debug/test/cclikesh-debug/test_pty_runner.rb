@@ -118,4 +118,28 @@ class TestPtyRunner < Test::Unit::TestCase
     assert_match(/COLUMNS\s*=\s*120/, output)
     assert_match(/LINES\s*=\s*40/,    output)
   end
+
+  def test_script_resize_changes_pty_winsize_visible_to_child
+    # The Ruby variant is the most portable: trap WINCH and print the new
+    # winsize via IO.console.winsize.
+    @ev = []
+    sink = ->(ts:, dir:, bytes:) { @ev << { ts: ts, dir: dir, bytes: bytes } }
+    runner = Cclikesh::Debug::PtyRunner.new(
+      argv:        ["ruby", "-r", "io/console", "-e",
+                    "STDOUT.sync=true; trap('WINCH'){p IO.console.winsize}; p IO.console.winsize; sleep 1.0"],
+      cols:        80,
+      rows:        24,
+      env:         {},
+      timeout_sec: 4.0,
+      event_sink:  sink,
+    )
+    runner.run do |sess|
+      sess.wait 0.4   # let initial print fire
+      sess.resize(120, 30)
+      sess.wait 0.5   # let WINCH trap fire and print new size
+    end
+    output = @ev.select { |e| e[:dir] == "o" }.map { |e| e[:bytes] }.join.b
+    assert_match(/\[24, 80\]/, output, "initial winsize must be [24, 80]")
+    assert_match(/\[30, 120\]/, output, "post-resize winsize must be [30, 120]")
+  end
 end

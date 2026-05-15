@@ -13,6 +13,7 @@ module Cclikesh
         end
         def send(str);    @runner.script_send(str);          end
         def wait(seconds);@runner.script_wait(seconds.to_f); end
+        def resize(cols, rows); @runner.script_resize(cols, rows); end
       end
 
       def initialize(argv:, cols:, rows:, env:, timeout_sec:, event_sink:, clear_size_env: false)
@@ -49,6 +50,15 @@ module Cclikesh
       def script_wait(seconds)
         @script_pending_wait_until = now_ts + seconds
         Fiber.yield
+      end
+
+      def script_resize(cols, rows)
+        # IO#winsize= takes [rows, cols] per io/console. Public arg order
+        # mirrors PtyRunner.new(cols:, rows:) for consistency.
+        @r.winsize = [rows, cols]
+      rescue Errno::ENOTTY, IOError
+        # Non-PTY masters (test stubs) cannot accept winsize; ignore.
+        nil
       end
 
       private
