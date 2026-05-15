@@ -4,6 +4,7 @@ require_relative "reline_idle_patch"
 require_relative "default_commands"
 require_relative "debug_commands"
 require_relative "terminfo_overlay"
+require_relative "layout_diag"
 
 Warning[:experimental] = false # suppress "Ractor API is experimental" on every spawn
 
@@ -145,6 +146,7 @@ module Cclikesh
       # terminals taller/wider than the default, every window is laid out
       # at the wrong size until we explicitly tell ncurses the real size.
       sync_curses_to_terminal_size
+      Cclikesh::LayoutDiag.log("Runner.init_curses.after_init_screen")
       Curses.cbreak
       Curses.noecho
       Curses.start_color
@@ -178,6 +180,7 @@ module Cclikesh
       rows, cols = console.winsize
       return if rows.nil? || cols.nil? || rows <= 0 || cols <= 0
       Curses.resizeterm(rows, cols) if Curses.respond_to?(:resizeterm)
+      Cclikesh::LayoutDiag.log("Runner.sync_curses_to_terminal_size")
     rescue Errno::ENOTTY, IOError => e
       Cclikesh::Context.logger.error("winsize query failed: #{e.class}: #{e.message}") rescue nil
     end
