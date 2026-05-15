@@ -81,4 +81,41 @@ class TestPtyRunner < Test::Unit::TestCase
       [db_path, "#{db_path}-wal", "#{db_path}-shm"].each { |f| File.unlink(f) if File.exist?(f) }
     end
   end
+
+  def test_clear_size_env_strips_lines_and_columns
+    @ev = []
+    sink = ->(ts:, dir:, bytes:) { @ev << { ts: ts, dir: dir, bytes: bytes } }
+    runner = Cclikesh::Debug::PtyRunner.new(
+      argv:        ["/usr/bin/env"],
+      cols:        120,
+      rows:        40,
+      env:         { "COLUMNS" => "999", "LINES" => "999" }, # deliberately bogus to prove they're cleared
+      timeout_sec: 5.0,
+      event_sink:  sink,
+      clear_size_env: true,
+    )
+    status = runner.run
+    output = @ev.select { |e| e[:dir] == "o" }.map { |e| e[:bytes] }.join.b
+    assert_equal 0, status
+    assert_no_match(/COLUMNS\s*=/, output, "COLUMNS must not appear in env output")
+    assert_no_match(/LINES\s*=/,   output, "LINES must not appear in env output")
+  end
+
+  def test_clear_size_env_default_false_preserves_existing_behavior
+    @ev = []
+    sink = ->(ts:, dir:, bytes:) { @ev << { ts: ts, dir: dir, bytes: bytes } }
+    runner = Cclikesh::Debug::PtyRunner.new(
+      argv:        ["/usr/bin/env"],
+      cols:        120,
+      rows:        40,
+      env:         {},
+      timeout_sec: 5.0,
+      event_sink:  sink,
+    )
+    status = runner.run
+    output = @ev.select { |e| e[:dir] == "o" }.map { |e| e[:bytes] }.join.b
+    assert_equal 0, status
+    assert_match(/COLUMNS\s*=\s*120/, output)
+    assert_match(/LINES\s*=\s*40/,    output)
+  end
 end

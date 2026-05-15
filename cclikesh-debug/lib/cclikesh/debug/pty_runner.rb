@@ -15,13 +15,14 @@ module Cclikesh
         def wait(seconds);@runner.script_wait(seconds.to_f); end
       end
 
-      def initialize(argv:, cols:, rows:, env:, timeout_sec:, event_sink:)
-        @argv        = argv
-        @cols        = cols
-        @rows        = rows
-        @env         = env
-        @timeout_sec = timeout_sec.to_f
-        @event_sink  = event_sink
+      def initialize(argv:, cols:, rows:, env:, timeout_sec:, event_sink:, clear_size_env: false)
+        @argv            = argv
+        @cols            = cols
+        @rows            = rows
+        @env             = env
+        @timeout_sec     = timeout_sec.to_f
+        @event_sink      = event_sink
+        @clear_size_env  = clear_size_env
       end
 
       def run
@@ -54,8 +55,13 @@ module Cclikesh
 
       def env_for_spawn
         merged = ENV.to_h.merge(@env || {})
-        merged["COLUMNS"] = @cols.to_s
-        merged["LINES"]   = @rows.to_s
+        if @clear_size_env
+          merged.delete("COLUMNS")
+          merged.delete("LINES")
+        else
+          merged["COLUMNS"] = @cols.to_s
+          merged["LINES"]   = @rows.to_s
+        end
         merged
       end
 
