@@ -118,7 +118,8 @@ module Cclikesh
 
       def self.parse_diag_line(line)
         # Format: [ISO8601] <tag> curses.lines=<v> curses.cols=<v> maxyx=<v> winsize=<v> env_lines=<v> env_cols=<v>
-        m = line.match(/\A\[(?<ts>[^\]]+)\] (?<tag>\S+) curses\.lines=(?<lines>\S+) curses\.cols=(?<cols>\S+) maxyx=(?<maxyx>.*?) winsize=(?<winsize>.*?) env_lines=(?<env_lines>\S+) env_cols=(?<env_cols>\S+)\z/)
+        # chomp strips the trailing \n that File.readlines includes; \z anchors to end-of-string.
+        m = line.chomp.match(/\A\[(?<ts>[^\]]+)\] (?<tag>\S+) curses\.lines=(?<lines>\S+) curses\.cols=(?<cols>\S+) maxyx=(?<maxyx>.*?) winsize=(?<winsize>.*?) env_lines=(?<env_lines>\S+) env_cols=(?<env_cols>\S+)\z/)
         return nil unless m
         {
           ts:        m[:ts],
