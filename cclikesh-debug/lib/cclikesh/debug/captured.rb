@@ -1,4 +1,5 @@
 require "json"
+require_relative "term_sim"
 
 module Cclikesh
   module Debug
@@ -34,6 +35,8 @@ module Cclikesh
 
       def session_uuid; @uuid; end
       def exit_status;  @info[:exit_status]; end
+      def spawn_cols;   @info[:cols]; end
+      def spawn_rows;   @info[:rows]; end
 
       def output_bytes;      @output_bytes;      end
       def input_log;         @input_log;         end
@@ -42,6 +45,17 @@ module Cclikesh
 
       def contains?(substring); @output_bytes.include?(substring.b); end
       def match?(regex);        regex.match?(@output_text);          end
+
+      # Render the captured output stream through a minimal terminal emulator
+      # at (rows, cols) and return the resulting TermSim. Use for spec
+      # assertions that need to know the *visible* row/col layout (rather
+      # than just the byte stream — the byte stream often contains DECSC/
+      # DECRC bracketed motion that does not produce a visible gap).
+      def screen(rows:, cols:)
+        sim = TermSim.new(rows, cols)
+        sim.feed(@output_bytes)
+        sim
+      end
     end
   end
 end
