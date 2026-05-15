@@ -4,6 +4,36 @@
 # under cmux-like env by opting into clear_size_env: true and firing a real
 # SIGWINCH via script_resize to a wider size.
 
+# Count visible 'q' cells (DEC line drawing horizontal bar) in a divider run,
+# expanding REP escapes (\e[Nb) that ncurses emits to compress runs of repeated
+# characters. ncurses commonly outputs a 120-cell divider as `q\e[118bq` rather
+# than 120 literal q bytes, and may interleave SGR resets like `\e[0m` between
+# the SCS-G0 enter (`\e(0`) and the q run. Stops at \e(B (exit DEC) or any
+# other non-q non-handled byte.
+count_dec_cells = lambda do |slice|
+  s = slice.b.dup
+  s = s.sub(/\A\e\(0/, "")                      # strip enter DEC graphics
+  count = 0
+  loop do
+    if (m = s.match(/\A\e\[[0-9;]*m/))          # SGR (color/attr) — no cell
+      s = s[m[0].length..]
+      next
+    end
+    if s.start_with?("q")
+      count += 1
+      s = s[1..]
+      next
+    end
+    if (m = s.match(/\A\e\[(\d+)b/)) && count > 0  # REP — repeat preceding char
+      count += m[1].to_i
+      s = s[m[0].length..]
+      next
+    end
+    break
+  end
+  count
+end
+
 session "resize widens dividers to match new cols" do
   timeout 15
   spawn argv: %w[bundle exec ruby examples/zsh_shell/zsh_shell.rb],
@@ -35,9 +65,8 @@ end
 
 # Byte: locate the divider redraw after resize. The divider is drawn via
 # ACS_HLINE (A_ALTCHARSET | 0x71). On stock xterm-style terminfo, ncurses
-# brackets the run with SO/SI (\e(0 ... \e(B). We accept either bracketed
-# or unbracketed forms by counting the 'q' bytes in the run after stripping
-# the optional SO/SI brackets.
+# brackets the run with SO/SI (\e(0 ... \e(B) and may emit REP (\e[Nb) to
+# compress repeated q's. count_dec_cells handles both bracketing and REP.
 expect "divider after resize spans the new cols (120 cells, not 80)" do |c|
   resize_entries = c.diag_entries.select { |e| e[:tag] == "Chrome.handle_resize.after_resizeterm" }
   next false if resize_entries.empty?
@@ -54,9 +83,7 @@ expect "divider after resize spans the new cols (120 cells, not 80)" do |c|
     last_cup = bytes.b.rindex(cup_pattern)
     next unless last_cup
     slice = bytes.byteslice(last_cup + cup_pattern.bytesize, 400)
-    slice = slice.sub(/\A\e\(0/, "")  # strip optional SO
-    run = slice[/\Aq+/] || ""         # count contiguous q runs
-    found_widths << run.length
+    found_widths << count_dec_cells.call(slice)
   end
   found_widths.any? { |w| w == 120 } && !found_widths.any? { |w| w == 80 }
 end
