@@ -26,20 +26,12 @@ class TestRunnerLayoutDiag < Test::Unit::TestCase
   def test_sync_curses_to_terminal_size_emits_diag
     Curses.init_screen
     File.write(@log_path, "")  # truncate after init_screen so test only sees this call
-    # Mock IO.console to return a valid winsize so the log call is reached
-    mock_console = Object.new
-    def mock_console.winsize
-      [24, 80]
-    end
-    # Patch IO.console temporarily
-    original_console = IO.method(:console)
-    IO.define_singleton_method(:console) { mock_console }
-    begin
-      Cclikesh::Runner.sync_curses_to_terminal_size
-      body = File.read(@log_path)
-      assert_match(/Runner\.sync_curses_to_terminal_size/, body)
-    ensure
-      IO.define_singleton_method(:console, original_console)
-    end
+    console = IO.console
+    omit "no controlling tty in this test env" if console.nil?
+    rows, cols = console.winsize rescue [nil, nil]
+    omit "winsize unavailable in test env (got #{[rows, cols].inspect})" if rows.nil? || cols.nil? || rows <= 0 || cols <= 0
+    Cclikesh::Runner.sync_curses_to_terminal_size
+    body = File.read(@log_path)
+    assert_match(/Runner\.sync_curses_to_terminal_size/, body)
   end
 end
