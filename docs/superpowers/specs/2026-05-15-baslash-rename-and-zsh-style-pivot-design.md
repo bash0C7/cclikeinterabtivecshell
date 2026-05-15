@@ -54,9 +54,10 @@ The visual model pivots from "fixed footer + sub-region body" to
   editing, dialogs, and history. Native terminal scrollback. OSC 0/2 for
   status. No custom terminal abstraction.
 - **Targeted scope.** Practical-use means: medium-length sessions (up to a
-  few hundred body lines), main terminals (ghostty, iTerm2, Terminal.app,
-  cmux, tmux), CRuby 4.x, macOS first. Do not promise full Linux console /
-  Windows Terminal coverage in v1; revisit in v2.
+  few hundred body lines), **macOS only**, **Terminal.app and cmux** as
+  the supported terminals, CRuby 4.x. Anything else (ghostty / iTerm2 /
+  tmux / Linux / Windows) is best-effort — the gem may happen to work on
+  them but is not tested or held to the same bar.
 - **No backwards compatibility.** All implementations are author-owned and
   in the `examples/` tree; breaking-change rename + API churn is acceptable.
 
@@ -150,23 +151,29 @@ Unknown command: /heko
 
 **Total added: ~260 LOC.**
 
-### 6.3 Preserved (renamed `Cclikesh::*` → `Baslash::*`)
+### 6.3 Carried over (renamed `Cclikesh::*` → `Baslash::*`)
 
-| File | Notes |
+The following modules carry over in spirit. The implementer is free to
+restructure, rename internals, split or merge files, as long as the
+result is natural Ruby and the public DSL surface (Builder) remains
+ergonomic. "Unchanged" below means "same responsibility"; not "same
+LOC".
+
+| File | Responsibility |
 |---|---|
-| `lib/baslash/builder.rb` | Public DSL surface; rename only, contents unchanged in spirit |
-| `lib/baslash/reline_dialogs.rb` | Drop `run_chrome_tick`, drop `\e7/\e8`; keep `slash_menu_dialog_proc`, `ghost_text_dialog_proc`, `periodic_tick_proc` (delegates to `TitleBar.tick`), `apply_command` |
-| `lib/baslash/slash_registry.rb` | Unchanged |
-| `lib/baslash/slash_dispatcher.rb` | Unchanged |
-| `lib/baslash/handler_ractor.rb` | Unchanged |
-| `lib/baslash/context.rb` | Unchanged |
-| `lib/baslash/main_ctx.rb` | Unchanged |
-| `lib/baslash/ctx_proxy.rb` | Unchanged |
-| `lib/baslash/shareable_ref.rb` | Unchanged |
-| `lib/baslash/transcript.rb` | Unchanged |
-| `lib/baslash/default_commands.rb` | Unchanged in spirit; references updated |
-| `lib/baslash/debug_commands.rb` | Unchanged in spirit; references updated |
-| `lib/baslash/debug_endpoint.rb` | Unchanged |
+| `lib/baslash/builder.rb` | Public DSL surface (`Baslash.run { |shell| ... }`) |
+| `lib/baslash/reline_dialogs.rb` | Reline integration: dialog procs (slash menu, ghost text), `periodic_tick_proc` (delegates to `TitleBar.tick`), `apply_command` dispatch — drop everything that belonged to the old curses chrome (`run_chrome_tick`, `\e7/\e8` dance) |
+| `lib/baslash/slash_registry.rb` | Slash command registry |
+| `lib/baslash/slash_dispatcher.rb` | Per-invocation dispatch |
+| `lib/baslash/handler_ractor.rb` | Per-invocation HandlerRactor |
+| `lib/baslash/context.rb` | Process-wide context state |
+| `lib/baslash/main_ctx.rb` | Per-invocation context for handlers |
+| `lib/baslash/ctx_proxy.rb` | Handler-side ctx proxy |
+| `lib/baslash/shareable_ref.rb` | Ractor-shareable cross-Ractor reference helper |
+| `lib/baslash/transcript.rb` | Session transcript buffer (`/transcript` slash) |
+| `lib/baslash/default_commands.rb` | Default slash commands (`/help`, `/exit`, `/transcript`, …) |
+| `lib/baslash/debug_commands.rb` | Optional debug commands (gated on `CCLIKESH_DEBUG` → `BASLASH_DEBUG`) |
+| `lib/baslash/debug_endpoint.rb` | DRb-based debug endpoint for inspector tools |
 
 ### 6.4 Builder DSL surface (preserved, with cleanups)
 
@@ -235,32 +242,26 @@ end
 
 Caveats documented inline:
 
-- tmux: requires `set-window-option allow-rename on` for title to pass
-  through. Documented in README.
-- Some old terminals strip non-ASCII from titles; spinner glyph degrades to
-  `*` if needed (configurable).
+- cmux passes OSC sequences transparently to the host terminal; verify in
+  real-TTY smoke. If a sequence is silently dropped, on-screen UX is
+  unaffected (title just doesn't update).
+- Spinner glyph defaults to braille (`⠋…⠏`) which Terminal.app renders
+  fine; degrades to `*` if a real-TTY smoke shows a glyph that does not
+  render.
 
 ## 8. Migration strategy
 
-The rename + pivot is a single coordinated change. No "old + new in parallel"
-period — the `cclikesh` gem name + `lib/cclikesh/` tree is replaced wholesale
-by `baslash` gem name + `lib/baslash/` tree. The author confirmed examples
-are the only consumers, all in this repo, and breaking changes are fine.
+The rename + pivot is a single coordinated change. The `cclikesh` gem name +
+`lib/cclikesh/` tree is replaced wholesale by `baslash` gem name +
+`lib/baslash/` tree. The author has explicitly delegated phasing decisions
+to the implementer; intermediate WIP states are out of the author's
+attention scope. The implementer chooses commit boundaries and the order
+of operations as long as the final state matches Section 11 acceptance
+criteria.
 
-**Phasing within the implementation plan (to be authored by `writing-plans`):**
-
-1. Stand up `lib/baslash/` as a new tree alongside `lib/cclikesh/`. New tree
-   is non-functional initially.
-2. Move + rename modules one at a time, top-down (Builder → Slash registry
-   → Display → Runner). Each module gets test coverage in `test/baslash/`.
-3. Replace curses with `puts` + `TitleBar` in `Display` and `Runner`.
-4. Drop `Chrome`, `TerminfoOverlay`, `LayoutDiag` once all callers moved.
-5. Update `examples/echo_shell.rb`, `examples/irb_shell/`, `examples/zsh_shell/`
-   to call `Baslash.run` instead of `Cclikesh.run`.
-6. Delete `lib/cclikesh/` and the `cclikesh` gemspec.
-7. Update `cclikesh-debug/` to test `baslash` (rename internal namespace too,
-   since the test harness names match the gem under test).
-8. Update README + CHANGELOG.
+The implementation plan (to be authored by `writing-plans`) decides the
+internal phasing — wholesale rewrite vs. incremental migration are both
+acceptable.
 
 ## 9. Testing strategy
 
@@ -274,8 +275,8 @@ are the only consumers, all in this repo, and breaking changes are fine.
   visual model. Most assertions become "TermSim shows expected text on
   expected row".
 - **Manual real-terminal smoke:** Author runs each example shell on
-  ghostty + cmux at session start, exercises slash menu, types long output,
-  scrolls back. Documented as a checklist in
+  Terminal.app and cmux at session start, exercises slash menu, types long
+  output, scrolls back. Documented as a checklist in
   `docs/superpowers/handoff/<date>-baslash-real-tty-checklist.md`.
 - **Title bar visibility:** New unit test asserts that `TitleBar.set("foo")`
   emits `\e]0;foo\a`. New PTY spec asserts that the captured byte stream
@@ -285,36 +286,22 @@ are the only consumers, all in this repo, and breaking changes are fine.
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| tmux/screen strips OSC 0/2 by default | Medium | Document `allow-rename on` requirement in README; degrade gracefully if title set is silently dropped (no on-screen consequence) |
 | Reline 0.6 has a bug we trigger when no curses owns the screen | Low-medium | Migrate one example shell first as a smoke; if Reline needs a tweak, bound it in a single integration shim |
-| Spinner update at 200 ms causes title-bar flicker on some terminals | Low | Reduce to 500 ms or make configurable per-shell; OSC writes themselves don't flicker, only some compositors do |
+| Spinner update at 200 ms causes title-bar flicker on Terminal.app | Low | Reduce to 500 ms or make configurable per-shell; OSC writes themselves don't flicker, only some compositors do |
 | `puts` on Ractor message receipt races with Reline's screen ownership | Medium | Existing `apply_command` already serializes via `RelineDialogs.drain_main_mailbox` from the periodic_tick — same pattern keeps working; verify in PTY spec |
-| Multi-line command echo from past inputs scrolls off in middle of long output | Low | Acceptable v1 behavior — user can scroll back natively to see the full sequence |
+| cmux passes through stdin/stdout transparently but might intercept OSC | Low | Verify in real-TTY smoke; if cmux strips title sequences, degrade gracefully — title silently no-ops, on-screen UX unaffected |
 
-## 11. Out of scope (explicit)
-
-The following are NOT part of this spec; they belong to a future v2 or a
-separate spec:
-
-- Mouse handling (wheel scroll redirect, click copy, OSC 52 clipboard)
-- Animated dialog UIs (e.g., live-updating spinner in body, not just title)
-- Color theme support (palette swap, light/dark)
-- Windows Terminal / cmd.exe / PowerShell support
-- Linux non-xterm console (Linux framebuffer console, busybox tty)
-- File tail / log live-update view
-- Multi-pane / split-screen (one shell, two areas)
-
-## 12. Acceptance
+## 11. Acceptance
 
 A subsequent implementation plan will be considered acceptance-ready when:
 
 1. All current passing tests in root and `cclikesh-debug` pass under the new
    `baslash` namespace.
 2. R1/R2/R3 PTY specs (renamed) pass with TermSim-rendered assertions.
-3. Author runs each example shell on ghostty + cmux for at least 100 lines
-   of body output, scrolls back successfully to the boot banner, and reports
-   no visible artifacts.
+3. Author runs each example shell on Terminal.app and cmux for at least 100
+   lines of body output, scrolls back successfully to the boot banner, and
+   reports no visible artifacts.
 4. The `cclikesh` namespace and `Curses` dependency are absent from
    `lib/baslash/` and the gemspec.
-5. `docs/superpowers/handoff/<date>-baslash-v1-shipped.md` exists with the
-   real-TTY checklist results.
+5. A handoff doc under `docs/superpowers/handoff/` records the real-TTY
+   smoke results from step 3.
