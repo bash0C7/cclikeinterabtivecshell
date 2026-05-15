@@ -3,6 +3,7 @@
 require "curses"
 require "unicode/display_width"
 require_relative "style"
+require_relative "layout_diag"
 
 module Cclikesh
   module Chrome
@@ -43,6 +44,7 @@ module Cclikesh
     end
 
     def self.init
+      LayoutDiag.log("Chrome.init")
       @footer_win = Curses::Window.new(FOOTER_HEIGHT, Curses.cols,
                                         Curses.lines - FOOTER_HEIGHT, 0)
       @spinner_started_at = nil
@@ -172,12 +174,14 @@ module Cclikesh
     end
 
     def self.handle_resize
+      Cclikesh::LayoutDiag.log("Chrome.handle_resize.before")
       return unless @footer_win
       # Pull the new terminal size from the kernel via TIOCGWINSZ and tell
       # ncurses about it before touching any window dimensions. Without this,
       # Curses.lines/Curses.cols still reflect the pre-resize (or init-time)
       # dimensions and the window moves/resizes land in the wrong position.
       Cclikesh::Runner.sync_curses_to_terminal_size if Cclikesh::Runner.respond_to?(:sync_curses_to_terminal_size)
+      Cclikesh::LayoutDiag.log("Chrome.handle_resize.after_resizeterm")
       @footer_win.resize(FOOTER_HEIGHT, Curses.cols)
       @footer_win.move(Curses.lines - FOOTER_HEIGHT, 0)
       Curses.stdscr.clear
@@ -192,6 +196,7 @@ module Cclikesh
     # The body fills from row 0 down to the body/prompt divider; header
     # content lives inside the body and scrolls with it.
     def self.draw_dividers
+      LayoutDiag.log("Chrome.draw_dividers")
       width = Curses.cols
       # Use the alternate-character-set horizontal line (ACS 'q' = 0x71) via
       # addch so we work on byte-oriented ncurses (macOS system ncurses 6.0
