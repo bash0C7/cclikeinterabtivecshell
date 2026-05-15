@@ -41,18 +41,22 @@ expect "spinner glyph present in final visible frame" do |c|
   tail.include?("*") || tail.include?("+")
 end
 
-# Byte: between the /heko body output and the last "> " prompt, the count
-# of "\n" bytes must be <= 2. More than 2 indicates the large vertical gap
-# symptom of R2.
+# Visual: render the captured byte stream through TermSim and check the
+# distance between the row holding "Unknown command: /heko" and the row
+# holding the prompt. R2 reports "many blank rows" between them; under a
+# correct layout there is exactly one divider row separating them, so the
+# row distance is 2 (heko_row + 2 = prompt_row).
+#
+# Note: counting raw "\n" bytes in the byte stream over-reports the gap,
+# because ncurses brackets harmless cursor motion in DECSC/DECRC pairs and
+# the LF bytes inside that bracket do not produce visible motion.
 expect "no large vertical gap between /heko output and next prompt" do |c|
-  bytes = c.output_bytes
-  marker = "Unknown command: /heko"
-  m_idx = bytes.index(marker)
-  next true unless m_idx   # if marker absent, /heko didn't reach Display — separate bug, don't false-positive R2
-  prompt_idx = bytes.index("> ", m_idx + marker.length)
-  next true unless prompt_idx
-  span = bytes.byteslice(m_idx + marker.length, prompt_idx - (m_idx + marker.length))
-  span.count("\n") <= 2
+  sim = c.screen(rows: c.spawn_rows, cols: c.spawn_cols)
+  heko_row = sim.find_row("Unknown command: /heko")
+  next true unless heko_row   # marker absent — separate bug, do not false-positive
+  prompt_row = sim.find_row(/^> /)
+  next true unless prompt_row
+  (prompt_row - heko_row).abs <= 2
 end
 
 expect "session exits cleanly" do |c|
