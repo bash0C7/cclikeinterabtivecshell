@@ -3,16 +3,17 @@ require "json"
 module Cclikesh
   module Debug
     class Captured
-      def self.from_storage(storage, uuid)
+      def self.from_storage(storage, uuid, diag_entries: [])
         info = storage.fetch_session(uuid)
         frames = storage.each_event(uuid).to_a
-        new(uuid: uuid, info: info, frames: frames)
+        new(uuid: uuid, info: info, frames: frames, diag_entries: diag_entries)
       end
 
-      def initialize(uuid:, info:, frames:)
-        @uuid   = uuid
-        @info   = info
-        @frames = frames.freeze
+      def initialize(uuid:, info:, frames:, diag_entries: [])
+        @uuid          = uuid
+        @info          = info
+        @frames        = frames.freeze
+        @diag_entries  = diag_entries.freeze
         # Eager pre-compute every memoized field so that the instance can be
         # safely frozen below. Lazy ||= would mutate ivars after freeze and
         # raise FrozenError on first access.
@@ -29,7 +30,7 @@ module Cclikesh
         freeze
       end
 
-      attr_reader :frames
+      attr_reader :frames, :diag_entries
 
       def session_uuid; @uuid; end
       def exit_status;  @info[:exit_status]; end

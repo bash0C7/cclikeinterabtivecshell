@@ -95,4 +95,36 @@ class TestSpecDsl < Test::Unit::TestCase
     assert_equal false, outcomes.first[:pass]
     assert_match(/kaboom/, outcomes.first[:error].to_s)
   end
+
+  def test_clear_size_env_resize_and_diag_entries_round_trip
+    require "tmpdir"
+    src = <<~SPEC
+      session "diag round trip" do
+        timeout 5
+        spawn argv: ["ruby", "-r", "io/console", "-e",
+                     "STDOUT.sync=true; trap('WINCH'){p IO.console.winsize; exit 0}; sleep 2"],
+              cols: 80,
+              rows: 24,
+              clear_size_env: true
+        wait 0.3
+        resize 120, 30
+        wait 0.5
+      end
+
+      expect "post-resize size visible in output" do |c|
+        c.contains?("[30, 120]")
+      end
+    SPEC
+
+    db_path = File.join(Dir.tmpdir, "spec-dsl-diag-#{Process.pid}-#{rand(1<<32).to_s(16)}.sqlite")
+    result = Cclikesh::Debug::SpecDSL.evaluate(src, db_path: db_path, spec_path: "(test)")
+    assert_equal 0, result.exit_status
+    outcomes = Cclikesh::Debug::SpecDSL.dispatch_expects(result)
+    assert outcomes.first[:pass], "expect should pass; got #{outcomes.inspect}"
+    # diag_entries: the spawned ruby process never required cclikesh, so
+    # diag log will be empty — but it must still be an Array (not nil).
+    assert_kind_of Array, result.captured.diag_entries
+  ensure
+    File.unlink(db_path) if db_path && File.exist?(db_path)
+  end
 end
