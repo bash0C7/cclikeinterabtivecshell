@@ -124,10 +124,12 @@ module Baslash
             end
           next nil if items.empty?
           contents = Baslash::RelineDialogs.format_slash_lines(items)
+          x = [cx - typed.bytesize, 0].max
+          height = [contents.size, 12].min
           Reline::DialogRenderInfo.new(
-            pos:      Reline::CursorPos.new(0, 0),
+            pos:      Reline::CursorPos.new(x, 0),
             contents: contents,
-            height:   contents.size,
+            height:   height,
             width:    Baslash::RelineDialogs.dialog_width(contents),
             face:     :default
           )

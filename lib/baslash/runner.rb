@@ -89,8 +89,13 @@ module Baslash
     end
 
     def self.install_completion(builder)
-      return unless builder.on_tab_handler
-      Reline.completion_proc = builder.on_tab_handler
+      registry = builder.slash_registry
+      default_proc = ->(target) {
+        return [] unless target.is_a?(String) && target.start_with?("/")
+        prefix = target[1..]
+        registry.slash_menu_items_starting_with(prefix).map { |item| item[:name] }
+      }
+      Reline.completion_proc = builder.on_tab_handler || default_proc
     end
   end
 end
