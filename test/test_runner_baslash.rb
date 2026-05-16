@@ -36,4 +36,18 @@ class TestRunnerBaslash < Test::Unit::TestCase
       assert_respond_to Baslash::Runner, sym, "Runner should respond to #{sym}"
     end
   end
+
+  def test_drain_residual_stdin_skips_when_stdin_not_tty
+    # $stdin under `rake test` is not a TTY, so drain must be a no-op.
+    # This verifies the .tty? guard short-circuits before touching IO.
+    assert_false $stdin.tty?, "precondition: test runner stdin should not be a TTY"
+    assert_nothing_raised { Baslash::Runner.drain_residual_stdin }
+  end
+
+  def test_drain_residual_stdin_is_idempotent
+    # Multiple back-to-back invocations should be safe.
+    assert_nothing_raised do
+      3.times { Baslash::Runner.drain_residual_stdin }
+    end
+  end
 end

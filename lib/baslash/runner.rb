@@ -71,6 +71,7 @@ module Baslash
         Baslash::Context.logger.error("on_quit handler failed: #{e.class}: #{e.message}")
       end
     ensure
+      drain_residual_stdin
       TitleBar.restore
       builder.state_refs.each_value do |ref|
         ref.stop
@@ -78,6 +79,23 @@ module Baslash
         logger = Baslash::Context.instance_variable_get(:@logger)
         logger.error("state_ref.stop failed: #{e.class}: #{e.message}") if logger
       end
+    end
+
+    # Belt-and-suspenders: consume any pending terminal-response bytes
+    # (CPR \e[26;1R, DA1/2, etc.) that Reline may have triggered but not
+    # consumed by the time we return. TTY-only — never drain when stdin
+    # is piped (tests, scripts) since that would eat real input.
+    def self.drain_residual_stdin
+      return unless $stdin.tty?
+      require "io/wait"
+      while $stdin.wait_readable(0)
+        $stdin.read_nonblock(1024)
+      end
+    rescue IO::WaitReadable, EOFError, Errno::EAGAIN
+      # No more data available — expected terminal state after draining.
+    rescue StandardError => e
+      logger = Baslash::Context.instance_variable_get(:@logger)
+      logger.error("stdin drain failed: #{e.class}: #{e.message}") if logger
     end
 
     def self.prompt_text(_builder)
