@@ -97,7 +97,7 @@ module Baslash
       def reline_input_state
         require "reline"
         { buffer: Reline.line_buffer.to_s, cursor_pos: Reline.point.to_i }
-      rescue
+      rescue StandardError
         { buffer: "", cursor_pos: 0 }
       end
 

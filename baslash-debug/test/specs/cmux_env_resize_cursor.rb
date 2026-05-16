@@ -4,6 +4,16 @@
 # inside the body text instead of on the prompt row. Reproduced under
 # cmux-like env (LINES/COLUMNS unset in the child) by opting into
 # clear_size_env: true and firing a real SIGWINCH via script_resize.
+#
+# NOTE: This spec was written against the legacy cclikesh::Chrome curses
+# architecture. After the Task 9 zsh-style + title-bar pivot, the
+# `Chrome.handle_resize.after_resizeterm` diag tag this spec inspects is
+# no longer emitted. As a result, `c.diag_entries.select { ... }` returns
+# [] and both diag-based expects short-circuit (the second via
+# `next false if resize_entries.empty?`), leaving only the session-exit
+# check as a meaningful assertion. This spec needs to be rewritten
+# against the new TitleBar/Runner diag surface. Tracked as v1 ship
+# follow-up.
 
 session "resize after slash command parks cursor on prompt row" do
   timeout 15

@@ -3,6 +3,16 @@
 # R3: Resize does not reflow dividers to the new terminal width. Reproduced
 # under cmux-like env by opting into clear_size_env: true and firing a real
 # SIGWINCH via script_resize to a wider size.
+#
+# NOTE: This spec was written against the legacy cclikesh::Chrome curses
+# architecture. After the Task 9 zsh-style + title-bar pivot, the
+# `Chrome.draw_dividers` and `Chrome.handle_resize.after_resizeterm` diag
+# tags this spec inspects are no longer emitted. As a result,
+# `c.diag_entries.select { ... }` returns [] and all three diag-based
+# expects short-circuit via `next false if ...empty?`, leaving only the
+# session-exit check as a meaningful assertion. The DEC-cell counting
+# helper (count_dec_cells) is retained for future use against the new
+# TitleBar/divider rendering surface. Tracked as v1 ship follow-up.
 
 # Count visible 'q' cells (DEC line drawing horizontal bar) in a divider run,
 # expanding REP escapes (\e[Nb) that ncurses emits to compress runs of repeated

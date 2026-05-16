@@ -4,6 +4,18 @@
 # prompt by many blank rows AND the 3-row footer (spinner / info_bar /
 # shortcuts hint) disappears. Reproduced under cmux-like env (LINES/
 # COLUMNS unset in the child) by opting into clear_size_env: true.
+#
+# NOTE: This spec was written against the legacy cclikesh::Chrome curses
+# architecture. After the Task 9 zsh-style + title-bar pivot, the
+# `Display.refresh` diag tag the first expect inspects is no longer
+# emitted, so that expect short-circuits via `next false if
+# refresh_entries.empty?`. The "no large vertical gap" expect also
+# short-circuits via `next true unless heko_row` when the legacy
+# "Unknown command: /heko" marker is absent from the new TermSim
+# rendering. The remaining substantive checks are the spinner-glyph
+# byte scan and the session-exit assertion, neither of which fully
+# covers R2. This spec needs to be rewritten against the new
+# TitleBar/Runner diag surface. Tracked as v1 ship follow-up.
 
 session "slash command output keeps footer visible and gap small" do
   timeout 15
