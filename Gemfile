@@ -14,8 +14,6 @@ gem "informers", "~> 1.2"
 gem "unicode-display_width", "~> 3.0"
 
 group :development do
-  # TODO Task 12: re-enable after renaming cclikesh-debug/ to baslash-debug/
-  # gem "baslash-debug", path: "baslash-debug"
-  gem "cclikesh-debug", path: "cclikesh-debug"
+  gem "baslash-debug", path: "baslash-debug"
   gem "extralite", "~> 2.12"
 end

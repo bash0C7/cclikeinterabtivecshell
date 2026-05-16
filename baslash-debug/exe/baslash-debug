@@ -1,0 +1,43 @@
+#!/usr/bin/env ruby
+require "baslash/debug"
+
+cmd = ARGV.shift
+case cmd
+when nil, "-h", "--help"
+  puts <<~USAGE
+    usage: baslash-debug <subcommand> [args]
+    driver:    start input capture wait stop tail
+    viewer:    list info frames grid query semantic export clean
+    pty (B):   play replay dump pty-list
+  USAGE
+  exit 0
+when "start"   then require "baslash/debug/driver/start";   Baslash::Debug::Driver::Start.call(ARGV)
+when "input"   then require "baslash/debug/driver/input";   Baslash::Debug::Driver::Input.call(ARGV)
+when "capture" then require "baslash/debug/driver/capture"; Baslash::Debug::Driver::Capture.call(ARGV)
+when "wait"    then require "baslash/debug/driver/wait";    Baslash::Debug::Driver::Wait.call(ARGV)
+when "stop"    then require "baslash/debug/driver/stop";    Baslash::Debug::Driver::Stop.call(ARGV)
+when "tail"    then require "baslash/debug/driver/tail";    Baslash::Debug::Driver::Tail.call(ARGV)
+when "play"
+  require "baslash/debug/cli/play"
+  exit Baslash::Debug::CLI::Play.call(argv: ARGV, stdout: $stdout)
+when "replay"
+  require "baslash/debug/cli/replay"
+  exit Baslash::Debug::CLI::Replay.call(argv: ARGV, stdout: $stdout)
+when "dump"
+  require "baslash/debug/cli/dump"
+  exit Baslash::Debug::CLI::Dump.call(argv: ARGV, stdout: $stdout)
+when "pty-list"
+  require "baslash/debug/cli/pty_list"
+  exit Baslash::Debug::CLI::PtyList.call(argv: ARGV, stdout: $stdout)
+when "list"     then require "baslash/debug/viewer/list";     Baslash::Debug::Viewer::List.call(ARGV)
+when "info"     then require "baslash/debug/viewer/info";     Baslash::Debug::Viewer::Info.call(ARGV)
+when "frames"   then require "baslash/debug/viewer/frames";   Baslash::Debug::Viewer::Frames.call(ARGV)
+when "grid"     then require "baslash/debug/viewer/grid";     Baslash::Debug::Viewer::Grid.call(ARGV)
+when "query"    then require "baslash/debug/viewer/query";    Baslash::Debug::Viewer::Query.call(ARGV)
+when "semantic" then require "baslash/debug/viewer/semantic"; Baslash::Debug::Viewer::Semantic.call(ARGV)
+when "export"   then require "baslash/debug/viewer/export";   Baslash::Debug::Viewer::Export.call(ARGV)
+when "clean"    then require "baslash/debug/viewer/clean";    Baslash::Debug::Viewer::Clean.call(ARGV)
+else
+  warn "unknown subcommand: #{cmd}"
+  exit 1
+end

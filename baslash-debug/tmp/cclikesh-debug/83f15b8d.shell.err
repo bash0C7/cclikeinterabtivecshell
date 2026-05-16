@@ -1,0 +1,16 @@
+/Users/bash/.rbenv/versions/4.0.3/lib/ruby/gems/4.0.0/gems/drb-2.2.3/lib/drb/unix.rb:41:in 'UNIXServer#initialize': too long unix socket path (118bytes given but 104bytes max) (ArgumentError)
+
+        soc = UNIXServer.open(filename)
+                              ^^^^^^^^
+	from /Users/bash/.rbenv/versions/4.0.3/lib/ruby/gems/4.0.0/gems/drb-2.2.3/lib/drb/unix.rb:41:in 'IO.open'
+	from /Users/bash/.rbenv/versions/4.0.3/lib/ruby/gems/4.0.0/gems/drb-2.2.3/lib/drb/unix.rb:41:in 'DRb::DRbUNIXSocket.open_server'
+	from /Users/bash/.rbenv/versions/4.0.3/lib/ruby/gems/4.0.0/gems/drb-2.2.3/lib/drb/drb.rb:795:in 'block in DRb::DRbProtocol.open_server'
+	from /Users/bash/.rbenv/versions/4.0.3/lib/ruby/gems/4.0.0/gems/drb-2.2.3/lib/drb/drb.rb:793:in 'Array#each'
+	from /Users/bash/.rbenv/versions/4.0.3/lib/ruby/gems/4.0.0/gems/drb-2.2.3/lib/drb/drb.rb:793:in 'DRb::DRbProtocol.open_server'
+	from /Users/bash/.rbenv/versions/4.0.3/lib/ruby/gems/4.0.0/gems/drb-2.2.3/lib/drb/drb.rb:801:in 'DRb::DRbProtocol.open_server'
+	from /Users/bash/.rbenv/versions/4.0.3/lib/ruby/gems/4.0.0/gems/drb-2.2.3/lib/drb/drb.rb:1491:in 'DRb::DRbServer#initialize'
+	from /Users/bash/.rbenv/versions/4.0.3/lib/ruby/gems/4.0.0/gems/drb-2.2.3/lib/drb/drb.rb:1819:in 'DRb.start_service'
+	from /Users/bash/dev/src/github.com/bash0C7/cclikeinterabtivecshell/lib/cclikesh/debug_endpoint.rb:14:in 'Cclikesh::DebugEndpoint.start_if_enabled'
+	from /Users/bash/dev/src/github.com/bash0C7/cclikeinterabtivecshell/lib/cclikesh/runner.rb:15:in 'Cclikesh::Runner.run'
+	from /Users/bash/dev/src/github.com/bash0C7/cclikeinterabtivecshell/lib/cclikesh.rb:26:in 'Cclikesh.run'
+	from ../examples/zsh_shell/zsh_shell.rb:14:in '<main>'
