@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "cclikesh"
+require "baslash"
 require_relative "irb_evaluator"
 require_relative "irb_completer"
 require_relative "byte_counter"
@@ -8,16 +8,16 @@ require_relative "byte_counter"
 start_at = Time.now.freeze
 SESSION_BUDGET_BYTES = 8 * 1024
 
-Cclikesh.run do |shell|
+Baslash.run do |shell|
   shell.shareable_ref(:evaluator) { IrbEvaluator.new }
   shell.shareable_ref(:counter)   { ByteCounter.new }
 
   shell.header do |h|
     h.logo     "✻"
-    h.title    "cclikesh"
-    h.version  "v#{Cclikesh::VERSION}"
+    h.title    "baslash"
+    h.version  "v#{Baslash::VERSION}"
     h.subtitle "Ruby #{RUBY_VERSION} · #{Dir.pwd}"
-    h.note     "irb on cclikesh · /q to exit · /reset to clear bindings"
+    h.note     "irb on baslash · /q to exit · /reset to clear bindings"
   end
 
   shell.on_submit do |args, ctx|

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "cclikesh"
+require "baslash"
 require_relative "cwd_holder"
 require_relative "env_holder"
 require_relative "zsh_runner"
@@ -11,17 +11,14 @@ PROGRESS_WORDS = %w[
   Calibrating Interpolating Fermenting Embroidering Stargazing
 ].freeze
 
-Cclikesh.run do |shell|
+Baslash.run do |shell|
   shell.shareable_ref(:cwd) { CwdHolder.new }
   shell.shareable_ref(:env) { EnvHolder.new }
-
-  shell.define_style(:ok, fg: Curses::COLOR_GREEN, bold: true)
-  shell.define_style(:ng, fg: Curses::COLOR_RED,   bold: true)
 
   shell.header do |h|
     h.logo     "✻"
     h.title    "zsh-shell"
-    h.version  "v#{Cclikesh::VERSION}"
+    h.version  "v#{Baslash::VERSION}"
     h.subtitle "Ruby #{RUBY_VERSION}"
     h.note     "cd/export intercepted · /exit to quit"
   end

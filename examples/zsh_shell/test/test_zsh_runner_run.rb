@@ -51,7 +51,7 @@ class TestZshRunnerRun < Test::Unit::TestCase
   end
 
   def test_env_is_applied
-    run_line("echo $CCLIKESH_TEST_VAR", env: {"CCLIKESH_TEST_VAR" => "secret"})
+    run_line("echo $BASLASH_TEST_VAR", env: {"BASLASH_TEST_VAR" => "secret"})
     assert_equal "secret\n", @stdout.join
   end
 

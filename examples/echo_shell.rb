@@ -1,21 +1,19 @@
 # frozen_string_literal: true
 
-require "cclikesh"
+require "baslash"
 
 start_at = Time.now.freeze
 
-Cclikesh.run do |shell|
+Baslash.run do |shell|
   shell.header do |h|
     h.logo     "✻"
     h.title    "echo-shell"
-    h.version  "v#{Cclikesh::VERSION}"
+    h.version  "v#{Baslash::VERSION}"
     h.subtitle "Ruby #{RUBY_VERSION} · #{Dir.pwd}"
     h.note     "echo-back demo · /q to exit"
   end
 
   shell.enable_debug_commands
-
-  shell.define_style(:warn, fg: Curses::COLOR_YELLOW, bold: true)
 
   shell.info(:elapsed, order: 10) do |_ctx|
     sec = (Time.now - start_at).to_i
