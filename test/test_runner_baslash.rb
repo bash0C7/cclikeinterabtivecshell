@@ -5,9 +5,9 @@ require "baslash/runner"
 require "baslash/builder"
 
 class TestRunnerBaslash < Test::Unit::TestCase
-  def test_prompt_text_returns_default
+  def test_prompt_text_returns_cyan_default
     builder = Baslash::Builder.new
-    assert_equal "> ", Baslash::Runner.prompt_text(builder)
+    assert_equal "\e[36m> \e[0m", Baslash::Runner.prompt_text(builder)
   end
 
   def test_install_completion_no_op_without_handler

@@ -147,6 +147,42 @@ class TestBuilderBaslash < Test::Unit::TestCase
     assert_equal "v1.0", cfg[:version]
   end
 
+  def test_header_lines_applies_color_styling
+    builder = Baslash::Builder.new
+    builder.header do |h|
+      h.logo "✻"
+      h.title "MyShell"
+      h.version "v1.0"
+      h.subtitle "a small shell"
+      h.note "help is here"
+    end
+    lines = builder.header_lines
+    # First line should contain cyan logo + bold title + dim version
+    assert_includes lines[0], "\e[36m"  # cyan
+    assert_includes lines[0], "\e[1m"   # bold
+    assert_includes lines[0], "\e[2m"   # dim
+    # Strip styling and verify content is preserved
+    stripped = Baslash::Style.strip(lines[0])
+    assert_includes stripped, "✻"
+    assert_includes stripped, "MyShell"
+    assert_includes stripped, "v1.0"
+    # subtitle and note should be present as dim
+    assert_includes lines[1], "\e[2m"
+    assert_includes Baslash::Style.strip(lines[1]), "a small shell"
+    assert_includes lines[2], "\e[2m"
+    assert_includes Baslash::Style.strip(lines[2]), "help is here"
+  end
+
+  def test_header_lines_omits_empty_fields
+    builder = Baslash::Builder.new
+    builder.header do |h|
+      h.title "OnlyTitle"
+    end
+    lines = builder.header_lines
+    assert_equal 1, lines.size
+    assert_includes Baslash::Style.strip(lines[0]), "OnlyTitle"
+  end
+
   # --- shareable_ref (NEW) ---
 
   def test_shareable_ref_creates_named_ref

@@ -47,4 +47,17 @@ class TestRelineDialogsBaslash < Test::Unit::TestCase
     text = Baslash::RelineDialogs.compose_ctx_text(@builder, @main_ctx)
     assert_equal "ctx", text
   end
+
+  def test_format_slash_line_uses_bright_black_no_dim
+    item = { name: "hello", description: "say hi" }
+    line = Baslash::RelineDialogs.format_slash_line(item)
+    assert_includes line, "\e[90m"
+    refute_includes line, "\e[2;90m"
+  end
+
+  def test_format_ghost_hint_uses_bright_black_no_dim
+    formatted = Baslash::RelineDialogs.format_ghost_hint("try this")
+    assert_includes formatted, "\e[90m"
+    refute_includes formatted, "\e[2;90m"
+  end
 end

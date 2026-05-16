@@ -51,11 +51,15 @@ module Baslash
 
     def header_lines
       h = @header_config
+      line1_parts = []
+      line1_parts << Baslash::Style.color(:cyan, h[:logo].to_s) if h[:logo] && !h[:logo].to_s.empty?
+      line1_parts << Baslash::Style.bold(h[:title].to_s)        if h[:title] && !h[:title].to_s.empty?
+      line1_parts << Baslash::Style.dim(h[:version].to_s)       if h[:version] && !h[:version].to_s.empty?
       [
-        "#{h[:logo] || ''} #{h[:title] || ''} #{h[:version] || ''}".strip,
-        "  #{h[:subtitle]}",
-        "  #{h[:note]}"
-      ].reject { |l| l.strip.empty? }
+        line1_parts.join(" "),
+        h[:subtitle] && !h[:subtitle].to_s.empty? ? "  #{Baslash::Style.dim(h[:subtitle].to_s)}" : nil,
+        h[:note]     && !h[:note].to_s.empty?     ? "  #{Baslash::Style.dim(h[:note].to_s)}"     : nil
+      ].compact.reject { |l| Baslash::Style.strip(l).strip.empty? }
     end
 
     # --- Style ---

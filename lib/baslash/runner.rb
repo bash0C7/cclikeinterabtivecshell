@@ -81,7 +81,7 @@ module Baslash
     end
 
     def self.prompt_text(_builder)
-      "> "
+      "\e[36m> \e[0m"
     end
 
     def self.install_completion(builder)

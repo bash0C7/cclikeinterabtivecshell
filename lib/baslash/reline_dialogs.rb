@@ -163,7 +163,7 @@ module Baslash
         desc = item[:description].to_s
         return name if desc.empty?
         pad = [SLASH_NAME_PAD - name.bytesize, 1].max
-        "#{name}#{' ' * pad}\e[2;90m#{desc}\e[0m"
+        "#{name}#{' ' * pad}\e[90m#{desc}\e[0m"
       end
 
       def format_slash_lines(items)
@@ -181,7 +181,7 @@ module Baslash
 
       def format_ghost_hint(text)
         return nil if text.nil? || text.to_s.empty?
-        "\e[2;90m#{text}\e[0m"
+        "\e[90m#{text}\e[0m"
       end
 
       def drain_main_mailbox
