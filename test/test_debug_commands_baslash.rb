@@ -3,7 +3,6 @@
 require_relative "test_helper"
 require "baslash/debug_commands"
 require "baslash/slash_registry"
-require "cclikesh/reline_idle_patch"
 require "baslash/builder"
 
 class TestDebugCommandsEscapeInterpreterBaslash < Test::Unit::TestCase
@@ -53,7 +52,7 @@ end
 class TestDebugCommandsRegisterBaslash < Test::Unit::TestCase
   def setup
     @registry = Baslash::SlashRegistry.new
-    @runtime_state = { tick_counter: Cclikesh::RelineIdlePatch }
+    @runtime_state = { tick_counter: nil }
     Baslash::DebugCommands.register(@registry, @runtime_state)
   end
 
