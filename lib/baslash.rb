@@ -1,9 +1,32 @@
 # frozen_string_literal: true
 
 require_relative "baslash/version"
+require_relative "baslash/style"
+require_relative "baslash/title_bar"
+require_relative "baslash/transcript"
+require_relative "baslash/context"
+require_relative "baslash/main_ctx"
+require_relative "baslash/display"
+require_relative "baslash/shareable_ref"
+require_relative "baslash/slash_registry"
+require_relative "baslash/ctx_proxy"
+require_relative "baslash/handler_ractor"
+require_relative "baslash/slash_dispatcher"
+require_relative "baslash/default_commands"
+require_relative "baslash/debug_commands"
+require_relative "baslash/reline_dialogs"
+require_relative "baslash/builder"
+begin
+  require_relative "baslash/debug_endpoint"
+rescue LoadError
+  # opt-in
+end
+require_relative "baslash/runner"
 
 module Baslash
   def self.run(&block)
-    raise NotImplementedError, "Baslash.run is wired in Task 10 (Runner)"
+    builder = Builder.new
+    block.call(builder)
+    Runner.run(builder)
   end
 end
