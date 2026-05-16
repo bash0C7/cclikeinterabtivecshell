@@ -22,7 +22,7 @@ Baslash.run do |shell|
 
   shell.on_submit do |args, ctx|
     line = args.first
-    ctx.display.append(line, prompt: "irb(main)> ")
+    ctx.display.append("irb(main)> #{line}")
     ctx.shareable(:counter).call(:add, line.bytesize)
 
     ctx.state[:phase] = :working
