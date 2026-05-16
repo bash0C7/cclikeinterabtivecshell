@@ -24,7 +24,7 @@ module Baslash
       RelineDialogs.install(builder)
       DefaultCommands.register(builder.slash_registry)
       if builder.debug_commands_enabled? || ENV["BASLASH_DEBUG"]
-        Baslash::DebugCommands.register(builder.slash_registry, tick_counter: Baslash::TitleBar)
+        Baslash::DebugCommands.register(builder.slash_registry)
       end
       DefaultCommands.register_help(builder.slash_registry)
 
@@ -34,7 +34,11 @@ module Baslash
       Display.append(hint) unless hint.empty?
       TitleBar.tick(phase: :ready, ctx_text: RelineDialogs.compose_ctx_text(builder, main_ctx))
 
-      builder.on_start_handlers.each { |h| h.call(nil) rescue nil }
+      builder.on_start_handlers.each do |h|
+        h.call(nil)
+      rescue StandardError => e
+        Baslash::Context.logger.error("on_start handler failed: #{e.class}: #{e.message}")
+      end
 
       catch(:quit) do
         loop do
@@ -65,10 +69,19 @@ module Baslash
         end
       end
 
-      builder.on_quit_handlers.each { |h| h.call(nil) rescue nil }
+      builder.on_quit_handlers.each do |h|
+        h.call(nil)
+      rescue StandardError => e
+        Baslash::Context.logger.error("on_quit handler failed: #{e.class}: #{e.message}")
+      end
     ensure
       TitleBar.restore
-      builder.state_refs.each_value { |ref| ref.stop rescue nil }
+      builder.state_refs.each_value do |ref|
+        ref.stop
+      rescue StandardError => e
+        logger = Baslash::Context.instance_variable_get(:@logger)
+        logger.error("state_ref.stop failed: #{e.class}: #{e.message}") if logger
+      end
     end
 
     def self.prompt_text(_builder)
