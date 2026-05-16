@@ -15,6 +15,20 @@ module Baslash
       reverse:   7
     }.freeze
 
+    # Application-semantic style names. The framework emits status/meta text
+    # using these symbolic names; this table maps each name to one or more
+    # SGR codes. NOTE: :result is intentionally absent — impl execution
+    # output (stdout) should stay in the user's default terminal color, so
+    # it falls through Style.apply unstyled.
+    SEMANTIC_STYLES = {
+      ok:       [32],     # green - success status
+      ng:       [31],     # red - failure status
+      error:    [31],     # red - error messages
+      warn:     [33],     # yellow - warnings
+      thinking: [2, 36],  # dim cyan - in-progress live slot
+      meta:     [2, 36]   # dim cyan - framework metadata
+    }.freeze
+
     def self.bold(text);     wrap(NAMED_STYLES[:bold],      text); end
     def self.dim(text);      wrap(NAMED_STYLES[:dim],       text); end
     def self.italic(text);   wrap(NAMED_STYLES[:italic],    text); end
@@ -28,9 +42,16 @@ module Baslash
 
     def self.apply(name, text)
       return text.to_s if name.nil?
-      code = NAMED_STYLES[name] || NAMED_COLORS[name]
-      return text.to_s if code.nil?
-      wrap(code, text)
+      codes =
+        if SEMANTIC_STYLES.key?(name)
+          SEMANTIC_STYLES[name]
+        elsif NAMED_STYLES.key?(name)
+          [NAMED_STYLES[name]]
+        elsif NAMED_COLORS.key?(name)
+          [NAMED_COLORS[name]]
+        end
+      return text.to_s if codes.nil?
+      "\e[#{codes.join(';')}m#{text}\e[0m"
     end
 
     def self.strip(text)

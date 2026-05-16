@@ -27,6 +27,7 @@ module Baslash
       @status_row_blocks       = []
       @spinner_label_block     = nil
       @prompt_suggestion_block = nil
+      @prompt_prefix_block     = nil
       @shortcuts_hint_text     = ""
       @header_config           = {}
       @logger                  = Logger.new($stderr).tap { |l| l.level = Logger::INFO; l.progname = "baslash" }
@@ -132,6 +133,27 @@ module Baslash
     def evaluate_prompt_suggestion(ctx = nil)
       return nil unless @prompt_suggestion_block
       (@prompt_suggestion_block.call(ctx) rescue nil)
+    end
+
+    # --- Prompt prefix ---
+
+    # Register a block that renders dynamic text shown to the left of the
+    # "> " prompt arrow on every iteration of the main loop. The block
+    # receives a MainCtx (same surface as status_row/info blocks) so it can
+    # read shareable_ref state. Exceptions are logged (no silent rescue)
+    # and the prefix is omitted for that iteration.
+    def prompt_prefix(&block)
+      @prompt_prefix_block = block
+      self
+    end
+
+    def evaluate_prompt_prefix(main_ctx)
+      return nil unless @prompt_prefix_block
+      @prompt_prefix_block.call(main_ctx)
+    rescue StandardError => e
+      logger = Baslash::Context.instance_variable_get(:@logger) || @logger
+      logger.error("prompt_prefix block raised: #{e.class}: #{e.message}") if logger
+      nil
     end
 
     # --- Shortcuts hint ---

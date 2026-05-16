@@ -3,11 +3,40 @@
 require "test/unit"
 require "baslash/runner"
 require "baslash/builder"
+require "baslash/main_ctx"
+require "logger"
 
 class TestRunnerBaslash < Test::Unit::TestCase
-  def test_prompt_text_returns_cyan_default
+  def test_prompt_text_returns_bold_cyan_default
     builder = Baslash::Builder.new
-    assert_equal "\e[36m> \e[0m", Baslash::Runner.prompt_text(builder)
+    assert_equal "\e[1;36m> \e[0m", Baslash::Runner.prompt_text(builder)
+  end
+
+  def test_compose_prompt_without_prefix_returns_bold_cyan_default
+    builder = Baslash::Builder.new
+    Baslash::Context.init(logger: Logger.new(IO::NULL))
+    main_ctx = Baslash::MainCtx.new(builder.state_refs)
+    assert_equal "\e[1;36m> \e[0m", Baslash::Runner.compose_prompt(builder, main_ctx)
+  end
+
+  def test_compose_prompt_with_prefix_block_embeds_prefix_text
+    builder = Baslash::Builder.new
+    builder.prompt_prefix { |_ctx| "/some/path" }
+    Baslash::Context.init(logger: Logger.new(IO::NULL))
+    main_ctx = Baslash::MainCtx.new(builder.state_refs)
+    result = Baslash::Runner.compose_prompt(builder, main_ctx)
+    assert_includes result, "/some/path"
+    assert_includes result, "> "
+    # leading bold-cyan SGR
+    assert(result.start_with?("\e[1;36m"))
+  end
+
+  def test_compose_prompt_with_empty_prefix_falls_back_to_default
+    builder = Baslash::Builder.new
+    builder.prompt_prefix { |_ctx| "" }
+    Baslash::Context.init(logger: Logger.new(IO::NULL))
+    main_ctx = Baslash::MainCtx.new(builder.state_refs)
+    assert_equal "\e[1;36m> \e[0m", Baslash::Runner.compose_prompt(builder, main_ctx)
   end
 
   def test_install_completion_no_op_without_handler

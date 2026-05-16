@@ -77,6 +77,12 @@ Baslash.run do |shell|
   shell.spinner_label { |_| :auto }
   shell.shortcuts_hint "/help for commands · /exit · /pwd · /env · /reset"
 
+  # Show full cwd path to the left of the "> " prompt arrow on every
+  # iteration so users always see where they are without running /pwd.
+  shell.prompt_prefix do |ctx|
+    ctx.shareable(:cwd).call(:pwd)
+  end
+
   shell.btw do |question, _ctx|
     "(zsh-shell heard: #{question})"
   end

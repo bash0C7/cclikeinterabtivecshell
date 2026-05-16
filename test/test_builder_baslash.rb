@@ -183,6 +183,63 @@ class TestBuilderBaslash < Test::Unit::TestCase
     assert_includes Baslash::Style.strip(lines[0]), "OnlyTitle"
   end
 
+  # --- prompt_prefix ---
+
+  def test_prompt_prefix_dsl_stores_block
+    b = Baslash::Builder.new
+    b.prompt_prefix { |_ctx| "cwd-stub" }
+    refute_nil b.instance_variable_get(:@prompt_prefix_block)
+  end
+
+  def test_prompt_prefix_returns_self_for_chaining
+    b = Baslash::Builder.new
+    result = b.prompt_prefix { |_ctx| "x" }
+    assert_same b, result
+  end
+
+  def test_evaluate_prompt_prefix_returns_block_value
+    require "baslash/main_ctx"
+    b = Baslash::Builder.new
+    b.prompt_prefix { |_ctx| "static-result" }
+    main_ctx = Baslash::MainCtx.new(b.state_refs)
+    assert_equal "static-result", b.evaluate_prompt_prefix(main_ctx)
+  end
+
+  def test_evaluate_prompt_prefix_returns_nil_without_block
+    require "baslash/main_ctx"
+    b = Baslash::Builder.new
+    main_ctx = Baslash::MainCtx.new(b.state_refs)
+    assert_nil b.evaluate_prompt_prefix(main_ctx)
+  end
+
+  def test_evaluate_prompt_prefix_rescues_block_exceptions_and_logs
+    require "baslash/main_ctx"
+    require "stringio"
+    io = StringIO.new
+    b = Baslash::Builder.new
+    # swap in a capturing logger before the rescue path so we can verify
+    # the error is reported (no silent rescue).
+    captured_logger = Logger.new(io)
+    Baslash::Context.init(logger: captured_logger)
+    b.prompt_prefix { |_| raise "boom" }
+    main_ctx = Baslash::MainCtx.new(b.state_refs)
+    assert_nil b.evaluate_prompt_prefix(main_ctx)
+    assert_includes io.string, "prompt_prefix block raised"
+    assert_includes io.string, "boom"
+  end
+
+  def test_evaluate_prompt_prefix_receives_main_ctx_with_shareable_access
+    require "baslash/main_ctx"
+    require "baslash/shareable_ref"
+    b = Baslash::Builder.new
+    ref = b.shareable_ref(:probe) { "hello-world" }
+    b.prompt_prefix { |ctx| ctx.shareable(:probe).call(:itself) }
+    main_ctx = Baslash::MainCtx.new(b.state_refs)
+    assert_equal "hello-world", b.evaluate_prompt_prefix(main_ctx)
+  ensure
+    ref&.stop
+  end
+
   # --- shareable_ref (NEW) ---
 
   def test_shareable_ref_creates_named_ref

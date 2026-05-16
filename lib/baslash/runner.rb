@@ -44,7 +44,7 @@ module Baslash
         loop do
           line = nil
           begin
-            line = Reline.readmultiline(prompt_text(builder), true) { true }
+            line = Reline.readmultiline(compose_prompt(builder, main_ctx), true) { true }
           rescue Interrupt
             RelineDialogs.drain_main_mailbox
             throw :quit if Context.quit?
@@ -98,8 +98,26 @@ module Baslash
       logger.error("stdin drain failed: #{e.class}: #{e.message}") if logger
     end
 
-    def self.prompt_text(_builder)
-      "\e[36m> \e[0m"
+    # Default prompt: bold cyan "> " for emphasis. Kept as a simple
+    # default-arg form for backward compatibility with tests and callers
+    # that don't need a dynamic prefix. New code paths should call
+    # compose_prompt(builder, main_ctx) so the user's prompt_prefix block
+    # is honored.
+    def self.prompt_text(builder, main_ctx = nil)
+      return compose_prompt(builder, main_ctx) if main_ctx
+      "\e[1;36m> \e[0m"
+    end
+
+    # Compose the actual prompt string each iteration, consulting the
+    # builder's prompt_prefix block (if any). The block runs on the main
+    # thread with a MainCtx so it can read shareable_ref state.
+    def self.compose_prompt(builder, main_ctx)
+      prefix = builder.evaluate_prompt_prefix(main_ctx)
+      if prefix && !prefix.to_s.empty?
+        "\e[1;36m#{prefix} > \e[0m"
+      else
+        "\e[1;36m> \e[0m"
+      end
     end
 
     def self.install_completion(builder)
