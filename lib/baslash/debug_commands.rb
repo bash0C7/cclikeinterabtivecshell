@@ -78,18 +78,14 @@ module Baslash
       registry.register(:"debug-curses-caps", ->(_args, ctx) {
         caps = ctx.debug_curses_caps
         ctx.display.append("TERM=#{caps[:term]}", style: :dim)
-        ctx.display.append("COLORS=#{caps[:colors]}  COLOR_PAIRS=#{caps[:color_pairs]}", style: :dim)
-        ctx.display.append("can_change_color?=#{caps[:can_change_color]}", style: :dim)
-        ctx.display.append("attrs defined: #{caps[:defined_attrs].join(', ')}", style: :dim)
-      }, description: "report curses / terminal capabilities")
+      }, description: "report terminal capabilities")
     end
 
     def self.register_snapshot(registry)
       registry.register(:"debug-snapshot", ->(_args, ctx) {
         snap = ctx.debug_snapshot
         ctx.display.append("Context.state = #{snap[:context_state]}", style: :dim)
-        ctx.display.append("Chrome.spinner_started_at = #{snap[:spinner_started_at]}", style: :dim)
-        ctx.display.append("Chrome.breath_supported = #{snap[:breath_supported]}", style: :dim)
+        ctx.display.append("TitleBar.phase = #{snap[:title_bar_phase]}", style: :dim)
       }, description: "dump live framework state")
     end
 
