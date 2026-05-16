@@ -35,9 +35,34 @@ class TestSlashDispatcherBaslash < Test::Unit::TestCase
     assert_equal "submit: plain text", msg[1]
   end
 
+  def test_handle_bare_slash_is_noop
+    main = Ractor.current
+    assert_nothing_raised do
+      Baslash::SlashDispatcher.handle("/", @reg, main, on_submit: nil, state_refs: {})
+    end
+    # No message should be emitted — the user was browsing the slash menu
+    # and dismissed without picking, so we don't want an "Unknown command"
+    # error or any other output.
+    assert_no_msg(0.2)
+  end
+
+  def test_handle_slash_with_only_whitespace_is_noop
+    main = Ractor.current
+    assert_nothing_raised do
+      Baslash::SlashDispatcher.handle("/   ", @reg, main, on_submit: nil, state_refs: {})
+    end
+    assert_no_msg(0.2)
+  end
+
   private
 
   def wait_for_msg(secs)
     Timeout.timeout(secs) { Ractor.receive }
+  end
+
+  def assert_no_msg(secs)
+    assert_raise(Timeout::Error) do
+      Timeout.timeout(secs) { Ractor.receive }
+    end
   end
 end

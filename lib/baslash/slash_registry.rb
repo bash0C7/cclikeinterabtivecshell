@@ -15,6 +15,7 @@ module Baslash
     end
 
     def lookup(name)
+      return nil if name.nil? || name.to_s.empty?
       @entries[name.to_sym]
     end
 

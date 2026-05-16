@@ -20,6 +20,18 @@ class TestSlashRegistryBaslash < Test::Unit::TestCase
     assert_nil reg.lookup(:nope)
   end
 
+  def test_lookup_nil_returns_nil
+    reg = Baslash::SlashRegistry.new
+    reg.register(:echo, proc {}, description: "echo")
+    assert_nil reg.lookup(nil)
+  end
+
+  def test_lookup_empty_string_returns_nil
+    reg = Baslash::SlashRegistry.new
+    reg.register(:echo, proc {}, description: "echo")
+    assert_nil reg.lookup("")
+  end
+
   def test_each_iterates_in_insertion_order
     reg = Baslash::SlashRegistry.new
     reg.register(:a, proc {}, description: "a")

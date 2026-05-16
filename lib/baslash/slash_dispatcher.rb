@@ -9,6 +9,12 @@ module Baslash
       bp = CtxProxy.blueprint(main_ractor, state_refs)
       if line.start_with?("/")
         name, *args = line[1..].split
+        if name.nil? || name.empty?
+          # Bare "/" with no command name — the user opened the slash menu
+          # but didn't pick. Treat as no-op (no error message — they were
+          # browsing).
+          return
+        end
         entry = registry.lookup(name)
         if entry.nil?
           main_ractor.send([:append, "Unknown command: /#{name}".freeze, { style: :error }.freeze])
