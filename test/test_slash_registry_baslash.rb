@@ -12,7 +12,15 @@ class TestSlashRegistryBaslash < Test::Unit::TestCase
     refute_nil entry
     assert_equal "echo test", entry[:description]
     assert_kind_of Proc, entry[:body]
-    assert Ractor.shareable?(entry[:body])
+  end
+
+  def test_register_preserves_closure_variables
+    registry = Baslash::SlashRegistry.new
+    external = "captured value"
+    registry.register(:closure_test, proc { |_args, _ctx| external })
+    entry = registry.lookup("closure_test")
+    result = entry[:body].call([], nil)
+    assert_equal "captured value", result
   end
 
   def test_lookup_unknown_returns_nil

@@ -69,4 +69,15 @@ class TestSlashDispatcherBaslash < Test::Unit::TestCase
     Baslash::SlashDispatcher.handle("/slow", @registry, on_submit: nil, state_refs: {}, logger: nil)
     assert_includes $stdout.string, "^C"
   end
+
+  def test_dispatcher_invokes_handler_with_closure_capture
+    captured = []
+    @registry.register(:closured, ->(args, ctx) {
+      captured << args.first
+      ctx.display.append("captured: #{args.first}")
+    })
+    Baslash::SlashDispatcher.handle("/closured hello", @registry, on_submit: nil, state_refs: {}, logger: nil)
+    assert_equal ["hello"], captured
+    assert_includes $stdout.string, "captured: hello"
+  end
 end

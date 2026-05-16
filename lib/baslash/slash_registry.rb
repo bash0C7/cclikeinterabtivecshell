@@ -7,9 +7,8 @@ module Baslash
     end
 
     def register(name, body, description: nil)
-      shareable_body = Ractor.shareable_proc(&body)
       @entries[name.to_sym] = {
-        body:        shareable_body,
+        body:        body,
         description: description.to_s.freeze
       }.freeze
     end
