@@ -1,23 +1,38 @@
 # frozen_string_literal: true
 
 module Baslash
-  # Minimal stub. Task 5 will replace this with the full port from
-  # lib/cclikesh/transcript.rb (ring buffer, redraw hooks, etc.).
   module Transcript
     @lines = []
+    @mutex = Mutex.new
 
-    class << self
-      def record(line)
-        @lines << line.to_s
-      end
+    ANSI_RE = /\e\[[0-9;]*[a-zA-Z]/
 
-      def lines
-        @lines.dup.freeze
-      end
+    def self.record(line)
+      return if line.nil?
+      stripped = line.to_s.gsub(ANSI_RE, "")
+      return if stripped.empty?
+      @mutex.synchronize { @lines << stripped }
+    end
 
-      def reset_for_test
-        @lines = []
-      end
+    def self.lines
+      @mutex.synchronize { @lines.dup }
+    end
+
+    def self.clear!
+      @mutex.synchronize { @lines.clear }
+    end
+
+    def self.save(path)
+      data = lines.join("\n")
+      data << "\n" unless data.empty?
+      File.write(path, data)
+      path
+    end
+
+    # Task 4 Display stub contract: reset state between tests.
+    # Alias for clear! that callers may probe via respond_to?.
+    def self.reset_for_test
+      @mutex.synchronize { @lines.clear }
     end
   end
 end
