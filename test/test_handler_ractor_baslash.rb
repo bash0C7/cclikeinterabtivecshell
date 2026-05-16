@@ -6,6 +6,10 @@ require "baslash/handler_ractor"
 require "baslash/ctx_proxy"
 
 class TestHandlerRactorBaslash < Test::Unit::TestCase
+  def setup
+    omit "HandlerRactor deferred until explicit-background (Ctrl-B) mode lands"
+  end
+
   def test_spawn_runs_body_with_args
     body = Ractor.shareable_proc { |args, ctx| ctx.display.append("got: #{args.first}") }
     main = Ractor.current

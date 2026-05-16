@@ -54,18 +54,14 @@ module Baslash
           throw :quit if Context.quit?
           line = line.to_s
           next if line.strip.empty?
-          begin
-            SlashDispatcher.handle(
-              line,
-              builder.slash_registry,
-              Ractor.current,
-              on_submit: builder.on_submit_handler,
-              state_refs: builder.state_refs
-            )
-          rescue Interrupt
-            RelineDialogs.drain_main_mailbox
-            throw :quit if Context.quit?
-          end
+          SlashDispatcher.handle(
+            line,
+            builder.slash_registry,
+            on_submit: builder.on_submit_handler,
+            state_refs: builder.state_refs,
+            logger: builder.logger
+          )
+          throw :quit if Context.quit?
         end
       end
 

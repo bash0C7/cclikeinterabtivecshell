@@ -1,68 +1,72 @@
 # frozen_string_literal: true
 
-require "timeout"
-require_relative "test_helper"
-require "baslash/slash_registry"
+require "test/unit"
+require "stringio"
+require "logger"
 require "baslash/slash_dispatcher"
+require "baslash/slash_registry"
+require "baslash/display"
+require "baslash/context"
 
 class TestSlashDispatcherBaslash < Test::Unit::TestCase
   def setup
-    @reg = Baslash::SlashRegistry.new
-    @reg.register(:echo, proc { |args, ctx| ctx.display.append(args.join(" ")) }, description: "echo")
+    @orig_stdout = $stdout
+    $stdout = StringIO.new
+    Baslash::Display.reset_for_test
+    Baslash::Context.init(logger: Logger.new(IO::NULL))
+    @registry = Baslash::SlashRegistry.new
+    @registry.register(:hello, ->(_args, ctx) {
+      ctx.display.append("hi from hello")
+    })
+    @registry.register(:boom, ->(_args, _ctx) { raise "kaboom" })
   end
 
-  def test_handle_slash_command_dispatches
-    main = Ractor.current
-    Baslash::SlashDispatcher.handle("/echo hi there", @reg, main, on_submit: nil, state_refs: {})
-    msg = wait_for_msg(2.0)
-    assert_equal :append, msg[0]
-    assert_equal "hi there", msg[1]
+  def teardown
+    $stdout = @orig_stdout
   end
 
-  def test_handle_unknown_slash_sends_error_append
-    main = Ractor.current
-    Baslash::SlashDispatcher.handle("/nope", @reg, main, on_submit: nil, state_refs: {})
-    msg = wait_for_msg(2.0)
-    assert_equal :append, msg[0]
-    assert_match(/Unknown command/, msg[1])
+  def test_dispatch_slash_command_runs_body
+    Baslash::SlashDispatcher.handle("/hello a b", @registry, on_submit: nil, state_refs: {}, logger: nil)
+    assert_includes $stdout.string, "hi from hello"
   end
 
-  def test_handle_non_slash_uses_on_submit
-    on_submit = Ractor.shareable_proc { |args, ctx| ctx.display.append("submit: #{args.first}") }
-    main = Ractor.current
-    Baslash::SlashDispatcher.handle("plain text", @reg, main, on_submit: on_submit, state_refs: {})
-    msg = wait_for_msg(2.0)
-    assert_equal "submit: plain text", msg[1]
+  def test_dispatch_unknown_command_prints_error
+    Baslash::SlashDispatcher.handle("/unknown", @registry, on_submit: nil, state_refs: {}, logger: nil)
+    assert_includes $stdout.string, "Unknown command: /unknown"
   end
 
-  def test_handle_bare_slash_is_noop
-    main = Ractor.current
-    assert_nothing_raised do
-      Baslash::SlashDispatcher.handle("/", @reg, main, on_submit: nil, state_refs: {})
-    end
-    # No message should be emitted — the user was browsing the slash menu
-    # and dismissed without picking, so we don't want an "Unknown command"
-    # error or any other output.
-    assert_no_msg(0.2)
+  def test_dispatch_bare_slash_is_noop
+    Baslash::SlashDispatcher.handle("/", @registry, on_submit: nil, state_refs: {}, logger: nil)
+    refute_includes $stdout.string, "Unknown"
   end
 
-  def test_handle_slash_with_only_whitespace_is_noop
-    main = Ractor.current
-    assert_nothing_raised do
-      Baslash::SlashDispatcher.handle("/   ", @reg, main, on_submit: nil, state_refs: {})
-    end
-    assert_no_msg(0.2)
+  def test_dispatch_slash_with_only_whitespace_is_noop
+    Baslash::SlashDispatcher.handle("/   ", @registry, on_submit: nil, state_refs: {}, logger: nil)
+    refute_includes $stdout.string, "Unknown"
   end
 
-  private
-
-  def wait_for_msg(secs)
-    Timeout.timeout(secs) { Ractor.receive }
+  def test_dispatch_non_slash_calls_on_submit
+    received = nil
+    on_submit = ->(args, ctx) { received = args.first; ctx.display.append("submitted: #{received}") }
+    Baslash::SlashDispatcher.handle("plain text", @registry, on_submit: on_submit, state_refs: {}, logger: nil)
+    assert_equal "plain text", received
+    assert_includes $stdout.string, "submitted: plain text"
   end
 
-  def assert_no_msg(secs)
-    assert_raise(Timeout::Error) do
-      Timeout.timeout(secs) { Ractor.receive }
-    end
+  def test_dispatch_non_slash_without_on_submit_is_noop
+    Baslash::SlashDispatcher.handle("plain text", @registry, on_submit: nil, state_refs: {}, logger: nil)
+    assert_empty $stdout.string
+  end
+
+  def test_dispatch_rescues_handler_exceptions
+    Baslash::SlashDispatcher.handle("/boom", @registry, on_submit: nil, state_refs: {}, logger: Baslash::Context.logger)
+    assert_includes $stdout.string, "Handler failed"
+    assert_includes $stdout.string, "kaboom"
+  end
+
+  def test_dispatch_rescues_interrupt
+    @registry.register(:slow, ->(_args, _ctx) { raise Interrupt })
+    Baslash::SlashDispatcher.handle("/slow", @registry, on_submit: nil, state_refs: {}, logger: nil)
+    assert_includes $stdout.string, "^C"
   end
 end
