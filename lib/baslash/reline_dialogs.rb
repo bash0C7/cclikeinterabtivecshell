@@ -8,11 +8,10 @@ require_relative "main_ctx"
 require_relative "title_bar"
 
 module Baslash
-  # Reline dialog procs + Main-thread mailbox drain. Baslash port of
-  # Cclikesh::RelineDialogs simplified to drive TitleBar (OSC 0) instead
-  # of the legacy curses chrome rows. The slash menu / ghost text dialog
-  # procs and apply_command dispatcher are preserved; only the per-tick
-  # repaint path changed: `run_chrome_tick` -> `run_tick` (writes title).
+  # Reline dialog procs + Main-thread mailbox drain. Drives TitleBar (OSC 0)
+  # for status display. Provides the slash menu / ghost text dialog procs
+  # and apply_command dispatcher; per-tick repaint (`run_tick`) writes the
+  # terminal title.
   module RelineDialogs
     SLASH_NAME_PAD = 16
 
@@ -66,8 +65,7 @@ module Baslash
 
       # Per-tick repaint. Drains the Main-thread mailbox (apply_command),
       # then writes the terminal title via OSC 0 (TitleBar.tick) reflecting
-      # current phase + composed info_bar/status_rows text. Replaces the
-      # cclikesh curses chrome tick.
+      # current phase + composed info_bar/status_rows text.
       def run_tick(builder, main_ctx)
         drain_main_mailbox
         phase = (Baslash::Context.state[:phase] rescue nil) || :ready

@@ -1,11 +1,24 @@
-# cclikesh
+# baslash
 
-Claude Code-style 3-region interactive CLI shell framework, built on curses + Ractor.
+Slash-command-driven Ruby framework for embedded interactive shell DSLs.
+
+baslash provides a reusable backbone — Reline-based prompt editing, slash
+command dispatch, per-invocation HandlerRactor isolation, terminal title
+bar status — for Ruby programs that want a `zsh`-style interactive shell
+surface tailored to their domain. Examples (`examples/echo_shell.rb`,
+`examples/zsh_shell/`, `examples/irb_shell/`) show three concrete embeddings.
+
+## Scope
+
+- macOS only (Terminal.app and cmux verified)
+- CRuby 4.x (uses Ractor)
+- Body content flows naturally to terminal scrollback (no curses, no alt-screen)
+- Status (cwd, var count, phase, spinner) appears in the terminal title bar via OSC 0
 
 ## Architecture
 
 - Single-process Ruby 4.0+, macOS only
-- Main Ractor owns Reline + curses (3-region UI: header bar, scrollable body, input row)
+- Main Ractor owns Reline + the terminal title bar (OSC 0 status)
 - Slash handlers run in per-invocation Handler Ractors (true parallelism with UI)
 - Mutable user state opt-in via `shareable_ref { ... }` State Ractor wrapper
 
@@ -23,10 +36,9 @@ Application code follows six rules, enforced by an audit test (`test/test_thread
 ## Quick start
 
 ```ruby
-require "cclikesh"
+require "baslash"
 
-Cclikesh.run do |shell|
-  shell.header { |h| h.title "demo"; h.note "hi" }
+Baslash.run do |shell|
   shell.on_submit do |args, ctx|
     ctx.display.append("you said: #{args.first}", style: :result)
   end
@@ -38,22 +50,25 @@ Run: `bundle exec ruby examples/echo_shell.rb`
 
 ## Terminal scrollback
 
-cclikesh runs as a curses TUI but does **not** enter the terminal's alt-screen buffer. On startup it generates a one-off terminfo entry derived from your `$TERM` with the `smcup`/`rmcup` capabilities stripped, caches the compiled entry under `$XDG_CACHE_HOME/cclikesh/terminfo/` (or `~/.cache/cclikesh/terminfo/`), and points the process at it by mutating `TERM`, `TERMINFO_DIRS`, and unsetting the singular `TERMINFO` (so it does not override the dirs lookup on macOS).
+baslash drives Reline directly on the terminal's main screen. It does not
+enter the terminal's alt-screen buffer, and it does not draw curses chrome.
+Submitted lines and handler output flow naturally into the terminal's
+scrollback buffer; your terminal's native scroll wheel and shortcuts keep
+working.
 
-The practical effect: your terminal's native scroll wheel and scrollback shortcuts keep working — past shell history before launch stays visible above the cclikesh UI, and lines that scroll out of cclikesh's main area remain readable in your terminal's scrollback buffer.
+Status (cwd / var counts / current phase / spinner) is published via OSC 0
+to the terminal's title bar, so the main screen stays clean.
 
-Requires `infocmp` and `tic` (both part of system ncurses on macOS and Linux). When either is missing, cclikesh falls back transparently to legacy alt-screen mode.
+## Using baslash from your own gem / project
 
-## Using cclikesh from your own gem / project
-
-cclikesh is not (yet) on RubyGems. Pull it directly from GitHub.
+baslash is not (yet) on RubyGems. Pull it directly from GitHub.
 
 ### 1. Add to your `Gemfile`
 
 ```ruby
 source "https://rubygems.org"
 
-gem "cclikesh", github: "bash0C7/cclikeinterabtivecshell"
+gem "baslash", github: "bash0C7/cclikeinterabtivecshell"
 ```
 
 Then:
@@ -62,25 +77,19 @@ Then:
 bundle install
 ```
 
-This brings in `cclikesh` itself plus its hard dependencies (`curses`, `reline`, `drb`, `rinda`, `unicode-display_width`). `informers` is only needed if you also opt into `cclikesh-debug` (see below).
+This brings in `baslash` itself plus its hard dependencies (`reline`, `drb`,
+`rinda`, `unicode-display_width`). `informers` is only needed if you also
+opt into `baslash-debug` (see below).
 
 ### 2. Write a shell
 
-The single entry point is `Cclikesh.run`, which yields a Builder DSL:
+The single entry point is `Baslash.run`, which yields a Builder DSL:
 
 ```ruby
 # my_shell.rb
-require "cclikesh"
+require "baslash"
 
-Cclikesh.run do |shell|
-  shell.header do |h|
-    h.logo     "✻"
-    h.title    "my-shell"
-    h.version  "v0.1.0"
-    h.subtitle "Ruby #{RUBY_VERSION} · #{Dir.pwd}"
-    h.note     "press /q to quit"
-  end
-
+Baslash.run do |shell|
   shell.shortcuts_hint "/q to quit"
 
   shell.on_submit do |args, ctx|
@@ -102,15 +111,14 @@ bundle exec ruby my_shell.rb
 
 | Method | Purpose |
 |---|---|
-| `shell.header { \|h\| ... }` | Top banner. `h.logo / h.title / h.version / h.subtitle / h.note` (all optional). |
-| `shell.info(name, order: N) { \|ctx\| ... }` | One segment of the info bar. Block returns a `String`. |
+| `shell.info(name, order: N) { \|ctx\| ... }` | One segment of the info bar (rendered in the title). Block returns a `String`. |
 | `shell.status_row(name) { \|row, ctx\| ... }` | One row in the status footer. Use `row.icon`, `row.text`, `row.link(text:, state:)`, `row.bar(percent:, width:)`. |
 | `shell.spinner_label { \|ctx\| ... }` | Spinner label. Return `:auto` or a custom `String`. |
 | `shell.prompt_suggestion { \|ctx\| ... }` | Dimmed inline hint shown above the prompt. |
-| `shell.shortcuts_hint "text"` | One-line shortcuts hint shown in the footer. |
-| `shell.define_style(:name, fg:, bold:)` | Register a Curses color/attr (e.g. `fg: Curses::COLOR_YELLOW, bold: true`). |
+| `shell.shortcuts_hint "text"` | One-line shortcuts hint shown alongside the prompt. |
+| `shell.define_style(:name, fg:, bold:)` | Register an ANSI style for `ctx.display.append(..., style: :name)`. |
 | `shell.shareable_ref(:name) { Obj.new }` | Wrap a mutable object in its own Ractor; call it via `ctx.shareable(:name).call(:method, *args)`. |
-| `shell.on_start { \|ctx\| ... }` | Runs once right after curses init. Use for warm-up output. |
+| `shell.on_start { \|ctx\| ... }` | Runs once right after startup. Use for warm-up output. |
 | `shell.on_quit { \|ctx\| ... }` | Runs once right before teardown. Use for save/cleanup. |
 | `shell.on_submit { \|args, ctx\| ... }` | Fires when the user presses Enter. `args == [line].freeze`. Runs in a Handler Ractor. |
 | `shell.on_tab { \|buf, pos\| ... }` | Reline completion proc. Return `Array<String>` (or `nil`). |
@@ -155,26 +163,26 @@ Built-in styles include `:result`, `:thinking`, `:dim`, `:error`. Add your own v
 - Don't `Thread.new` inside handlers. If you need concurrency, spawn another Ractor or push work to a `shareable_ref`.
 - Messages you pass across Ractor boundaries must be frozen / shareable; `ctx.state[...]=` freezes for you.
 
-### 6. Optional: cclikesh-debug for session recording
+### 6. Optional: baslash-debug for session recording
 
-`cclikesh-debug` is a separate sub-gem in the same repo. Add it to `:development` only:
+`baslash-debug` is a separate sub-gem in the same repo. Add it to `:development` only:
 
 ```ruby
 group :development do
-  gem "cclikesh-debug",
+  gem "baslash-debug",
       github: "bash0C7/cclikeinterabtivecshell",
-      glob:   "cclikesh-debug/*.gemspec"
+      glob:   "baslash-debug/*.gemspec"
 end
 ```
 
 Then record a session of *your* shell:
 
 ```bash
-bundle exec cclikesh-debug start my_shell.rb
-bundle exec cclikesh-debug input  <session> "hello\r"
-bundle exec cclikesh-debug capture <session>
-bundle exec cclikesh-debug stop   <session>
-bundle exec cclikesh-debug frames <session>
+bundle exec baslash-debug start my_shell.rb
+bundle exec baslash-debug input  <session> "hello\r"
+bundle exec baslash-debug capture <session>
+bundle exec baslash-debug stop   <session>
+bundle exec baslash-debug frames <session>
 ```
 
 The resulting SQLite DB is chiebukuro-mcp compatible — you can grep / vec-search frames with the standard tooling.
@@ -182,18 +190,18 @@ The resulting SQLite DB is chiebukuro-mcp compatible — you can grep / vec-sear
 ## Examples
 
 - `examples/echo_shell.rb` — minimal demo
-- `examples/irb_shell/irb_shell.rb` — irb on cclikesh, uses `shell.shareable_ref(:evaluator) { IrbEvaluator.new }`
+- `examples/irb_shell/irb_shell.rb` — irb on baslash, uses `shell.shareable_ref(:evaluator) { IrbEvaluator.new }`
 - `examples/zsh_shell/zsh_shell.rb` — zsh wrapper. Uses `shareable_ref(:cwd)` and `shareable_ref(:env)` to intercept `cd`/`export`/`unset`; everything else streams through `zsh -c` with `IO.select` line read.
 
-## cclikesh-debug
+## baslash-debug
 
-Separate sub-gem (`cclikesh-debug/cclikesh-debug.gemspec`) for per-session debug recording:
+Separate sub-gem (`baslash-debug/baslash-debug.gemspec`) for per-session debug recording:
 
 - Per-session SQLite DB via `extralite` (Ractor-safe; chiebukuro-mcp compatible schema)
 - sqlite-vec semantic search via `informers` + ruri-v3-310m-onnx
 - asciinema cast export, agg/ffmpeg pipeline for gif/mp4/webm
 
-### Recorder pipeline (v0.2.1)
+### Recorder pipeline
 
 Three Ractors stream the live session, and a subprocess hosts the embedder so the Ractor-unsafe ONNX layer never enters the main process:
 
@@ -207,24 +215,24 @@ PtyReader ──[:bytes]──▶ FrameBuilder ──[:frame]──▶ StorageWr
                          ・on stop, triggers embed_pending
 
 on stop:
-  exe/cclikesh-debug-embedder (subprocess, DRb)
+  exe/baslash-debug-embedder (subprocess, DRb)
         ──── proxy.embed(content) ────▶ EmbedStorageWriter (extralite, frame_vec)
 ```
 
 `Thread.new` count in application code is 0.
 
 ```bash
-bundle exec cclikesh-debug start examples/echo_shell.rb
-bundle exec cclikesh-debug input <session> "hello\r"
-bundle exec cclikesh-debug capture <session>
-bundle exec cclikesh-debug stop <session>
-bundle exec cclikesh-debug frames <session>
+bundle exec baslash-debug start examples/echo_shell.rb
+bundle exec baslash-debug input <session> "hello\r"
+bundle exec baslash-debug capture <session>
+bundle exec baslash-debug stop <session>
+bundle exec baslash-debug frames <session>
 ```
 
-## Known v1 limitations
+## Known limitations
 
-- macOS only (curses + PTY usage is macOS-specific)
-- cclikesh-debug E2E test requires a real TTY; manual smoke (WINCH / popup) on iTerm2 still pending
+- macOS only (Terminal.app and cmux verified)
+- baslash-debug E2E test requires a real TTY
 
 ## Development
 
@@ -236,8 +244,8 @@ bundle exec rake test
 Sub-gem tests:
 
 ```bash
-for f in cclikesh-debug/test/cclikesh-debug/test_*.rb; do
-  bundle exec ruby -Icclikesh-debug/lib -Icclikesh-debug/test/cclikesh-debug "$f"
+for f in baslash-debug/test/baslash-debug/test_*.rb; do
+  bundle exec ruby -Ibaslash-debug/lib -Ibaslash-debug/test/baslash-debug "$f"
 done
 ```
 

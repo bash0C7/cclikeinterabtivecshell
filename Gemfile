@@ -2,10 +2,7 @@
 
 source "https://rubygems.org"
 
-# Both cclikesh.gemspec and baslash.gemspec coexist during the rename
-# (Tasks 1-13). Resolve to baslash explicitly. Task 13 will delete
-# cclikesh.gemspec and this disambiguation becomes unnecessary.
-gemspec name: "baslash"
+gemspec
 
 gem "drb"
 gem "rinda"
