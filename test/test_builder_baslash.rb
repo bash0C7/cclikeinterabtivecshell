@@ -45,11 +45,12 @@ class TestBuilderBaslash < Test::Unit::TestCase
 
   # --- define_style ---
 
-  def test_define_style_does_not_raise
+  def test_define_style_is_a_no_op_stub
     b = Baslash::Builder.new
-    # Style.define calls Curses.init_pair in a full init context;
-    # outside curses init it may raise — just ensure Builder.define_style exists.
+    # Baslash::Style is SGR-based with fixed named styles; define_style is a
+    # backward-compat no-op for examples until Task 11 migrates them.
     assert_respond_to b, :define_style
+    assert_nil b.define_style(:warn, fg: :yellow, bold: true)
   end
 
   # --- logger ---

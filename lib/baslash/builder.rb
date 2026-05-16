@@ -60,8 +60,13 @@ module Baslash
 
     # --- Style ---
 
-    def define_style(name, **kwargs)
-      Style.define(name, **kwargs)
+    # No-op stub for backward compatibility with examples that called the
+    # curses-era Style.define. Baslash::Style is SGR-based with fixed named
+    # styles (NAMED_COLORS, NAMED_STYLES); there is no registration concept.
+    # Use Style.apply directly with built-in style names.
+    # Task 11 will migrate examples off this API.
+    def define_style(name, **opts)
+      # intentionally a no-op
     end
 
     # --- Info bar ---
