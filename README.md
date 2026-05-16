@@ -1,37 +1,31 @@
 # baslash
 
-Slash-command-driven Ruby framework for embedded interactive shell DSLs.
-
-baslash provides a reusable backbone — Reline-based prompt editing, slash
-command dispatch, per-invocation HandlerRactor isolation, terminal title
-bar status — for Ruby programs that want a `zsh`-style interactive shell
-surface tailored to their domain. Examples (`examples/echo_shell.rb`,
-`examples/zsh_shell/`, `examples/irb_shell/`) show three concrete embeddings.
+baslash is a slash-command-driven framework for embedding interactive shell
+DSLs in Ruby programs. It gives your app a Reline-edited prompt with
+`/command` dispatch, a terminal title bar for live status, and natural
+scrollback for output — no curses, no alt-screen. You bring the domain
+logic, baslash wires the loop.
 
 ## Scope
 
 - macOS only (Terminal.app and cmux verified)
-- CRuby 4.x (uses Ractor)
-- Body content flows naturally to terminal scrollback (no curses, no alt-screen)
-- Status (cwd, var count, phase, spinner) appears in the terminal title bar via OSC 0
+- CRuby 4.x
+- No curses, no alt-screen — output flows into the terminal's normal scrollback
+- Status (cwd, var counts, phase, spinner) surfaced via OSC 0 title bar
 
 ## Architecture
 
-- Single-process Ruby 4.0+, macOS only
-- Main Ractor owns Reline + the terminal title bar (OSC 0 status)
-- Slash handlers run in per-invocation Handler Ractors (true parallelism with UI)
-- Mutable user state opt-in via `shareable_ref { ... }` State Ractor wrapper
-
-### Concurrency principles
-
-Application code follows six rules, enforced by an audit test (`test/test_thread_zero.rb`):
-
-1. No `Thread.new` in application code (Ractor only)
-2. Concurrency is `Ractor::Port` + `shareable_proc` based
-3. Ractor-unsafe C extensions are isolated in a subprocess and reached via DRb
-4. Unshareable resources (sockets, DB handles) are opened inside the owning Ractor
-5. Messages crossing Ractor boundaries are frozen / shareable
-6. Ruby 4.0+ Ractor API only (`#take` / `#yield` are not used)
+- The main thread runs Reline and dispatches slash / on_submit handlers.
+- Handlers execute **synchronously** on the main thread between prompts, so
+  there is no race with user input.
+- A small Ractor-based ticker repaints the title bar (spinner, info bar,
+  status rows) while a handler runs.
+- Mutable state that you want shared across handlers lives in
+  `shareable_ref` (one Ractor per ref) and is reached via thread-safe
+  message passing.
+- Slash bodies are plain Procs; they capture closures from the surrounding
+  scope normally.
+- `baslash-debug` is a separate sub-gem for PTY session recording.
 
 ## Quick start
 
@@ -42,62 +36,8 @@ Baslash.run do |shell|
   shell.on_submit do |args, ctx|
     ctx.display.append("you said: #{args.first}", style: :result)
   end
-  shell.slash(:q) { |_, ctx| ctx.quit }
-end
-```
 
-Run: `bundle exec ruby examples/echo_shell.rb`
-
-## Terminal scrollback
-
-baslash drives Reline directly on the terminal's main screen. It does not
-enter the terminal's alt-screen buffer, and it does not draw curses chrome.
-Submitted lines and handler output flow naturally into the terminal's
-scrollback buffer; your terminal's native scroll wheel and shortcuts keep
-working.
-
-Status (cwd / var counts / current phase / spinner) is published via OSC 0
-to the terminal's title bar, so the main screen stays clean.
-
-## Using baslash from your own gem / project
-
-baslash is not (yet) on RubyGems. Pull it directly from GitHub.
-
-### 1. Add to your `Gemfile`
-
-```ruby
-source "https://rubygems.org"
-
-gem "baslash", github: "bash0C7/cclikeinterabtivecshell"
-```
-
-Then:
-
-```bash
-bundle install
-```
-
-This brings in `baslash` itself plus its hard dependencies (`reline`, `drb`,
-`rinda`, `unicode-display_width`). `informers` is only needed if you also
-opt into `baslash-debug` (see below).
-
-### 2. Write a shell
-
-The single entry point is `Baslash.run`, which yields a Builder DSL:
-
-```ruby
-# my_shell.rb
-require "baslash"
-
-Baslash.run do |shell|
-  shell.shortcuts_hint "/q to quit"
-
-  shell.on_submit do |args, ctx|
-    line = args.first
-    ctx.display.append("you typed: #{line}", style: :result)
-  end
-
-  shell.slash(:q, description: "exit") { |_args, ctx| ctx.quit }
+  shell.slash(:q, description: "exit") { |_, ctx| ctx.quit }
 end
 ```
 
@@ -107,65 +47,146 @@ Run it:
 bundle exec ruby my_shell.rb
 ```
 
-### 3. DSL reference (what you call on `shell`)
+## Installation
 
-| Method | Purpose |
-|---|---|
-| `shell.info(name, order: N) { \|ctx\| ... }` | One segment of the info bar (rendered in the title). Block returns a `String`. |
-| `shell.status_row(name) { \|row, ctx\| ... }` | One row in the status footer. Use `row.icon`, `row.text`, `row.link(text:, state:)`, `row.bar(percent:, width:)`. |
-| `shell.spinner_label { \|ctx\| ... }` | Spinner label. Return `:auto` or a custom `String`. |
-| `shell.prompt_suggestion { \|ctx\| ... }` | Dimmed inline hint shown above the prompt. |
-| `shell.shortcuts_hint "text"` | One-line shortcuts hint shown alongside the prompt. |
-| `shell.define_style(:name, fg:, bold:)` | Register an ANSI style for `ctx.display.append(..., style: :name)`. |
-| `shell.shareable_ref(:name) { Obj.new }` | Wrap a mutable object in its own Ractor; call it via `ctx.shareable(:name).call(:method, *args)`. |
-| `shell.on_start { \|ctx\| ... }` | Runs once right after startup. Use for warm-up output. |
-| `shell.on_quit { \|ctx\| ... }` | Runs once right before teardown. Use for save/cleanup. |
-| `shell.on_submit { \|args, ctx\| ... }` | Fires when the user presses Enter. `args == [line].freeze`. Runs in a Handler Ractor. |
-| `shell.on_tab { \|buf, pos\| ... }` | Reline completion proc. Return `Array<String>` (or `nil`). |
-| `shell.slash(:name, description: ...) { \|args, ctx\| ... }` | Register `/name`. `args` is the parsed rest of the line. |
-| `shell.btw { \|question, ctx\| ... }` | Register `/btw <text>`. Whatever the block returns is appended to the display. |
-
-### 4. Inside your handler — what `ctx` lets you do
-
-`ctx` is a thin proxy that talks to the main Ractor; it's safe to use from inside `on_submit` / slash blocks.
+baslash is not on RubyGems yet. Pull it directly from GitHub.
 
 ```ruby
-# --- Output ---
-ctx.display.append("line of text", style: :result, prompt: "irb> ")
-ctx.display.dialog("boxed text", style: :result)
+# Gemfile
+source "https://rubygems.org"
 
-# Streaming "live" slot — show progress, then commit or discard
-slot = ctx.display.open_live(style: :thinking)
-3.times { |i| slot.update("step #{i + 1}/3 ..."); sleep 0.1 }
-slot.commit                # finalize
-# slot.discard             # erase if cancelled
-
-# --- State (key/value, written values are auto-frozen) ---
-ctx.state[:phase] = :working
-phase = ctx.state[:phase]
-
-# --- Shareable refs (mutable objects living in their own Ractor) ---
-result = ctx.shareable(:evaluator).call(:evaluate, line)
-
-# --- Logging (goes to the shell's stderr logger) ---
-ctx.logger.info("submit: #{line.inspect}")
-
-# --- Quit ---
-ctx.quit
+gem "baslash", github: "bash0C7/cclikeinterabtivecshell"
 ```
 
-Built-in styles include `:result`, `:thinking`, `:dim`, `:error`. Add your own via `shell.define_style(...)`.
+```bash
+bundle install
+```
 
-### 5. Concurrency rules for your own handlers
+This brings in `baslash` and its runtime dependencies (`reline`,
+`unicode-display_width`, `logger`).
 
-- `on_submit` runs in a **per-invocation Handler Ractor** — long work doesn't block the UI.
-- Mutable state goes in `shareable_ref` (one Ractor per ref) or `ctx.state` (key/value on the main Ractor).
-- Don't `Thread.new` inside handlers. If you need concurrency, spawn another Ractor or push work to a `shareable_ref`.
-- Messages you pass across Ractor boundaries must be frozen / shareable; `ctx.state[...]=` freezes for you.
+## DSL reference
 
-### 6. Optional: baslash-debug for session recording
+Everything is called on the `shell` object yielded by `Baslash.run`.
 
-`baslash-debug` is a separate sub-gem in the same repo. Add it to `:development` only:
+| Method | Purpose | Block args | Returns |
+|---|---|---|---|
+| `shareable_ref(name, &block)` | Wrap a mutable object in its own State Ractor. The block creates the object inside that Ractor. | none | the ref (also stored by `name`) |
+| `on_start(&block)` | Runs once right after startup. | `(ctx)` (currently `nil`) | ignored |
+| `on_quit(&block)` | Runs once right before teardown. | `(ctx)` (currently `nil`) | ignored |
+| `on_submit(&block)` | Fires on Enter when the line is **not** a slash command. | `(args, ctx)` where `args == [line].freeze` | ignored |
+| `on_tab(&block)` | Override the default Reline completion proc. | `(buffer, pos)` | `Array<String>` or `nil` |
+| `slash(name, description:, &block)` | Register `/name`. | `(args, ctx)` where `args` is the parsed rest of the line | ignored |
+| `btw(&block)` | Register `/btw <question>` shortcut. | `(question, ctx)` | string appended to display |
+| `info(name, order: N, &block)` | One segment of the info bar (rendered in the title bar). | `(ctx)` | `String` |
+| `status_row(name, &block)` | One row in the title-bar status. Use `row.icon`, `row.text`, `row.link(text:, state:)`, `row.bar(percent:, width:)`. | `(row, ctx)` | ignored |
+| `spinner_label(&block)` | Spinner label override. | `(ctx)` | `:auto` or `String` |
+| `prompt_suggestion(&block)` | Ghost text shown above the prompt. | `(ctx)` | `String` |
+| `prompt_prefix(&block)` | Dynamic text rendered to the left of `> `, re-evaluated every prompt render. | `(main_ctx)` | `String` (or `nil` to omit) |
+| `shortcuts_hint("text")` | One-line hint printed near the prompt at startup. | — | — |
+| `header { \|h\| ... }` | Banner block: `h.logo`, `h.title`, `h.version`, `h.subtitle`, `h.note`. | yields a builder | — |
+| `enable_debug_commands` | Register the built-in `/debug-*` slashes. | — | — |
+| `define_style(name, **opts)` | **Deprecated.** No-op stub for back-compat with curses-era apps. Use the built-in semantic style names instead. | — | — |
+
+## Handler context (`ctx`)
+
+Inside a slash body or `on_submit`, `ctx` is a `SyncCtx` exposing:
+
+| Call | Effect |
+|---|---|
+| `ctx.display.append(text, style: nil)` | Write one line to the terminal. |
+| `ctx.display.open_live(style: nil)` | Open a live slot. Returns a slot with `update(text)`, `commit(final = nil)`, `discard`. Can also be called with a block — on normal exit the slot auto-commits, on raise it discards and re-raises. |
+| `ctx.display.dialog(content, style: nil)` | Write a boxed dialog block. |
+| `ctx.display.raw_emit(bytes)` | Write raw bytes (escape sequences included) directly to stdout. Intended for testing terminal handling. |
+| `ctx.state[:key] = value` | Set a value in the per-shell key/value state (auto-frozen). |
+| `ctx.state[:key]` | Read it back. |
+| `ctx.shareable(name).call(:method, *args)` | Invoke a method on a `shareable_ref`-wrapped object. Round-trips through that ref's Ractor. |
+| `ctx.logger` | The shell's stderr logger. |
+| `ctx.quit` | Schedule shutdown after the current handler returns. |
+
+Long-running handlers block the prompt, which is intentional — user input
+cannot race with handler output. Pressing `Ctrl-C` while a handler runs
+raises `Interrupt`, which baslash catches and logs as `^C`.
+
+## Styling
+
+Styles are SGR-based. There is no registration step; pass a symbol to
+`ctx.display.append(..., style: :name)`.
+
+**Semantic styles** (the ones the framework itself uses for status / meta
+output, and what app code should reach for first):
+
+| Style | Color |
+|---|---|
+| `:ok` | green |
+| `:ng` | red |
+| `:error` | red |
+| `:warn` | yellow |
+| `:thinking` | dim cyan |
+| `:meta` | dim cyan |
+
+`:result` is **intentionally pass-through** (unstyled). It exists so that
+impl-execution output — the actual stdout of whatever the shell is
+wrapping — stays in the user's default terminal color. Any unknown style
+name is also pass-through.
+
+**Primitive styles** are also accepted as a style name:
+
+- Text styles: `:bold`, `:dim`, `:italic`, `:underline`, `:reverse`
+- Foreground colors: `:black`, `:red`, `:green`, `:yellow`, `:blue`,
+  `:magenta`, `:cyan`, `:white`
+
+## Prompt
+
+The default prompt is a bold cyan `> ` rendered only on the first row of
+a multi-line edit buffer; continuation rows get an empty prefix so the
+arrow doesn't repeat. `prompt_prefix` lets you inject dynamic text (e.g.
+the current working directory) to the left of the arrow; it is
+re-evaluated every iteration of the main loop.
+
+## Examples
+
+Three reference embeddings live under `examples/`:
+
+- `examples/echo_shell.rb` — minimal demo. Echoes input back, exercises
+  `info`, `status_row`, `spinner_label`, `btw`, live slots.
+- `examples/zsh_shell/zsh_shell.rb` — zsh wrapper. Intercepts
+  `cd`/`export`/`unset` via two `shareable_ref`s (`cwd`, `env`), streams
+  everything else through `zsh -c` with line-buffered stdout/stderr.
+  Uses `prompt_prefix` to keep the cwd visible at the prompt.
+- `examples/irb_shell/irb_shell.rb` — irb evaluator on top of baslash.
+  NOTE: currently fails because `Binding` is not Ractor-shareable; the
+  smoke test for this example is omitted. Kept as a worked-example of
+  the DSL surface.
+
+Run them with:
+
+```bash
+bundle exec ruby examples/echo_shell.rb
+bundle exec ruby examples/zsh_shell/zsh_shell.rb
+```
+
+## Concurrency model
+
+- Handlers run synchronously on the main thread. There is no Ractor
+  isolation around the handler body — your slash body is a normal Proc
+  that can capture closures from the surrounding scope.
+- Mutable shared state goes in `shareable_ref` (one Ractor per ref), and
+  is reached through `ctx.shareable(name).call(:method, *args)`. The
+  call is thread-safe; values crossing the boundary are auto-frozen.
+- `ctx.state[...]` is a per-shell key/value bag (the value is frozen on
+  write).
+- The title-bar ticker is a single Ractor running on its own. Handlers
+  do not interact with it directly; they just publish through
+  `ctx.state[:phase]` and the ticker reads what it needs.
+- Long-running handlers block the shell — by design. `Ctrl-C` aborts.
+- Application code MUST NOT call `Thread.new`. `test/test_thread_zero.rb`
+  enforces this for `lib/` and `examples/`.
+
+## baslash-debug
+
+`baslash-debug` is a separate sub-gem in the same repo. Add it to
+`:development` only:
 
 ```ruby
 group :development do
@@ -175,79 +196,55 @@ group :development do
 end
 ```
 
-Then record a session of *your* shell:
+It records a PTY session of your shell to a per-session SQLite DB
+(chiebukuro-mcp compatible schema, optional sqlite-vec semantic search
+via ONNX embedder subprocess) and can replay it back.
 
-```bash
-bundle exec baslash-debug start my_shell.rb
-bundle exec baslash-debug input  <session> "hello\r"
-bundle exec baslash-debug capture <session>
-bundle exec baslash-debug stop   <session>
-bundle exec baslash-debug frames <session>
-```
+Main exe commands:
 
-The resulting SQLite DB is chiebukuro-mcp compatible — you can grep / vec-search frames with the standard tooling.
+| Command | Purpose |
+|---|---|
+| `start <script>` | Start a PTY session running the given shell script. |
+| `input <session> "text\r"` | Send input to a running session. |
+| `capture <session>` | Capture the current frame and snapshot. |
+| `stop <session>` | Stop the session. |
+| `frames <session>` | List recorded frames. |
+| `play <spec.rb>` | Replay a PTY interaction spec. |
 
-## Examples
-
-- `examples/echo_shell.rb` — minimal demo
-- `examples/irb_shell/irb_shell.rb` — irb on baslash, uses `shell.shareable_ref(:evaluator) { IrbEvaluator.new }`
-- `examples/zsh_shell/zsh_shell.rb` — zsh wrapper. Uses `shareable_ref(:cwd)` and `shareable_ref(:env)` to intercept `cd`/`export`/`unset`; everything else streams through `zsh -c` with `IO.select` line read.
-
-## baslash-debug
-
-Separate sub-gem (`baslash-debug/baslash-debug.gemspec`) for per-session debug recording:
-
-- Per-session SQLite DB via `extralite` (Ractor-safe; chiebukuro-mcp compatible schema)
-- sqlite-vec semantic search via `informers` + ruri-v3-310m-onnx
-- asciinema cast export, agg/ffmpeg pipeline for gif/mp4/webm
-
-### Recorder pipeline
-
-Three Ractors stream the live session, and a subprocess hosts the embedder so the Ractor-unsafe ONNX layer never enters the main process:
-
-```
-PtyReader ──[:bytes]──▶ FrameBuilder ──[:frame]──▶ StorageWriter (extralite)
-                            ▲
-                            │ [:capture_with_snapshot]
-                            │
-                       Orchestrator (main Ractor)
-                         ・DRb pulls debug_snapshot from the shell child
-                         ・on stop, triggers embed_pending
-
-on stop:
-  exe/baslash-debug-embedder (subprocess, DRb)
-        ──── proxy.embed(content) ────▶ EmbedStorageWriter (extralite, frame_vec)
-```
-
-`Thread.new` count in application code is 0.
+Example session:
 
 ```bash
 bundle exec baslash-debug start examples/echo_shell.rb
-bundle exec baslash-debug input <session> "hello\r"
+bundle exec baslash-debug input  <session> "hello\r"
 bundle exec baslash-debug capture <session>
-bundle exec baslash-debug stop <session>
-bundle exec baslash-debug frames <session>
+bundle exec baslash-debug stop    <session>
+bundle exec baslash-debug frames  <session>
 ```
 
-## Known limitations
-
-- macOS only (Terminal.app and cmux verified)
-- baslash-debug E2E test requires a real TTY
-
-## Development
+**Important:** PTY specs in `baslash-debug` must be invoked from the
+**repo root**, not from `baslash-debug/`:
 
 ```bash
-bundle install
-bundle exec rake test
+# correct
+bundle exec ruby baslash-debug/exe/baslash-debug play baslash-debug/test/specs/my_spec.rb
+
+# wrong — child process LoadErrors and the spec dies in ~0.6s
+cd baslash-debug && bundle exec ruby exe/baslash-debug play test/specs/my_spec.rb
 ```
 
-Sub-gem tests:
+Internally, the recorder uses Ractors for the PTY reader, frame builder,
+and storage writer. The Ractor-unsafe ONNX embedder is isolated in a
+subprocess and reached via DRb.
+
+## Testing
 
 ```bash
-for f in baslash-debug/test/baslash-debug/test_*.rb; do
-  bundle exec ruby -Ibaslash-debug/lib -Ibaslash-debug/test/baslash-debug "$f"
-done
+bundle exec rake test                       # root suite
+cd baslash-debug && bundle exec rake test   # debug sub-gem suite
 ```
+
+`test/test_thread_zero.rb` audits `lib/` and `examples/` for any
+`Thread.new` usage and fails the suite if it finds one.
 
 ## License
 
