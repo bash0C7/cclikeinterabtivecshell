@@ -1,0 +1,23 @@
+# frozen_string_literal: true
+
+require_relative "lib/baslash/version"
+
+Gem::Specification.new do |spec|
+  spec.name          = "baslash"
+  spec.version       = Baslash::VERSION
+  spec.authors       = ["bash0C7"]
+  spec.summary       = "Slash-command-driven Ruby framework for embedded interactive shell DSLs"
+  spec.license       = "MIT"
+  spec.required_ruby_version = ">= 4.0.0"
+
+  spec.files         = Dir["lib/**/*.rb", "README.md", "LICENSE"]
+  spec.require_paths = ["lib"]
+
+  spec.add_dependency "reline",                "~> 0.6"
+  spec.add_dependency "unicode-display_width", "~> 3.0"
+  spec.add_dependency "logger"
+
+  spec.add_development_dependency "test-unit", "~> 3.6"
+  spec.add_development_dependency "rake",      "~> 13.0"
+  spec.add_development_dependency "irb",       "~> 1.18"
+end
