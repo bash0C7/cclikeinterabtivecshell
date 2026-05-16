@@ -55,7 +55,7 @@ module Baslash
     end
 
     def self.transcript_save(path = nil)
-      target = path || File.join(Dir.tmpdir, "cclikesh-transcript-#{Process.pid}.log")
+      target = path || File.join(Dir.tmpdir, "baslash-transcript-#{Process.pid}.log")
       Transcript.save(target)
     end
   end
