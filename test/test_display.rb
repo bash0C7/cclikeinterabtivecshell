@@ -1,79 +1,70 @@
-# frozen_string_literal: true
-
-require_relative "test_helper"
-require "curses"
-require "cclikesh/style"
-require "cclikesh/chrome"
-require "cclikesh/display"
-require "cclikesh/transcript"
+require "test/unit"
+require "stringio"
+require "baslash/display"
 
 class TestDisplay < Test::Unit::TestCase
   def setup
-    Curses.init_screen
-    Curses.start_color
-    Curses.use_default_colors
-    Cclikesh::Style.init!
-    Cclikesh::Chrome.init
-    Cclikesh::Display.init
-    Cclikesh::Transcript.clear!
+    @orig_stdout = $stdout
+    $stdout = StringIO.new
+    Baslash::Display.reset_for_test
   end
 
   def teardown
-    Cclikesh::Display.close
-    Cclikesh::Chrome.close
-    Curses.close_screen
-    Cclikesh::Transcript.clear!
-  rescue
-    nil
+    $stdout = @orig_stdout
   end
 
-  def test_append_writes_to_pad_and_records_transcript
-    Cclikesh::Display.append("hello world")
-    assert_equal ["hello world"], Cclikesh::Transcript.lines
+  def test_append_writes_line_with_newline
+    Baslash::Display.append("hello")
+    assert_equal "hello\n", $stdout.string
   end
 
-  def test_append_with_prompt_concatenates
-    Cclikesh::Display.append("ok", prompt: "> ")
-    assert_equal ["> ok"], Cclikesh::Transcript.lines
+  def test_append_with_style_wraps_in_sgr
+    Baslash::Display.append("hi", style: :bold)
+    assert_equal "\e[1mhi\e[0m\n", $stdout.string
   end
 
-  def test_open_live_returns_sid_and_increments
-    s1 = Cclikesh::Display.open_live(style: :thinking)
-    s2 = Cclikesh::Display.open_live
-    assert s1.is_a?(Integer)
-    assert_not_equal s1, s2
+  def test_append_records_transcript
+    require "baslash/transcript"
+    Baslash::Transcript.reset_for_test if Baslash::Transcript.respond_to?(:reset_for_test)
+    Baslash::Display.append("hi")
+    assert Baslash::Transcript.lines.include?("hi"), "transcript should capture appended line"
+  end if defined?(Baslash::Transcript)
+
+  def test_open_live_returns_unique_sid
+    sid1 = Baslash::Display.open_live
+    sid2 = Baslash::Display.open_live
+    refute_equal sid1, sid2
   end
 
-  def test_live_update_overwrites_slot_text
-    sid = Cclikesh::Display.open_live
-    Cclikesh::Display.live_update(sid, "step 1")
-    Cclikesh::Display.live_update(sid, "step 2")
-    state = Cclikesh::Display.live_slot_state[sid]
-    assert_equal "step 2", state[:last_text]
+  def test_live_update_emits_cr_clear_text
+    sid = Baslash::Display.open_live
+    $stdout.truncate(0); $stdout.rewind
+    Baslash::Display.live_update(sid, "first")
+    assert_equal "\r\e[K\e[1G\e[0mfirst\e[0m", $stdout.string
   end
 
-  def test_live_commit_writes_to_transcript_and_removes_slot
-    sid = Cclikesh::Display.open_live
-    Cclikesh::Display.live_update(sid, "tmp")
-    Cclikesh::Display.live_commit(sid, "DONE")
-    assert_includes Cclikesh::Transcript.lines, "DONE"
-    assert_nil Cclikesh::Display.live_slot_state[sid]
+  def test_live_commit_finalizes_with_newline
+    sid = Baslash::Display.open_live
+    Baslash::Display.live_update(sid, "intermediate")
+    $stdout.truncate(0); $stdout.rewind
+    Baslash::Display.live_commit(sid, "final value")
+    assert_equal "\r\e[K\e[1G\e[0mfinal value\e[0m\n", $stdout.string
   end
 
-  def test_live_discard_removes_slot_without_transcript
-    sid = Cclikesh::Display.open_live
-    Cclikesh::Display.live_update(sid, "abc")
-    Cclikesh::Display.live_discard(sid)
-    refute_includes Cclikesh::Transcript.lines, "abc"
-    assert_nil Cclikesh::Display.live_slot_state[sid]
+  def test_live_discard_emits_cr_clear_no_newline
+    sid = Baslash::Display.open_live
+    Baslash::Display.live_update(sid, "anything")
+    $stdout.truncate(0); $stdout.rewind
+    Baslash::Display.live_discard(sid)
+    assert_equal "\r\e[K", $stdout.string
   end
 
-  def test_dialog_appends_box_lines_to_transcript
-    Cclikesh::Display.dialog("hello\nworld")
-    lines = Cclikesh::Transcript.lines
-    assert lines.first.start_with?("┌"), "first line should start with ┌, got #{lines.first.inspect}"
-    assert(lines.any? { |l| l.include?("hello") })
-    assert(lines.any? { |l| l.include?("world") })
-    assert lines.last.start_with?("└"), "last line should start with └, got #{lines.last.inspect}"
+  def test_dialog_renders_box
+    Baslash::Display.dialog("hello\nworld")
+    out = $stdout.string
+    assert_match(/┌─+┐/, out)
+    assert_match(/│ hello/, out)
+    assert_match(/│ world/, out)
+    assert_match(/└─+┘/, out)
   end
 end
