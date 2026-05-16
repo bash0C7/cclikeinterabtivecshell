@@ -34,6 +34,15 @@ module Baslash
       Display.append(hint) unless hint.empty?
       TitleBar.tick(phase: :ready, ctx_text: RelineDialogs.compose_ctx_text(builder, main_ctx))
 
+      # Per-line prompt: render the full prompt only on the first line of
+      # a multi-line edit buffer (shift+enter continuation). Continuation
+      # rows get an empty prefix so the prompt doesn't repeat. Re-evaluates
+      # compose_prompt each render so cwd-dependent prefixes stay live.
+      Reline.prompt_proc = ->(lines) {
+        first = compose_prompt(builder, main_ctx)
+        lines.each_with_index.map { |_, i| i.zero? ? first : "" }
+      }
+
       builder.on_start_handlers.each do |h|
         h.call(nil)
       rescue StandardError => e

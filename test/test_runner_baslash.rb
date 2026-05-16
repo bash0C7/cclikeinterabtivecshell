@@ -79,4 +79,24 @@ class TestRunnerBaslash < Test::Unit::TestCase
       3.times { Baslash::Runner.drain_residual_stdin }
     end
   end
+
+  def test_compose_prompt_used_in_prompt_proc_returns_first_line_only_for_multiline
+    builder = Baslash::Builder.new
+    builder.prompt_prefix { |_ctx| "/cwd" }
+    Baslash::Context.init(logger: Logger.new(IO::NULL))
+
+    # Simulate the prompt_proc behavior manually (mirrors what
+    # Runner.run installs onto Reline.prompt_proc before the main loop).
+    main_ctx = Baslash::MainCtx.new(builder.state_refs)
+    proc_fn = ->(lines) {
+      first = Baslash::Runner.compose_prompt(builder, main_ctx)
+      lines.each_with_index.map { |_, i| i.zero? ? first : "" }
+    }
+
+    result = proc_fn.call(["aa", "a", ""])
+    assert_equal 3, result.size
+    assert_includes result[0], "/cwd"
+    assert_equal "", result[1]
+    assert_equal "", result[2]
+  end
 end
