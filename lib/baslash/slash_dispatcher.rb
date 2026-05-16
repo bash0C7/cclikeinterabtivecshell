@@ -2,6 +2,7 @@
 
 require_relative "sync_ctx"
 require_relative "display"
+require_relative "working_indicator"
 
 module Baslash
   module SlashDispatcher
@@ -15,15 +16,27 @@ module Baslash
           Baslash::Display.append("Unknown command: /#{name}", style: :error)
           return
         end
-        entry[:body].call(args.freeze, ctx)
+        WorkingIndicator.start
+        begin
+          entry[:body].call(args.freeze, ctx)
+        ensure
+          WorkingIndicator.stop
+        end
       else
         return unless on_submit
-        on_submit.call([line.freeze].freeze, ctx)
+        WorkingIndicator.start
+        begin
+          on_submit.call([line.freeze].freeze, ctx)
+        ensure
+          WorkingIndicator.stop
+        end
       end
     rescue Interrupt
+      WorkingIndicator.stop
       Baslash::Display.append("^C", style: :dim)
       logger.info("handler interrupted by SIGINT") if logger.respond_to?(:info)
     rescue StandardError => e
+      WorkingIndicator.stop
       Baslash::Display.append("Handler failed: #{e.class}: #{e.message}", style: :error)
       logger.error("handler failed: #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}") if logger.respond_to?(:error)
     end
