@@ -1,50 +1,28 @@
-# frozen_string_literal: true
-
-require_relative "test_helper"
-require "curses"
-require "cclikesh/style"
+require "test/unit"
+require "baslash/style"
 
 class TestStyle < Test::Unit::TestCase
-  def setup
-    Curses.init_screen
-    Curses.start_color
-    Curses.use_default_colors
-    Cclikesh::Style.init!
+  def test_bold_wraps_with_sgr
+    assert_equal "\e[1mhi\e[0m", Baslash::Style.bold("hi")
   end
 
-  def teardown
-    Curses.close_screen
-  rescue
-    nil
+  def test_dim_wraps_with_sgr
+    assert_equal "\e[2mhi\e[0m", Baslash::Style.dim("hi")
   end
 
-  def test_builtin_result_returns_color_pair_and_attr
-    pair, attr = Cclikesh::Style.lookup(:result)
-    refute_nil pair
-    assert_equal 0, attr
+  def test_color_wraps_with_named_color
+    assert_equal "\e[31mhi\e[0m", Baslash::Style.color(:red, "hi")
+    assert_equal "\e[32mhi\e[0m", Baslash::Style.color(:green, "hi")
   end
 
-  def test_builtin_dim_returns_a_dim_attr
-    pair, attr = Cclikesh::Style.lookup(:dim)
-    assert (attr & Curses::A_DIM) != 0
+  def test_apply_named_style
+    assert_equal "\e[1mhi\e[0m", Baslash::Style.apply(:bold, "hi")
+    assert_equal "hi", Baslash::Style.apply(nil, "hi")
+    assert_equal "hi", Baslash::Style.apply(:unknown, "hi")
   end
 
-  def test_define_custom_style
-    Cclikesh::Style.define(:warn, fg: Curses::COLOR_YELLOW, bold: true)
-    pair, attr = Cclikesh::Style.lookup(:warn)
-    refute_nil pair
-    assert (attr & Curses::A_BOLD) != 0
-  end
-
-  def test_unknown_style_returns_nil
-    assert_equal [nil, 0], Cclikesh::Style.lookup(:nope)
-  end
-
-  def test_with_yields_then_attroff
-    win = Curses::Window.new(1, 10, 0, 0)
-    captured = nil
-    Cclikesh::Style.with(win, :result) { captured = :inside }
-    assert_equal :inside, captured
-    win.close
+  def test_strip_removes_sgr_escapes
+    assert_equal "hi", Baslash::Style.strip("\e[1mhi\e[0m")
+    assert_equal "ab", Baslash::Style.strip("\e[31ma\e[0m\e[32mb\e[0m")
   end
 end
