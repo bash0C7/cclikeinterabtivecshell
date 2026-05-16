@@ -115,9 +115,9 @@ module Baslash
       end
 
       def current_cursor
-        require "curses"
-        [Curses.stdscr.cury, Curses.stdscr.curx]
-      rescue
+        # Cursor position is not directly observable without curses; baslash relies
+        # on terminal-native cursor management via Reline. Returning [0, 0] keeps
+        # debug snapshots functional but loses cursor accuracy.
         [0, 0]
       end
     end
