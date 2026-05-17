@@ -35,24 +35,6 @@ module Baslash
       end
     end
 
-    def debug_snapshot
-      @main.send([:debug_snapshot_request, Ractor.current])
-      msg = Ractor.receive
-      msg[1]
-    end
-
-    def debug_tick_count
-      @main.send([:debug_tick_count_request, Ractor.current])
-      msg = Ractor.receive
-      msg[1]
-    end
-
-    def debug_curses_caps
-      @main.send([:debug_curses_caps_request, Ractor.current])
-      msg = Ractor.receive
-      msg[1]
-    end
-
     # ------------------------------------------------------------------
     class DisplayProxy
       def initialize(main)
@@ -90,10 +72,6 @@ module Baslash
         opts = {}
         opts[:style] = style unless style.nil?
         @main.send([:dialog, content.to_s.freeze, opts.freeze])
-      end
-
-      def raw_emit(bytes)
-        @main.send([:emit, bytes.b.freeze])
       end
     end
 
