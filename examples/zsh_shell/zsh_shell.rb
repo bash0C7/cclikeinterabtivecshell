@@ -23,8 +23,6 @@ Baslash.run do |shell|
     h.note     "cd/export intercepted · /exit to quit"
   end
 
-  shell.enable_debug_commands
-
   shell.info(:elapsed, order: 10) do |ctx|
     if ctx.state[:phase] == :working
       started = ctx.state[:command_start_time]

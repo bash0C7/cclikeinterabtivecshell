@@ -2,7 +2,6 @@
 
 require "reline"
 require_relative "default_commands"
-require_relative "debug_commands"
 require_relative "display"
 require_relative "title_bar"
 require_relative "reline_dialogs"
@@ -20,9 +19,6 @@ module Baslash
       install_completion(builder)
       RelineDialogs.install(builder)
       DefaultCommands.register(builder.slash_registry)
-      if builder.debug_commands_enabled? || ENV["BASLASH_DEBUG"]
-        Baslash::DebugCommands.register(builder.slash_registry)
-      end
       DefaultCommands.register_help(builder.slash_registry)
 
       main_ctx = MainCtx.new(builder.state_refs)

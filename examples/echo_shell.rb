@@ -13,8 +13,6 @@ Baslash.run do |shell|
     h.note     "echo-back demo · /q to exit"
   end
 
-  shell.enable_debug_commands
-
   shell.info(:elapsed, order: 10) do |_ctx|
     sec = (Time.now - start_at).to_i
     m, s = sec.divmod(60)
