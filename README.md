@@ -25,7 +25,6 @@ logic, baslash wires the loop.
   message passing.
 - Slash bodies are plain Procs; they capture closures from the surrounding
   scope normally.
-- `baslash-debug` is a separate sub-gem for PTY session recording.
 
 ## Quick start
 
@@ -183,68 +182,50 @@ bundle exec ruby examples/zsh_shell/zsh_shell.rb
 - Application code MUST NOT call `Thread.new`. `test/test_thread_zero.rb`
   enforces this for `lib/` and `examples/`.
 
-## baslash-debug
-
-`baslash-debug` is a separate sub-gem in the same repo. Add it to
-`:development` only:
-
-```ruby
-group :development do
-  gem "baslash-debug",
-      github: "bash0C7/cclikeinterabtivecshell",
-      glob:   "baslash-debug/*.gemspec"
-end
-```
-
-It records a PTY session of your shell to a per-session SQLite DB
-(chiebukuro-mcp compatible schema, optional sqlite-vec semantic search
-via ONNX embedder subprocess) and can replay it back.
-
-Main exe commands:
-
-| Command | Purpose |
-|---|---|
-| `start <script>` | Start a PTY session running the given shell script. |
-| `input <session> "text\r"` | Send input to a running session. |
-| `capture <session>` | Capture the current frame and snapshot. |
-| `stop <session>` | Stop the session. |
-| `frames <session>` | List recorded frames. |
-| `play <spec.rb>` | Replay a PTY interaction spec. |
-
-Example session:
-
-```bash
-bundle exec baslash-debug start examples/echo_shell.rb
-bundle exec baslash-debug input  <session> "hello\r"
-bundle exec baslash-debug capture <session>
-bundle exec baslash-debug stop    <session>
-bundle exec baslash-debug frames  <session>
-```
-
-**Important:** PTY specs in `baslash-debug` must be invoked from the
-**repo root**, not from `baslash-debug/`:
-
-```bash
-# correct
-bundle exec ruby baslash-debug/exe/baslash-debug play baslash-debug/test/specs/my_spec.rb
-
-# wrong — child process LoadErrors and the spec dies in ~0.6s
-cd baslash-debug && bundle exec ruby exe/baslash-debug play test/specs/my_spec.rb
-```
-
-Internally, the recorder uses Ractors for the PTY reader, frame builder,
-and storage writer. The Ractor-unsafe ONNX embedder is isolated in a
-subprocess and reached via DRb.
-
 ## Testing
 
 ```bash
-bundle exec rake test                       # root suite
-cd baslash-debug && bundle exec rake test   # debug sub-gem suite
+bundle exec rake test
 ```
 
 `test/test_thread_zero.rb` audits `lib/` and `examples/` for any
 `Thread.new` usage and fails the suite if it finds one.
+
+## Appendix: Recording & Analysis with ptyblues
+
+baslash apps can be recorded, inspected, and auto-tested end-to-end via
+the external [ptyblues](https://github.com/bash0C7/ptyblues) tool.
+baslash itself has **no runtime / gemspec dependency** on ptyblues; the
+relationship is purely external-process. Any change, removal, or
+non-installation of ptyblues has zero effect on baslash's own behaviour
+or `rake test`.
+
+For developer ergonomics, the root `Gemfile` wires the ptyblues
+monorepo's sub-gems into the `:development, :test` groups via sibling
+paths (`../ptyblues`, `../ptyblues/record`, `../ptyblues/viewer`,
+`../ptyblues/inspect`, `../ptyblues/client-druby`,
+`../ptyblues/client-cli`). After `bundle install`, `bundle exec ttyblues …`
+works without any further `gem install` step.
+
+### Quick start
+
+```bash
+# Record a session of any baslash app (echo_shell shown).
+bash examples/ptyblues_recording/01_record_session.sh
+
+# Inspect what was recorded: list / info / frames / semantic / export.
+bash examples/ptyblues_recording/02_inspect_session.sh
+
+# Standalone E2E (no hub required): SpecDSL spawns the PTY itself.
+bundle exec ruby examples/ptyblues_recording/03_spec_e2e.rb
+```
+
+See `examples/ptyblues_recording/README.md` for what each script does
+and how to extend the pattern for your own baslash app.
+
+### External ptyblues repo
+
+External tool: <https://github.com/bash0C7/ptyblues>
 
 ## License
 
