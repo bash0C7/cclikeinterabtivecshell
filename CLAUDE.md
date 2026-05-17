@@ -47,8 +47,7 @@ pass/fail と件数だけ返してもらうのが好ましい（make ログ / do
 ## Architecture invariants（自明でない部分）
 
 - **同期 dispatch がデフォルト**。slash / on_submit ハンドラは main thread で走る。
-  HandlerRactor は将来の "explicit background" モード用にディスクには残っているが、
-  `lib/baslash.rb` から require されていない。
+  Ractor は WorkingIndicator（OSC 0 スピナー）だけが使う。
 - **`SyncCtx` が per-invocation の ctx**（`lib/baslash/sync_ctx.rb`）。
   Display / Context / state_refs に直接話す。CtxProxy は CtxProxy で、
   ハンドラ側からは見えない。
@@ -136,10 +135,6 @@ ptyblues 側の変更・撤去・非インストールは baslash の `rake test
   誰かが `SlashRegistry.register` に `Ractor.shareable_proc` を再追加した可能性。戻すこと。
 - **`prompt_prefix` の block**: `MainCtx`（SyncCtx ではない）が渡る。
   ハンドラ呼び出しの合間に評価される。
-- **HandlerRactor 関連テスト**: "deferred until explicit-background mode" として omit 済み。
-  failing test として直そうとしないこと。
-- **`examples/irb_shell`**: 既存の `Ractor.new: allocator undefined for Binding` バグあり。
-  smoke test は omit 済み。
 
 ## Adding a new slash command
 
@@ -154,9 +149,9 @@ ptyblues 側の変更・撤去・非インストールは baslash の `rake test
 4. 長い処理は同期で書いて OK。Ctrl-C で abort できる
 5. 呼び出し間で mutable state を持ちたければ:
    ```ruby
-   shell.shareable_ref(:holder) { Holder.new }
-   # 後で
-   ctx.shareable(:holder).call(:method, arg)
+   shell.state(:holder) { Holder.new }
+   # 後で（handler 内）
+   ctx.state[:holder].method(arg)
    ```
 
 ## Adding a new app on top of baslash
