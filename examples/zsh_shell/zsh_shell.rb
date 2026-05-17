@@ -12,8 +12,8 @@ PROGRESS_WORDS = %w[
 ].freeze
 
 Baslash.run do |shell|
-  shell.shareable_ref(:cwd) { CwdHolder.new }
-  shell.shareable_ref(:env) { EnvHolder.new }
+  shell.state(:cwd) { CwdHolder.new }
+  shell.state(:env) { EnvHolder.new }
 
   shell.header do |h|
     h.logo     "✻"
@@ -38,7 +38,7 @@ Baslash.run do |shell|
   end
 
   shell.status_row(:cwd) do |row, ctx|
-    cwd = ctx.shareable(:cwd).call(:pwd)
+    cwd = ctx.state[:cwd].pwd
     home = ENV["HOME"] || ""
     home_prefix = home.empty? || home.end_with?("/") ? home : "#{home}/"
     display =
@@ -52,7 +52,7 @@ Baslash.run do |shell|
   end
 
   shell.status_row(:env) do |row, ctx|
-    size = ctx.shareable(:env).call(:size)
+    size = ctx.state[:env].size
     row.icon "🌱"
     row.text "#{size} vars"
   end
@@ -78,7 +78,7 @@ Baslash.run do |shell|
   # Show full cwd path to the left of the "> " prompt arrow on every
   # iteration so users always see where they are without running /pwd.
   shell.prompt_prefix do |ctx|
-    ctx.shareable(:cwd).call(:pwd)
+    ctx.state[:cwd].pwd
   end
 
   shell.btw do |question, _ctx|
@@ -86,11 +86,11 @@ Baslash.run do |shell|
   end
 
   shell.slash(:pwd, description: "show cwd") do |_args, ctx|
-    ctx.display.append(ctx.shareable(:cwd).call(:pwd), style: :result)
+    ctx.display.append(ctx.state[:cwd].pwd, style: :result)
   end
 
   shell.slash(:env, description: "list environment") do |_args, ctx|
-    snapshot = ctx.shareable(:env).call(:snapshot)
+    snapshot = ctx.state[:env].snapshot
     snapshot.sort.each do |k, v|
       value = v.length > 80 ? "#{v[0, 77]}..." : v
       ctx.display.append("#{k}=#{value}", style: :dim)
@@ -98,8 +98,8 @@ Baslash.run do |shell|
   end
 
   shell.slash(:reset, description: "reset cwd and env") do |_args, ctx|
-    ctx.shareable(:cwd).call(:reset)
-    ctx.shareable(:env).call(:reset)
+    ctx.state[:cwd].reset
+    ctx.state[:env].reset
     ctx.display.append("session reset", style: :result)
   end
 
@@ -114,23 +114,23 @@ Baslash.run do |shell|
       ctx.display.append(parsed[:message], style: :error)
     when :cd
       begin
-        ctx.shareable(:cwd).call(:cd, parsed[:path])
-        ctx.display.append("cwd: #{ctx.shareable(:cwd).call(:pwd)}", style: :dim)
+        ctx.state[:cwd].cd(parsed[:path])
+        ctx.display.append("cwd: #{ctx.state[:cwd].pwd}", style: :dim)
       rescue Errno::ENOENT => e
         ctx.display.append("cd: #{e.message}", style: :error)
       end
     when :export
-      ctx.shareable(:env).call(:set, parsed[:name], parsed[:value])
+      ctx.state[:env].set(parsed[:name], parsed[:value])
       ctx.display.append("#{parsed[:name]}=#{parsed[:value]}", style: :dim)
     when :unset
-      ctx.shareable(:env).call(:unset, parsed[:name])
+      ctx.state[:env].unset(parsed[:name])
       ctx.display.append("unset #{parsed[:name]}", style: :dim)
     when :run
       ctx.state[:phase] = :working
       ctx.state[:command_start_time] = Time.now
       slot = ctx.display.open_live(style: :thinking)
-      cwd = ctx.shareable(:cwd).call(:pwd)
-      env = ctx.shareable(:env).call(:snapshot)
+      cwd = ctx.state[:cwd].pwd
+      env = ctx.state[:env].snapshot
       begin
         status, elapsed = ZshRunner.run(
           parsed[:line],

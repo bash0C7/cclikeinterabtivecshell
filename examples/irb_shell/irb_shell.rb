@@ -9,8 +9,8 @@ start_at = Time.now.freeze
 SESSION_BUDGET_BYTES = 8 * 1024
 
 Baslash.run do |shell|
-  shell.shareable_ref(:evaluator) { IrbEvaluator.new }
-  shell.shareable_ref(:counter)   { ByteCounter.new }
+  shell.state(:evaluator) { IrbEvaluator.new }
+  shell.state(:counter)   { ByteCounter.new }
 
   shell.header do |h|
     h.logo     "✻"
@@ -23,16 +23,16 @@ Baslash.run do |shell|
   shell.on_submit do |args, ctx|
     line = args.first
     ctx.display.append("irb(main)> #{line}")
-    ctx.shareable(:counter).call(:add, line.bytesize)
+    ctx.state[:counter].add(line.bytesize)
 
     ctx.state[:phase] = :working
     slot = ctx.display.open_live(style: :thinking)
     slot.update("evaluating...")
     begin
-      result = ctx.shareable(:evaluator).call(:evaluate, line)
+      result = ctx.state[:evaluator].evaluate(line)
       slot.commit
       ctx.display.append("=> #{result.inspect}", style: :result)
-      ctx.shareable(:counter).call(:add, result.inspect.bytesize)
+      ctx.state[:counter].add(result.inspect.bytesize)
     rescue ScriptError, StandardError => e
       slot.discard
       ctx.display.append("#{e.class}: #{e.message}", style: :error)
@@ -56,8 +56,8 @@ Baslash.run do |shell|
   end
 
   shell.slash(:reset, description: "reset irb session") do |_args, ctx|
-    ctx.shareable(:evaluator).call(:reset)
-    ctx.shareable(:counter).call(:reset)
+    ctx.state[:evaluator].reset
+    ctx.state[:counter].reset
     ctx.display.append("session reset", style: :result)
   end
 

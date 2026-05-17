@@ -30,16 +30,6 @@ class TestExamplesSmokeBaslash < Test::Unit::TestCase
   end
 
   def test_irb_shell_boots_and_quits
-    # NEEDS_CONTEXT: irb_shell currently crashes at boot because
-    # IrbEvaluator holds a Binding (@binding = fresh_binding) and
-    # Ractor.new(obj) raises TypeError: allocator undefined for Binding
-    # when shareable_ref tries to spawn the actor. This is independent
-    # of the prompt: kwarg bug fixed in this commit (which would have
-    # been the next crash, on first input). Leave the smoke test in
-    # place so the issue stays visible; mark pending until the Binding
-    # / shareable-ref boundary is sorted.
-    omit "irb_shell crashes at boot: Binding not shareable across Ractors (separate bug, needs design)"
-
     cmd = "bundle exec ruby examples/irb_shell/irb_shell.rb"
     Open3.popen2e(cmd, chdir: REPO_ROOT) do |stdin, out, wait_thr|
       stdin.puts "1 + 1"
