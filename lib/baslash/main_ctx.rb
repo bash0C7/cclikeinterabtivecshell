@@ -3,7 +3,7 @@
 module Baslash
   # Read-only context passed to status_row / info blocks during footer redraw.
   # These blocks run on the Main thread (Reline loop), not inside a handler Ractor,
-  # so they get a subset of CtxProxy's surface: shareable_ref lookup and state read.
+  # so they get a subset of SyncCtx's surface: shareable_ref lookup and state read.
   class MainCtx
     def initialize(state_refs)
       @state_refs = state_refs
