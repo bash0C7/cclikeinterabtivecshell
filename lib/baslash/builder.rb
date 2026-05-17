@@ -7,7 +7,7 @@ require_relative "style"
 
 module Baslash
   class Builder
-    attr_reader :slash_registry, :state_refs,
+    attr_reader :slash_registry, :state_refs, :state_initializers,
                 :on_submit_handler, :on_tab_handler,
                 :on_start_handlers, :on_quit_handlers,
                 :info_blocks, :status_row_blocks,
@@ -18,6 +18,7 @@ module Baslash
     def initialize
       @slash_registry          = SlashRegistry.new
       @state_refs              = {}
+      @state_initializers      = {}
       @on_submit_handler       = nil
       @on_tab_handler          = nil
       @on_start_handlers       = []
@@ -39,6 +40,13 @@ module Baslash
       ref = ShareableRef.spawn(name, &block)
       @state_refs[name.to_sym] = ref
       ref
+    end
+
+    # --- State initializer ---
+
+    def state(name, &block)
+      @state_initializers[name.to_sym] = block
+      self
     end
 
     # --- Header ---

@@ -260,4 +260,25 @@ class TestBuilderBaslash < Test::Unit::TestCase
   ensure
     ref&.stop
   end
+
+  # --- state initializer (new) ---
+
+  def test_state_registers_initializer_block
+    b = Baslash::Builder.new
+    b.state(:counter) { 42 }
+    assert_kind_of Proc, b.state_initializers[:counter]
+    assert_equal 42, b.state_initializers[:counter].call
+  end
+
+  def test_state_normalizes_string_name_to_symbol
+    b = Baslash::Builder.new
+    b.state("counter") { 0 }
+    assert b.state_initializers.key?(:counter)
+  end
+
+  def test_state_returns_self_for_chaining
+    b = Baslash::Builder.new
+    result = b.state(:x) { 1 }
+    assert_same b, result
+  end
 end
