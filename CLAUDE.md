@@ -7,7 +7,8 @@ README はユーザ向け、こちらは開発者・AI 向け。
 
 **baslash** は macOS 向けの slash 駆動 Ruby シェルフレームワーク。Reline ベースの REPL に
 slash コマンド (`/foo`) DSL・OSC 0 タイトルバー・同期ハンドラ dispatch を載せたもの。
-本体 `baslash` gem と、PTY 録画用の `baslash-debug` サブ gem の 2 つで構成される。
+本体 `baslash` gem 単独で完結する。PTY 録画や session 分析は外部ツール
+[ptyblues](https://github.com/bash0C7/ptyblues) で行う（runtime/gemspec 依存なし）。
 
 ## Directory layout
 
@@ -19,9 +20,9 @@ slash コマンド (`/foo`) DSL・OSC 0 タイトルバー・同期ハンドラ 
 | `examples/zsh_shell/`      | 最も網羅的なサンプル。新しい DSL 利用例を見るならここ            |
 | `examples/irb_shell/`      | irb 風サンプル（Ractor 経由の評価器）                            |
 | `test/`                    | 本体テストスイート（test-unit）                                  |
-| `baslash-debug/`           | PTY 録画用サブ gem（独自 Gemfile / Rakefile / test/）            |
+| `examples/ptyblues_recording/` | 外部ツール ptyblues を使った録画 + 分析 + E2E サンプル群        |
 | `docs/superpowers/`        | **gitignored** な設計ドキュメント（specs / plans / handoff）      |
-| `Rakefile`                 | `rake test` + `rake debug:*` 録画タスク                          |
+| `Rakefile`                 | `rake test` だけ                                                  |
 
 `docs/superpowers/` は `.gitignore` に入っているので、コミットしたければ `git add -f` 必須。
 
@@ -32,9 +33,6 @@ bundle install
 
 # 本体テスト
 bundle exec rake test
-
-# baslash-debug 側テスト（別 gem 扱い）
-cd baslash-debug && bundle exec rake test && cd -
 ```
 
 `test/test_thread_zero.rb` が `lib/` と `examples/` の `Thread.new` / `Thread.fork` /
@@ -61,9 +59,6 @@ pass/fail と件数だけ返してもらうのが好ましい（make ログ / do
 - **タイトルバーは OSC 0 経由**。`Baslash::TitleBar.tick(phase:, ctx_text:)` で更新。
   同期ハンドラ実行中は `Baslash::WorkingIndicator`（Ractor）が ~120ms 間隔で
   スピナーフレームを流し続ける。
-- **PTY spec はリポジトリルートから実行**:
-  `bundle exec ruby baslash-debug/exe/baslash-debug play baslash-debug/test/specs/X.rb`
-  `baslash-debug/` 直下から走らせると子プロセスが LoadError で 0.6 秒で死ぬ。
 
 ## Coding conventions
 
@@ -117,17 +112,23 @@ semantic 一覧:
 - 巨大スイートは subagent 委譲（pass/fail + count のみ取得）
 - single test debug は Bash 直叩き OK
 
-## baslash-debug
+## ptyblues integration (external tool)
 
-- 独自 `.gemspec` / `Rakefile` / `test/` を持つサブ gem（Gemfile はルートのものを共有、
-  ルートの Gemfile 内で `gem "baslash-debug", path: "baslash-debug"` で参照）
-- PTY 録画 → SQLite フレーム永続化
-- レコーダパイプラインは 3 Ractor: `PtyReader` / `FrameBuilder` / `StorageWriter`
-- ONNX 埋め込みは Ractor unsafe な gem に依存するためサブプロセス + DRb で隔離
-  （`exe/baslash-debug-embedder`）
-- DRb の `DRbObject` は `Kernel` メソッド（`display` / `send` / `id` 等）を継承して
-  remote 呼び出しを silent fail させる罠がある。該当メソッドを undef する規約あり
-- spec DSL は `baslash-debug/lib/baslash/debug/spec_dsl.rb` 参照
+baslash は外部ツール [ptyblues](https://github.com/bash0C7/ptyblues) に
+**runtime / gemspec 依存しない**。連携は外部プロセス関係のみ
+(`bundle exec ttyblues ...`)。手順とサンプルは:
+
+- 動くサンプル: `examples/ptyblues_recording/`（録画 / 分析 / 自動 E2E 3 種）
+- README Appendix: `README.md` の末尾「Appendix: Recording & Analysis with ptyblues」
+
+開発便利性のため root `Gemfile` の `group :development, :test` に
+ptyblues monorepo の sub-gem 連鎖を sibling path (`../ptyblues`,
+`../ptyblues/record`, `../ptyblues/viewer`, `../ptyblues/inspect`,
+`../ptyblues/client-druby`, `../ptyblues/client-cli`) で resolve してある。
+`bundle install` 後すぐ `bundle exec ttyblues …` が叩ける。
+
+ptyblues 側の変更・撤去・非インストールは baslash の `rake test` に
+**何の影響も与えない**（依存ゼロのため）。
 
 ## Common pitfalls
 
@@ -139,8 +140,6 @@ semantic 一覧:
   failing test として直そうとしないこと。
 - **`examples/irb_shell`**: 既存の `Ractor.new: allocator undefined for Binding` バグあり。
   smoke test は omit 済み。
-- **`baslash-debug/test/specs/cmux_env_*.rb`**: 旧 cclikesh の Chrome diag タグを参照する
-  legacy spec。session-exit 検査は動くが本文 expect は no-op になる（NOTE コメント参照）。
 
 ## Adding a new slash command
 
