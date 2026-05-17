@@ -16,9 +16,6 @@ module Baslash
   module Runner
     def self.run(builder)
       Context.init(logger: builder.logger)
-      if defined?(Baslash::DebugEndpoint)
-        Baslash::DebugEndpoint.start_if_enabled(builder)
-      end
 
       install_completion(builder)
       RelineDialogs.install(builder)

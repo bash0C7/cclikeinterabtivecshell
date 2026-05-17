@@ -20,11 +20,6 @@ require_relative "baslash/default_commands"
 require_relative "baslash/debug_commands"
 require_relative "baslash/reline_dialogs"
 require_relative "baslash/builder"
-begin
-  require_relative "baslash/debug_endpoint"
-rescue LoadError
-  # opt-in
-end
 require_relative "baslash/runner"
 
 module Baslash
