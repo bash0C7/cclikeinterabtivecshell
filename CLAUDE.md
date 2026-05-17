@@ -67,7 +67,7 @@ pass/fail と件数だけ返してもらうのが好ましい（make ログ / do
 - `rescue nil` / 空 `rescue` / `rescue ... => _` パターン禁止
 - production コード: `re-raise` / 構造化ログ / Result 返却 のいずれか
 - テスト: `omit "reason: #{e.message}"` でスキップ理由を可視化
-- cclikesh から ported された既存パターンは黙認するが、**新規追加は不可**
+- 既存の grandfathered パターンは黙認するが、**新規追加は不可**
 
 ### File pragma
 
