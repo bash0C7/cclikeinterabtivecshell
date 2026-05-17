@@ -50,7 +50,7 @@ module Baslash
       end
 
       def periodic_tick_proc(builder)
-        main_ctx = Baslash::MainCtx.new(builder.state_refs)
+        main_ctx = Baslash::MainCtx.new
         proc do
           # If Reline is in completion-journey mode (Tab pressed and a
           # journey is active), it owns the terminal — skip the tick so

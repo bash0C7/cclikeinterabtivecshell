@@ -6,14 +6,13 @@ require_relative "title_bar"
 
 module Baslash
   # Main-thread synchronous execution context for slash command and
-  # on_submit handlers. Talks to Display, Context, and ShareableRef
-  # directly without any Ractor message passing.
+  # on_submit handlers. Talks to Display and Context directly without
+  # any Ractor message passing.
   class SyncCtx
-    def initialize(state_refs:, logger:)
-      @state_refs = state_refs
-      @logger     = logger
-      @display    = DisplayProxy.new
-      @state      = StateProxy.new
+    def initialize(logger:)
+      @logger  = logger
+      @display = DisplayProxy.new
+      @state   = StateProxy.new
     end
 
     attr_reader :logger
@@ -28,12 +27,6 @@ module Baslash
 
     def quit
       Baslash::Context.quit
-    end
-
-    def shareable(name)
-      ref = @state_refs[name.to_sym]
-      raise ArgumentError, "no shareable_ref named #{name.inspect}" if ref.nil?
-      ShareableProxy.new(ref)
     end
 
     class DisplayProxy
@@ -96,14 +89,5 @@ module Baslash
       end
     end
 
-    class ShareableProxy
-      def initialize(ref)
-        @ref = ref
-      end
-
-      def call(method, *args)
-        @ref.call(method, *args)
-      end
-    end
   end
 end

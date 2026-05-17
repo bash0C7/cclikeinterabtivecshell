@@ -201,14 +201,14 @@ class TestBuilderBaslash < Test::Unit::TestCase
     require "baslash/main_ctx"
     b = Baslash::Builder.new
     b.prompt_prefix { |_ctx| "static-result" }
-    main_ctx = Baslash::MainCtx.new(b.state_refs)
+    main_ctx = Baslash::MainCtx.new
     assert_equal "static-result", b.evaluate_prompt_prefix(main_ctx)
   end
 
   def test_evaluate_prompt_prefix_returns_nil_without_block
     require "baslash/main_ctx"
     b = Baslash::Builder.new
-    main_ctx = Baslash::MainCtx.new(b.state_refs)
+    main_ctx = Baslash::MainCtx.new
     assert_nil b.evaluate_prompt_prefix(main_ctx)
   end
 
@@ -222,43 +222,10 @@ class TestBuilderBaslash < Test::Unit::TestCase
     captured_logger = Logger.new(io)
     Baslash::Context.init(logger: captured_logger)
     b.prompt_prefix { |_| raise "boom" }
-    main_ctx = Baslash::MainCtx.new(b.state_refs)
+    main_ctx = Baslash::MainCtx.new
     assert_nil b.evaluate_prompt_prefix(main_ctx)
     assert_includes io.string, "prompt_prefix block raised"
     assert_includes io.string, "boom"
-  end
-
-  def test_evaluate_prompt_prefix_receives_main_ctx_with_shareable_access
-    require "baslash/main_ctx"
-    require "baslash/shareable_ref"
-    b = Baslash::Builder.new
-    ref = b.shareable_ref(:probe) { "hello-world" }
-    b.prompt_prefix { |ctx| ctx.shareable(:probe).call(:itself) }
-    main_ctx = Baslash::MainCtx.new(b.state_refs)
-    assert_equal "hello-world", b.evaluate_prompt_prefix(main_ctx)
-  ensure
-    ref&.stop
-  end
-
-  # --- shareable_ref (NEW) ---
-
-  def test_shareable_ref_creates_named_ref
-    require "baslash/shareable_ref"
-    builder = Baslash::Builder.new
-    ref = builder.shareable_ref(:counter) { Hash.new(0) }
-    assert_equal :counter, ref.name
-    ref.call(:[]=, :n, 5)
-    assert_equal 5, ref.call(:[], :n)
-  ensure
-    ref&.stop
-  end
-
-  def test_shareable_ref_stored_in_state_refs
-    builder = Baslash::Builder.new
-    ref = builder.shareable_ref(:store) { [] }
-    assert_same ref, builder.state_refs[:store]
-  ensure
-    ref&.stop
   end
 
   # --- state initializer (new) ---

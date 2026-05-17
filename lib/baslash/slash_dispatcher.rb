@@ -6,8 +6,8 @@ require_relative "working_indicator"
 
 module Baslash
   module SlashDispatcher
-    def self.handle(line, registry, on_submit:, state_refs:, logger:)
-      ctx = SyncCtx.new(state_refs: state_refs, logger: logger)
+    def self.handle(line, registry, on_submit:, logger:)
+      ctx = SyncCtx.new(logger: logger)
       if line.start_with?("/")
         name, *args = line[1..].split
         return if name.nil? || name.empty?

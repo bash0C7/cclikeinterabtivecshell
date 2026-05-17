@@ -15,7 +15,7 @@ class TestRunnerBaslash < Test::Unit::TestCase
   def test_compose_prompt_without_prefix_returns_bold_cyan_default
     builder = Baslash::Builder.new
     Baslash::Context.init(logger: Logger.new(IO::NULL))
-    main_ctx = Baslash::MainCtx.new(builder.state_refs)
+    main_ctx = Baslash::MainCtx.new
     assert_equal "\e[1;36m> \e[0m", Baslash::Runner.compose_prompt(builder, main_ctx)
   end
 
@@ -23,7 +23,7 @@ class TestRunnerBaslash < Test::Unit::TestCase
     builder = Baslash::Builder.new
     builder.prompt_prefix { |_ctx| "/some/path" }
     Baslash::Context.init(logger: Logger.new(IO::NULL))
-    main_ctx = Baslash::MainCtx.new(builder.state_refs)
+    main_ctx = Baslash::MainCtx.new
     result = Baslash::Runner.compose_prompt(builder, main_ctx)
     assert_includes result, "/some/path"
     assert_includes result, "> "
@@ -35,7 +35,7 @@ class TestRunnerBaslash < Test::Unit::TestCase
     builder = Baslash::Builder.new
     builder.prompt_prefix { |_ctx| "" }
     Baslash::Context.init(logger: Logger.new(IO::NULL))
-    main_ctx = Baslash::MainCtx.new(builder.state_refs)
+    main_ctx = Baslash::MainCtx.new
     assert_equal "\e[1;36m> \e[0m", Baslash::Runner.compose_prompt(builder, main_ctx)
   end
 
@@ -87,7 +87,7 @@ class TestRunnerBaslash < Test::Unit::TestCase
 
     # Simulate the prompt_proc behavior manually (mirrors what
     # Runner.run installs onto Reline.prompt_proc before the main loop).
-    main_ctx = Baslash::MainCtx.new(builder.state_refs)
+    main_ctx = Baslash::MainCtx.new
     proc_fn = ->(lines) {
       first = Baslash::Runner.compose_prompt(builder, main_ctx)
       lines.each_with_index.map { |_, i| i.zero? ? first : "" }

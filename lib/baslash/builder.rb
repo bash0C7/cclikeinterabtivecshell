@@ -2,12 +2,11 @@
 
 require "logger"
 require_relative "slash_registry"
-require_relative "shareable_ref"
 require_relative "style"
 
 module Baslash
   class Builder
-    attr_reader :slash_registry, :state_refs, :state_initializers,
+    attr_reader :slash_registry, :state_initializers,
                 :on_submit_handler, :on_tab_handler,
                 :on_start_handlers, :on_quit_handlers,
                 :info_blocks, :status_row_blocks,
@@ -17,7 +16,6 @@ module Baslash
 
     def initialize
       @slash_registry          = SlashRegistry.new
-      @state_refs              = {}
       @state_initializers      = {}
       @on_submit_handler       = nil
       @on_tab_handler          = nil
@@ -32,14 +30,6 @@ module Baslash
       @shortcuts_hint_text     = ""
       @header_config           = {}
       @logger                  = Logger.new($stderr).tap { |l| l.level = Logger::INFO; l.progname = "baslash" }
-    end
-
-    # --- ShareableRef ---
-
-    def shareable_ref(name, &block)
-      ref = ShareableRef.spawn(name, &block)
-      @state_refs[name.to_sym] = ref
-      ref
     end
 
     # --- State initializer ---
@@ -137,7 +127,7 @@ module Baslash
     # Register a block that renders dynamic text shown to the left of the
     # "> " prompt arrow on every iteration of the main loop. The block
     # receives a MainCtx (same surface as status_row/info blocks) so it can
-    # read shareable_ref state. Exceptions are logged (no silent rescue)
+    # read state via ctx.state. Exceptions are logged (no silent rescue)
     # and the prefix is omitted for that iteration.
     def prompt_prefix(&block)
       @prompt_prefix_block = block

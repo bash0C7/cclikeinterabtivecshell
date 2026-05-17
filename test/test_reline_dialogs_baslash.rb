@@ -19,7 +19,7 @@ class TestRelineDialogsBaslash < Test::Unit::TestCase
     @builder = Baslash::Builder.new
     # Builder DSL: info(name, &block) registers an info_bar entry; block returns text.
     @builder.info(:ctx_label) { |_ctx| "ctx" }
-    @main_ctx = Baslash::MainCtx.new(@builder.state_refs)
+    @main_ctx = Baslash::MainCtx.new
   end
 
   def teardown

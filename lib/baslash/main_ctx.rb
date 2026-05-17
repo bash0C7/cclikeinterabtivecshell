@@ -1,17 +1,12 @@
 # frozen_string_literal: true
 
 module Baslash
-  # Read-only context passed to status_row / info blocks during footer redraw.
-  # These blocks run on the Main thread (Reline loop), not inside a handler Ractor,
-  # so they get a subset of SyncCtx's surface: shareable_ref lookup and state read.
+  # Read-only context passed to status_row / info / prompt_prefix blocks
+  # during footer redraw. These blocks run on the main thread (Reline
+  # loop), so they get a subset of SyncCtx's surface: state read only.
   class MainCtx
-    def initialize(state_refs)
-      @state_refs = state_refs
-      @state      = ReadOnlyState.new
-    end
-
-    def shareable(name)
-      @state_refs[name.to_sym] or raise "no shareable_ref named :#{name}"
+    def initialize
+      @state = ReadOnlyState.new
     end
 
     attr_reader :state

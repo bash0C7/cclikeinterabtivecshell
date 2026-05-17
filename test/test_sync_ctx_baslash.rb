@@ -14,7 +14,7 @@ class TestSyncCtxBaslash < Test::Unit::TestCase
     $stdout = StringIO.new
     Baslash::Display.reset_for_test
     Baslash::Context.init(logger: Logger.new(IO::NULL))
-    @ctx = Baslash::SyncCtx.new(state_refs: {}, logger: Baslash::Context.logger)
+    @ctx = Baslash::SyncCtx.new(logger: Baslash::Context.logger)
   end
 
   def teardown
@@ -58,21 +58,4 @@ class TestSyncCtxBaslash < Test::Unit::TestCase
     assert Baslash::Context.quit?
   end
 
-  def test_shareable_returns_proxy_for_registered_ref
-    ref = MiniRef.new
-    ctx = Baslash::SyncCtx.new(state_refs: { mini: ref }, logger: Baslash::Context.logger)
-    proxy = ctx.shareable(:mini)
-    assert_equal :ok, proxy.call(:ping)
-  end
-
-  def test_shareable_raises_for_unknown_name
-    assert_raise(ArgumentError) { @ctx.shareable(:nope) }
-  end
-
-  class MiniRef
-    def call(method, *)
-      :ok if method == :ping
-    end
-    def stop; end
-  end
 end

@@ -22,7 +22,7 @@ module Baslash
       DefaultCommands.register(builder.slash_registry)
       DefaultCommands.register_help(builder.slash_registry)
 
-      main_ctx = MainCtx.new(builder.state_refs)
+      main_ctx = MainCtx.new
       builder.header_lines.each { |line| Display.append(line) }
       hint = builder.shortcuts_hint_text.to_s
       Display.append(hint) unless hint.empty?
@@ -61,7 +61,6 @@ module Baslash
             line,
             builder.slash_registry,
             on_submit: builder.on_submit_handler,
-            state_refs: builder.state_refs,
             logger: builder.logger
           )
           throw :quit if Context.quit?
@@ -76,12 +75,6 @@ module Baslash
     ensure
       drain_residual_stdin
       TitleBar.restore
-      builder.state_refs.each_value do |ref|
-        ref.stop
-      rescue StandardError => e
-        logger = Baslash::Context.instance_variable_get(:@logger)
-        logger.error("state_ref.stop failed: #{e.class}: #{e.message}") if logger
-      end
     end
 
     # Belt-and-suspenders: consume any pending terminal-response bytes
@@ -113,7 +106,7 @@ module Baslash
 
     # Compose the actual prompt string each iteration, consulting the
     # builder's prompt_prefix block (if any). The block runs on the main
-    # thread with a MainCtx so it can read shareable_ref state.
+    # thread with a MainCtx so it can read ctx.state values.
     def self.compose_prompt(builder, main_ctx)
       prefix = builder.evaluate_prompt_prefix(main_ctx)
       if prefix && !prefix.to_s.empty?
