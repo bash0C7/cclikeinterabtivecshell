@@ -54,7 +54,7 @@ baslash is not on RubyGems yet. Pull it directly from GitHub.
 # Gemfile
 source "https://rubygems.org"
 
-gem "baslash", github: "bash0C7/cclikeinterabtivecshell"
+gem "baslash", github: "bash0C7/baslash"
 ```
 
 ```bash
