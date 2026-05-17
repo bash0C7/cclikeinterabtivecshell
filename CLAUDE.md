@@ -116,7 +116,7 @@ semantic 一覧:
 
 baslash は外部ツール [ptyblues](https://github.com/bash0C7/ptyblues) に
 **runtime / gemspec 依存しない**。連携は外部プロセス関係のみ
-(`bundle exec ttyblues ...`)。手順とサンプルは:
+(`bundle exec ptyblues ...`)。手順とサンプルは:
 
 - 動くサンプル: `examples/ptyblues_recording/`（録画 / 分析 / 自動 E2E 3 種）
 - README Appendix: `README.md` の末尾「Appendix: Recording & Analysis with ptyblues」
@@ -125,7 +125,7 @@ baslash は外部ツール [ptyblues](https://github.com/bash0C7/ptyblues) に
 ptyblues monorepo の sub-gem 連鎖を sibling path (`../ptyblues`,
 `../ptyblues/record`, `../ptyblues/viewer`, `../ptyblues/inspect`,
 `../ptyblues/client-druby`, `../ptyblues/client-cli`) で resolve してある。
-`bundle install` 後すぐ `bundle exec ttyblues …` が叩ける。
+`bundle install` 後すぐ `bundle exec ptyblues …` が叩ける。
 
 ptyblues 側の変更・撤去・非インストールは baslash の `rake test` に
 **何の影響も与えない**（依存ゼロのため）。

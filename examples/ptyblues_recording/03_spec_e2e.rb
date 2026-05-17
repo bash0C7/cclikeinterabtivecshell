@@ -4,7 +4,7 @@
 # Run from the baslash repo root:
 #   bundle exec ruby examples/ptyblues_recording/03_spec_e2e.rb
 #
-# This script does NOT need the ttyblues hub. SpecDSL.evaluate spawns the PTY
+# This script does NOT need the ptyblues hub. SpecDSL.evaluate spawns the PTY
 # directly, records into a tmp sqlite DB, and evaluates the expect blocks.
 
 require "ptyblues/inspect"

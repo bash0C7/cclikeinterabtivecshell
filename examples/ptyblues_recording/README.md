@@ -9,7 +9,7 @@ For ergonomics, the root `Gemfile` wires the full ptyblues monorepo
 sub-gem chain into the `:development, :test` groups via sibling paths
 (`../ptyblues`, `../ptyblues/record`, `../ptyblues/viewer`,
 `../ptyblues/inspect`, `../ptyblues/client-druby`,
-`../ptyblues/client-cli`), so `bundle exec ttyblues …` works after a
+`../ptyblues/client-cli`), so `bundle exec ptyblues …` works after a
 single `bundle install`.
 
 ## Prereqs
@@ -23,16 +23,16 @@ single `bundle install`.
 
 | File | Purpose |
 |---|---|
-| `01_record_session.sh` | Record `echo_shell.rb` via the ttyblues hub (`serve` → `start` → `input` → `wait` → `stop`) |
+| `01_record_session.sh` | Record `echo_shell.rb` via the ptyblues hub (`serve` → `start` → `input` → `wait` → `stop`) |
 | `02_inspect_session.sh` | Inspect the recorded session (`list` → `info` → `frames` → `semantic` → `export`) |
-| `03_spec_e2e.rb` | Standalone automated E2E using `Ptyblues::Inspect::SpecDSL` — does **not** need the ttyblues hub |
+| `03_spec_e2e.rb` | Standalone automated E2E using `Ptyblues::Inspect::SpecDSL` — does **not** need the ptyblues hub |
 
 ## Run
 
 From the baslash repo root:
 
 ```bash
-# Manual record + inspect (uses the ttyblues DRb hub)
+# Manual record + inspect (uses the ptyblues DRb hub)
 bash examples/ptyblues_recording/01_record_session.sh
 bash examples/ptyblues_recording/02_inspect_session.sh
 
@@ -43,7 +43,7 @@ bundle exec ruby examples/ptyblues_recording/03_spec_e2e.rb
 ## Cleanup
 
 ```bash
-bundle exec ttyblues unserve              # stop the hub
+bundle exec ptyblues unserve              # stop the hub
 rm -rf tmp/ptyblues/                      # drop recorded sqlite DBs
 ```
 

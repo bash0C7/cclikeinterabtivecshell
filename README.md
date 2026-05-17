@@ -204,7 +204,7 @@ For developer ergonomics, the root `Gemfile` wires the ptyblues
 monorepo's sub-gems into the `:development, :test` groups via sibling
 paths (`../ptyblues`, `../ptyblues/record`, `../ptyblues/viewer`,
 `../ptyblues/inspect`, `../ptyblues/client-druby`,
-`../ptyblues/client-cli`). After `bundle install`, `bundle exec ttyblues …`
+`../ptyblues/client-cli`). After `bundle install`, `bundle exec ptyblues …`
 works without any further `gem install` step.
 
 ### Quick start
