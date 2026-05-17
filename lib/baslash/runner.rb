@@ -15,6 +15,7 @@ module Baslash
   module Runner
     def self.run(builder)
       Context.init(logger: builder.logger)
+      run_state_initializers(builder)
 
       install_completion(builder)
       RelineDialogs.install(builder)
@@ -119,6 +120,17 @@ module Baslash
         "\e[1;36m#{prefix} > \e[0m"
       else
         "\e[1;36m> \e[0m"
+      end
+    end
+
+    def self.run_state_initializers(builder)
+      builder.state_initializers.each do |name, block|
+        Baslash::Context.state_set(name, block.call)
+      rescue StandardError => e
+        Baslash::Context.logger.error(
+          "state initializer :#{name} failed: #{e.class}: #{e.message}"
+        )
+        raise
       end
     end
 

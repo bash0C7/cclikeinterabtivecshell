@@ -99,4 +99,18 @@ class TestRunnerBaslash < Test::Unit::TestCase
     assert_equal "", result[1]
     assert_equal "", result[2]
   end
+
+  def test_state_initializers_run_at_boot_populating_context_state
+    # Verify Runner calls each state initializer once at boot and stores
+    # the result in Baslash::Context.state under the same symbol key.
+    builder = Baslash::Builder.new
+    builder.state(:counter) { { hits: 0 } }
+    builder.state(:greeting) { "hello" }
+
+    Baslash::Context.init(logger: Logger.new(IO::NULL))
+    Baslash::Runner.send(:run_state_initializers, builder)
+
+    assert_equal({ hits: 0 }, Baslash::Context.state[:counter])
+    assert_equal "hello",     Baslash::Context.state[:greeting]
+  end
 end
