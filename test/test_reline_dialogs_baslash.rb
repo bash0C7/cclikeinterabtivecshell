@@ -38,11 +38,6 @@ class TestRelineDialogsBaslash < Test::Unit::TestCase
     assert_equal initial + 1, Baslash::TitleBar.tick_count
   end
 
-  def test_apply_command_emit_writes_to_stdout
-    Baslash::RelineDialogs.apply_command([:emit, "raw bytes"])
-    assert_includes $stdout.string, "raw bytes"
-  end
-
   def test_compose_ctx_text_joins_with_dot
     text = Baslash::RelineDialogs.compose_ctx_text(@builder, @main_ctx)
     assert_equal "ctx", text

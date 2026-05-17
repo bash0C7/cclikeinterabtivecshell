@@ -221,23 +221,10 @@ module Baslash
           Baslash::Display.live_discard(sid)
         in [:dialog, content, opts]
           Baslash::Display.dialog(content, **opts)
-        in [:emit, bytes]
-          $stdout.write(bytes)
-          $stdout.flush
         in [:state_set, key, value]
           Baslash::Context.state_set(key, value)
         in [:state_get_request, reply_to, key]
           reply_to.send([:state_get_reply, Baslash::Context.state[key]])
-        in [:debug_snapshot_request, reply_to]
-          snapshot = {
-            context_state:   Baslash::Context.state.inspect,
-            title_bar_phase: Baslash::TitleBar.last_phase.inspect
-          }.freeze
-          reply_to.send([:debug_snapshot_reply, snapshot])
-        in [:debug_tick_count_request, reply_to]
-          reply_to.send([:debug_tick_count_reply, Baslash::TitleBar.tick_count])
-        in [:debug_curses_caps_request, reply_to]
-          reply_to.send([:debug_curses_caps_reply, { term: ENV["TERM"].to_s.freeze }])
         in [:logger, level, text]
           Baslash::Context.logger.send(level, text) rescue nil
         in [:quit]
