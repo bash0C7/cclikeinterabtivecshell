@@ -49,8 +49,7 @@ pass/fail と件数だけ返してもらうのが好ましい（make ログ / do
 - **同期 dispatch がデフォルト**。slash / on_submit ハンドラは main thread で走る。
   Ractor は WorkingIndicator（OSC 0 スピナー）だけが使う。
 - **`SyncCtx` が per-invocation の ctx**（`lib/baslash/sync_ctx.rb`）。
-  Display / Context / state_refs に直接話す。CtxProxy は CtxProxy で、
-  ハンドラ側からは見えない。
+  Display / Context に直接話す。
 - **curses も alt-screen も使わない**。本文は `puts` で stdout に直書き → 端末のネイティブ
   scrollback がそのまま使える。ステータスは OSC 0 でタイトルバーに出す。
 - **slash body は素の Proc**。closure capture が普通に効く。`SlashRegistry.register`
