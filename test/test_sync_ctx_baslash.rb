@@ -69,36 +69,6 @@ class TestSyncCtxBaslash < Test::Unit::TestCase
     assert_raise(ArgumentError) { @ctx.shareable(:nope) }
   end
 
-  def test_display_raw_emit_writes_to_stdout
-    @ctx.display.raw_emit("hello\e[31mred\e[0m")
-    assert_equal "hello\e[31mred\e[0m", $stdout.string
-  end
-
-  def test_debug_snapshot_returns_state_and_phase
-    Baslash::Context.state[:x] = 42
-    Baslash::TitleBar.tick(phase: :working, ctx_text: "test")
-    snap = @ctx.debug_snapshot
-    assert_kind_of String, snap[:context_state]
-    assert_kind_of String, snap[:title_bar_phase]
-    assert_includes snap[:title_bar_phase], "working"
-  end
-
-  def test_debug_tick_count_returns_title_bar_count
-    Baslash::TitleBar.reset_for_test
-    Baslash::TitleBar.tick(phase: :ready, ctx_text: "a")
-    Baslash::TitleBar.tick(phase: :ready, ctx_text: "b")
-    assert_equal 2, @ctx.debug_tick_count
-  end
-
-  def test_debug_curses_caps_returns_term
-    original = ENV["TERM"]
-    ENV["TERM"] = "xterm-256color"
-    caps = @ctx.debug_curses_caps
-    assert_equal "xterm-256color", caps[:term]
-  ensure
-    ENV["TERM"] = original
-  end
-
   class MiniRef
     def call(method, *)
       :ok if method == :ping

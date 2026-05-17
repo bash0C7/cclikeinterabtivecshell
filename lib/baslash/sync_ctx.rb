@@ -39,27 +39,6 @@ module Baslash
       ShareableProxy.new(ref)
     end
 
-    # Snapshot of Context.state + TitleBar.last_phase for /debug-snapshot.
-    # Mirrors RelineDialogs#apply_command [:debug_snapshot_request].
-    def debug_snapshot
-      {
-        context_state:   Baslash::Context.state.inspect,
-        title_bar_phase: Baslash::TitleBar.last_phase.inspect
-      }.freeze
-    end
-
-    # TitleBar tick count for /debug-tick-counter.
-    # Mirrors RelineDialogs#apply_command [:debug_tick_count_request].
-    def debug_tick_count
-      Baslash::TitleBar.tick_count
-    end
-
-    # Terminal capability snapshot for /debug-curses-caps.
-    # Mirrors RelineDialogs#apply_command [:debug_curses_caps_request].
-    def debug_curses_caps
-      { term: ENV["TERM"].to_s.freeze }
-    end
-
     class DisplayProxy
       def append(text, style: nil)
         Baslash::Display.append(text, style: style)
@@ -82,14 +61,6 @@ module Baslash
 
       def dialog(content, style: nil)
         Baslash::Display.dialog(content, style: style)
-      end
-
-      # Write raw bytes (possibly escape sequences) directly to stdout
-      # for /debug-emit. Bypasses Display.append formatting on purpose —
-      # this exists to test terminal escape-sequence handling.
-      def raw_emit(bytes)
-        $stdout.write(bytes)
-        $stdout.flush
       end
     end
 
