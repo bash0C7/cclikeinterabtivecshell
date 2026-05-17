@@ -9,12 +9,7 @@ require_relative "baslash/main_ctx"
 require_relative "baslash/display"
 require_relative "baslash/shareable_ref"
 require_relative "baslash/slash_registry"
-require_relative "baslash/ctx_proxy"
 require_relative "baslash/sync_ctx"
-# HandlerRactor is preserved for future explicit-background execution
-# (Ctrl-B style), but excluded from the default load path. The default
-# dispatch is synchronous via SyncCtx.
-# require_relative "baslash/handler_ractor"
 require_relative "baslash/slash_dispatcher"
 require_relative "baslash/default_commands"
 require_relative "baslash/reline_dialogs"

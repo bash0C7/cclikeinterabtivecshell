@@ -6,11 +6,8 @@ require_relative "title_bar"
 
 module Baslash
   # Main-thread synchronous execution context for slash command and
-  # on_submit handlers. Mirrors the public API of CtxProxy but talks to
-  # Display, Context, and ShareableRef directly without Ractor message
-  # passing. Used when handlers run on the main thread between Reline
-  # prompts (default mode); CtxProxy/HandlerRactor remain available for
-  # explicit background execution.
+  # on_submit handlers. Talks to Display, Context, and ShareableRef
+  # directly without any Ractor message passing.
   class SyncCtx
     def initialize(state_refs:, logger:)
       @state_refs = state_refs
