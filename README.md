@@ -20,9 +20,9 @@ logic, baslash wires the loop.
   there is no race with user input.
 - A small Ractor-based ticker repaints the title bar (spinner, info bar,
   status rows) while a handler runs.
-- Mutable state that you want shared across handlers lives in
-  `shareable_ref` (one Ractor per ref) and is reached via thread-safe
-  message passing.
+- Mutable state that handlers want to share lives in `Baslash::Context.state`,
+  bootstrapped via `shell.state(:name) { ... }` initializers and accessed
+  in handlers as `ctx.state[:name]`.
 - Slash bodies are plain Procs; they capture closures from the surrounding
   scope normally.
 
@@ -70,7 +70,7 @@ Everything is called on the `shell` object yielded by `Baslash.run`.
 
 | Method | Purpose | Block args | Returns |
 |---|---|---|---|
-| `shareable_ref(name, &block)` | Wrap a mutable object in its own State Ractor. The block creates the object inside that Ractor. | none | the ref (also stored by `name`) |
+| `state(name, &block)` | Register a service-state initializer. The block runs once at boot; the returned object is stored under `ctx.state[name]`. | none | `self` (the builder, for chaining) |
 | `on_start(&block)` | Runs once right after startup. | `(ctx)` (currently `nil`) | ignored |
 | `on_quit(&block)` | Runs once right before teardown. | `(ctx)` (currently `nil`) | ignored |
 | `on_submit(&block)` | Fires on Enter when the line is **not** a slash command. | `(args, ctx)` where `args == [line].freeze` | ignored |
@@ -99,7 +99,7 @@ Inside a slash body or `on_submit`, `ctx` is a `SyncCtx` exposing:
 | `ctx.display.raw_emit(bytes)` | Write raw bytes (escape sequences included) directly to stdout. Intended for testing terminal handling. |
 | `ctx.state[:key] = value` | Set a value in the per-shell key/value state (auto-frozen). |
 | `ctx.state[:key]` | Read it back. |
-| `ctx.shareable(name).call(:method, *args)` | Invoke a method on a `shareable_ref`-wrapped object. Round-trips through that ref's Ractor. |
+| `ctx.state[name]` | Service objects registered via `shell.state` live here too — call methods on them directly (`ctx.state[:cwd].pwd`). |
 | `ctx.logger` | The shell's stderr logger. |
 | `ctx.quit` | Schedule shutdown after the current handler returns. |
 
@@ -150,13 +150,11 @@ Three reference embeddings live under `examples/`:
 - `examples/echo_shell.rb` — minimal demo. Echoes input back, exercises
   `info`, `status_row`, `spinner_label`, `btw`, live slots.
 - `examples/zsh_shell/zsh_shell.rb` — zsh wrapper. Intercepts
-  `cd`/`export`/`unset` via two `shareable_ref`s (`cwd`, `env`), streams
+  `cd`/`export`/`unset` via two state holders (`cwd`, `env`), streams
   everything else through `zsh -c` with line-buffered stdout/stderr.
   Uses `prompt_prefix` to keep the cwd visible at the prompt.
 - `examples/irb_shell/irb_shell.rb` — irb evaluator on top of baslash.
-  NOTE: currently fails because `Binding` is not Ractor-shareable; the
-  smoke test for this example is omitted. Kept as a worked-example of
-  the DSL surface.
+  Demonstrates persistent `Binding`-holding state via `shell.state`.
 
 Run them with:
 
@@ -170,9 +168,11 @@ bundle exec ruby examples/zsh_shell/zsh_shell.rb
 - Handlers run synchronously on the main thread. There is no Ractor
   isolation around the handler body — your slash body is a normal Proc
   that can capture closures from the surrounding scope.
-- Mutable shared state goes in `shareable_ref` (one Ractor per ref), and
-  is reached through `ctx.shareable(name).call(:method, *args)`. The
-  call is thread-safe; values crossing the boundary are auto-frozen.
+- Mutable shared state goes in `shell.state(:name) { ... }` (a regular
+  Ruby object stored in `Baslash::Context.state`). Handlers read and
+  mutate it as `ctx.state[:name].some_method`. Safe because handlers
+  run sequentially on the main thread; the `Thread.new` ban (enforced
+  by `test/test_thread_zero.rb`) keeps it that way.
 - `ctx.state[...]` is a per-shell key/value bag (the value is frozen on
   write).
 - The title-bar ticker is a single Ractor running on its own. Handlers
