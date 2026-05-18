@@ -73,7 +73,7 @@ Baslash.run do |shell|
   end
 
   shell.spinner_label { |_| :auto }
-  shell.shortcuts_hint "/help for commands · /exit · /pwd · /env · /reset"
+  shell.shortcuts_hint "/help for commands · /exit · /pwd · /env · /reset (C-g)"
 
   # Show full cwd path to the left of the "> " prompt arrow on every
   # iteration so users always see where they are without running /pwd.
@@ -97,7 +97,7 @@ Baslash.run do |shell|
     end
   end
 
-  shell.slash(:reset, description: "reset cwd and env") do |_args, ctx|
+  shell.slash(:reset, description: "reset cwd and env", hotkey: "C-g") do |_args, ctx|
     ctx.state[:cwd].reset
     ctx.state[:env].reset
     ctx.display.append("session reset", style: :result)
