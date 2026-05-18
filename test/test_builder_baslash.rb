@@ -248,4 +248,46 @@ class TestBuilderBaslash < Test::Unit::TestCase
     result = b.state(:x) { 1 }
     assert_same b, result
   end
+
+  # --- slash hotkey ---
+
+  def test_slash_with_hotkey_stores_hotkey
+    b = Baslash::Builder.new
+    b.slash(:reset, description: "reset", hotkey: "C-g") { |_, _| }
+    assert_equal "C-g", b.slash_registry.lookup(:reset)[:hotkey]
+  end
+
+  def test_slash_validates_hotkey_at_registration
+    b = Baslash::Builder.new
+    assert_raise(Baslash::HotkeyError) do
+      b.slash(:reset, description: "reset", hotkey: "bogus") { |_, _| }
+    end
+  end
+
+  def test_slash_rejects_reserved_hotkey
+    b = Baslash::Builder.new
+    assert_raise(Baslash::HotkeyError) do
+      b.slash(:reset, description: "reset", hotkey: "C-c") { |_, _| }
+    end
+  end
+
+  def test_slash_blockless_updates_hotkey_on_existing_entry
+    b = Baslash::Builder.new
+    b.slash(:reset, description: "reset") { |_, _| }
+    b.slash(:reset, hotkey: "C-g")
+    assert_equal "C-g", b.slash_registry.lookup(:reset)[:hotkey]
+  end
+
+  def test_slash_blockless_on_unknown_name_raises
+    b = Baslash::Builder.new
+    assert_raise(Baslash::HotkeyError) do
+      b.slash(:nope, hotkey: "C-g")
+    end
+  end
+
+  def test_slash_blockless_without_hotkey_is_noop_error
+    b = Baslash::Builder.new
+    b.slash(:reset, description: "reset") { |_, _| }
+    assert_raise(Baslash::HotkeyError) { b.slash(:reset) }
+  end
 end

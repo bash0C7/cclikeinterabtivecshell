@@ -3,6 +3,7 @@
 require "logger"
 require_relative "slash_registry"
 require_relative "style"
+require_relative "hotkey_spec"
 
 module Baslash
   class Builder
@@ -170,8 +171,21 @@ module Baslash
 
     # --- Slash commands ---
 
-    def slash(name, description: nil, &block)
-      @slash_registry.register(name.to_sym, block, description: description)
+    def slash(name, description: nil, hotkey: nil, &block)
+      if block.nil?
+        unless hotkey
+          raise HotkeyError, "Builder#slash without a block requires `hotkey:` (no-op call for /#{name})"
+        end
+        Baslash::HotkeySpec.parse(hotkey)
+        begin
+          @slash_registry.update_hotkey(name.to_sym, hotkey)
+        rescue KeyError
+          raise HotkeyError, "cannot attach hotkey to unknown command /#{name}"
+        end
+        return self
+      end
+      Baslash::HotkeySpec.parse(hotkey) if hotkey
+      @slash_registry.register(name.to_sym, block, description: description, hotkey: hotkey)
     end
 
     # btw DSL: registers /btw slash that calls user block with (question, ctx)
