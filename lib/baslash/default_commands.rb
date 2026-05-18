@@ -27,13 +27,24 @@ module Baslash
       # The snapshot is taken before registry.register(:help) so we add the
       # /help entry manually to keep it in the listing.
       existing = registry.all.map { |name, entry|
-        [name.to_s, entry[:description].to_s].freeze
+        [name.to_s, entry[:description].to_s, entry[:hotkey].to_s].freeze
       }
-      existing << ["help", "list slash commands"].freeze
+      existing << ["help", "list slash commands", ""].freeze
       snapshot = Ractor.make_shareable(existing.freeze)
       help_body = Ractor.make_shareable(->(_, ctx) {
-        snapshot.each do |name, desc|
-          line = desc.empty? ? "/#{name}" : "/#{name}  - #{desc}"
+        snapshot.each do |name, desc, hotkey|
+          suffix =
+            if hotkey.empty?
+              ""
+            else
+              " (#{hotkey})"
+            end
+          line =
+            if desc.empty?
+              "/#{name}#{suffix}"
+            else
+              "/#{name}  - #{desc}#{suffix}"
+            end
           ctx.display.append(line, style: :dim)
         end
       })

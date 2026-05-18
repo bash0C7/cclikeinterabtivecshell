@@ -38,6 +38,24 @@ class TestDefaultCommandsBaslash < Test::Unit::TestCase
     assert(appended.any? { |t| t.include?("/help") }, "expected /help in help, got: #{appended.inspect}")
   end
 
+  def test_help_includes_hotkey_suffix
+    extra_registry = Baslash::SlashRegistry.new
+    extra_registry.register(:exit, proc {}, description: "exit", hotkey: "C-d")
+    extra_registry.register(:reset, proc {}, description: "reset state", hotkey: "C-g")
+    extra_registry.register(:plain, proc {}, description: "plain thing")
+    Baslash::DefaultCommands.register_help(extra_registry)
+
+    ctx = build_ctx
+    extra_registry.lookup(:help)[:body].call([], ctx)
+    appended = ctx.appended_texts
+    assert(appended.any? { |t| t.include?("/exit")  && t.include?("(C-d)") },
+           "expected /exit to carry (C-d) suffix in help, got: #{appended.inspect}")
+    assert(appended.any? { |t| t.include?("/reset") && t.include?("(C-g)") },
+           "expected /reset to carry (C-g) suffix in help, got: #{appended.inspect}")
+    assert(appended.any? { |t| t.include?("/plain") && !t.include?("(C-") },
+           "expected /plain to have no hotkey suffix, got: #{appended.inspect}")
+  end
+
   private
 
   def build_ctx
