@@ -26,11 +26,23 @@ SLOW_SHELL_SCRIPT = <<~RUBY
   end
 RUBY
 
+HOTKEY_SHELL_SCRIPT = <<~RUBY
+  # frozen_string_literal: true
+  require "baslash"
+  Baslash.run do |shell|
+    shell.slash(:marker, description: "print hotkey-marker", hotkey: "C-g") do |_args, ctx|
+      ctx.display.append("HOTKEY-MARKER-OK", style: :result)
+    end
+  end
+RUBY
+
 overall_pass = true
 Dir.mktmpdir("baslash-tty-e2e-") do |dir|
   # Write the helper script into the same tmpdir so it is cleaned up with it.
   slow_shell_path = File.join(dir, "slow_shell.rb")
   File.write(slow_shell_path, SLOW_SHELL_SCRIPT)
+  hotkey_shell_path = File.join(dir, "hotkey_shell.rb")
+  File.write(hotkey_shell_path, HOTKEY_SHELL_SCRIPT)
 
   scenarios = [
     {
@@ -104,6 +116,37 @@ Dir.mktmpdir("baslash-tty-e2e-") do |dir|
 
         expect "OSC 0 title-bar bytes emitted" do |captured|
           captured.contains?("\e]0;")
+        end
+
+        expect "exited cleanly" do |captured|
+          captured.exit_status == 0
+        end
+      SPEC
+    },
+    {
+      name: "hotkey C-g from empty buffer dispatches /marker; non-empty buffer ignores",
+      spec: <<~SPEC,
+        session "hotkey" do
+          timeout 10
+          spawn argv: ["bundle", "exec", "ruby", "#{hotkey_shell_path}"], cols: 80, rows: 24
+          wait 1.0
+          # Empty-buffer C-g -> should dispatch /marker
+          send "\\u0007"
+          wait 0.8
+          # Type then C-g -> buffer non-empty, hotkey must be no-op
+          send "abc"
+          wait 0.3
+          send "\\u0007"
+          wait 0.5
+          # Clear the buffer and exit cleanly
+          send "\\u0003"
+          wait 0.3
+          send "/exit\\r"
+          wait 0.5
+        end
+
+        expect "hotkey dispatched /marker from empty buffer" do |captured|
+          captured.contains?("HOTKEY-MARKER-OK")
         end
 
         expect "exited cleanly" do |captured|
