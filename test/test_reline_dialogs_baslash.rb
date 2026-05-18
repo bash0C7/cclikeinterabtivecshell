@@ -55,4 +55,20 @@ class TestRelineDialogsBaslash < Test::Unit::TestCase
     assert_includes formatted, "\e[90m"
     refute_includes formatted, "\e[2;90m"
   end
+
+  def test_format_slash_line_appends_hotkey_when_present
+    item = { name: "/reset", description: "reset state", hotkey: "C-g" }
+    line = Baslash::RelineDialogs.format_slash_line(item)
+    stripped = line.gsub(/\e\[[0-9;]*m/, "")
+    assert_includes stripped, "reset state"
+    assert_includes stripped, "(C-g)"
+  end
+
+  def test_format_slash_line_no_hotkey_omits_suffix
+    item = { name: "/plain", description: "plain" }
+    line = Baslash::RelineDialogs.format_slash_line(item)
+    stripped = line.gsub(/\e\[[0-9;]*m/, "")
+    refute_includes stripped, "()"
+    refute_match(/\(C-/, stripped)
+  end
 end

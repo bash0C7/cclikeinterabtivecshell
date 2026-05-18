@@ -161,9 +161,11 @@ module Baslash
       def format_slash_line(item)
         name = item[:name].to_s
         desc = item[:description].to_s
-        return name if desc.empty?
+        hk   = item[:hotkey].to_s
+        hk_suffix = hk.empty? ? "" : "  (#{hk})"
+        return "#{name}#{hk_suffix}" if desc.empty?
         pad = [SLASH_NAME_PAD - name.bytesize, 1].max
-        "#{name}#{' ' * pad}\e[90m#{desc}\e[0m"
+        "#{name}#{' ' * pad}\e[90m#{desc}#{hk_suffix}\e[0m"
       end
 
       def format_slash_lines(items)
