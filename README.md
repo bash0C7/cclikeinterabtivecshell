@@ -18,8 +18,9 @@ logic, baslash wires the loop.
 - The main thread runs Reline and dispatches slash / on_submit handlers.
 - Handlers execute **synchronously** on the main thread between prompts, so
   there is no race with user input.
-- A small Ractor-based ticker repaints the title bar (spinner, info bar,
-  status rows) while a handler runs.
+- A small Ractor-based ticker cycles the OSC 0 title-bar spinner glyph
+  (~120ms cadence) while a handler runs. The info bar and status rows
+  are evaluated on the main thread, not per tick.
 - Mutable state that handlers want to share lives in `Baslash::Context.state`,
   bootstrapped via `shell.state(:name) { ... }` initializers and accessed
   in handlers as `ctx.state[:name]`.
