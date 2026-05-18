@@ -8,6 +8,7 @@ require_relative "reline_dialogs"
 require_relative "context"
 require_relative "main_ctx"
 require_relative "slash_dispatcher"
+require_relative "hotkey_installer"
 
 Warning[:experimental] = false
 
@@ -21,6 +22,7 @@ module Baslash
       RelineDialogs.install(builder)
       DefaultCommands.register(builder.slash_registry)
       DefaultCommands.register_help(builder.slash_registry)
+      Baslash::HotkeyInstaller.install(builder)
 
       main_ctx = MainCtx.new
       builder.header_lines.each { |line| Display.append(line) }
