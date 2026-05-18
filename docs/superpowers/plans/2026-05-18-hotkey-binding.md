@@ -45,7 +45,7 @@ Modified files:
 - Create: `lib/baslash/hotkey_spec.rb`
 - Create: `test/test_hotkey_spec_baslash.rb`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```ruby
 # test/test_hotkey_spec_baslash.rb
@@ -78,12 +78,12 @@ class TestHotkeySpecBaslash < Test::Unit::TestCase
 end
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `bundle exec rake test TESTOPTS="-n /HotkeySpec/"`
 Expected: `LoadError: cannot load such file -- baslash/hotkey_spec`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ruby
 # lib/baslash/hotkey_spec.rb
@@ -118,12 +118,12 @@ module Baslash
 end
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bundle exec rake test TESTOPTS="-n /HotkeySpec/"`
 Expected: 4 passed, 0 failed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/baslash/hotkey_spec.rb test/test_hotkey_spec_baslash.rb
@@ -138,7 +138,7 @@ git commit -m "feat(hotkey): add HotkeySpec parser for C-/M- letter and M-digit 
 - Modify: `lib/baslash/hotkey_spec.rb`
 - Modify: `test/test_hotkey_spec_baslash.rb`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `test/test_hotkey_spec_baslash.rb`:
 
@@ -186,12 +186,12 @@ Append to `test/test_hotkey_spec_baslash.rb`:
   end
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `bundle exec rake test TESTOPTS="-n /HotkeySpec/"`
 Expected: empty/reserved/format tests fail (existing 4 still pass).
 
-- [ ] **Step 3: Update implementation**
+- [x] **Step 3: Update implementation**
 
 Replace `lib/baslash/hotkey_spec.rb` with:
 
@@ -263,12 +263,12 @@ module Baslash
 end
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bundle exec rake test TESTOPTS="-n /HotkeySpec/"`
 Expected: all HotkeySpec tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/baslash/hotkey_spec.rb test/test_hotkey_spec_baslash.rb
@@ -283,7 +283,7 @@ git commit -m "feat(hotkey): support chord, error cases, reserved keys, format r
 - Modify: `lib/baslash/slash_registry.rb`
 - Modify: `test/test_slash_registry_baslash.rb`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `test/test_slash_registry_baslash.rb`:
 
@@ -329,12 +329,12 @@ Append to `test/test_slash_registry_baslash.rb`:
   end
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `bundle exec rake test TESTOPTS="-n /SlashRegistry/"`
 Expected: 5 new tests fail (existing pass).
 
-- [ ] **Step 3: Update implementation**
+- [x] **Step 3: Update implementation**
 
 Replace `lib/baslash/slash_registry.rb` with:
 
@@ -405,12 +405,12 @@ module Baslash
 end
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bundle exec rake test TESTOPTS="-n /SlashRegistry/"`
 Expected: all SlashRegistry tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/baslash/slash_registry.rb test/test_slash_registry_baslash.rb
@@ -425,7 +425,7 @@ git commit -m "feat(hotkey): SlashRegistry stores hotkey + update_hotkey"
 - Modify: `lib/baslash/builder.rb`
 - Modify: `test/test_builder_baslash.rb`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `test/test_builder_baslash.rb` (above the prompt_prefix section):
 
@@ -474,12 +474,12 @@ Append to `test/test_builder_baslash.rb` (above the prompt_prefix section):
   end
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `bundle exec rake test TESTOPTS="-n /test_slash_with_hotkey|test_slash_validates|test_slash_rejects_reserved|test_slash_blockless/"`
 Expected: 6 fails.
 
-- [ ] **Step 3: Update implementation**
+- [x] **Step 3: Update implementation**
 
 Add `require_relative "hotkey_spec"` near the top of `lib/baslash/builder.rb`:
 
@@ -512,12 +512,12 @@ Replace the `def slash` method (currently around line 173):
     end
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bundle exec rake test TESTOPTS="-n /Builder/"`
 Expected: all Builder tests pass (existing + new).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/baslash/builder.rb test/test_builder_baslash.rb
@@ -532,7 +532,7 @@ git commit -m "feat(hotkey): Builder#slash accepts hotkey: kwarg and block-less 
 - Create: `lib/baslash/hotkey_installer.rb`
 - Create: `test/test_hotkey_installer_baslash.rb`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```ruby
 # test/test_hotkey_installer_baslash.rb
@@ -657,12 +657,12 @@ class TestHotkeyInstallerBaslash < Test::Unit::TestCase
 end
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `bundle exec rake test TESTOPTS="-n /HotkeyInstaller/"`
 Expected: `LoadError: cannot load such file -- baslash/hotkey_installer`.
 
-- [ ] **Step 3: Write implementation**
+- [x] **Step 3: Write implementation**
 
 ```ruby
 # lib/baslash/hotkey_installer.rb
@@ -723,12 +723,12 @@ module Baslash
 end
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bundle exec rake test TESTOPTS="-n /HotkeyInstaller/"`
 Expected: all HotkeyInstaller tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/baslash/hotkey_installer.rb test/test_hotkey_installer_baslash.rb
@@ -743,7 +743,7 @@ git commit -m "feat(hotkey): HotkeyInstaller defines per-command method and bind
 - Modify: `lib/baslash/reline_dialogs.rb`
 - Modify: `test/test_reline_dialogs_baslash.rb`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `test/test_reline_dialogs_baslash.rb` (before the final `end`):
 
@@ -765,12 +765,12 @@ Append to `test/test_reline_dialogs_baslash.rb` (before the final `end`):
   end
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `bundle exec rake test TESTOPTS="-n /test_format_slash_line_appends_hotkey|test_format_slash_line_no_hotkey/"`
 Expected: 2 fail.
 
-- [ ] **Step 3: Update implementation**
+- [x] **Step 3: Update implementation**
 
 In `lib/baslash/reline_dialogs.rb`, replace `format_slash_line`:
 
@@ -786,12 +786,12 @@ In `lib/baslash/reline_dialogs.rb`, replace `format_slash_line`:
       end
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bundle exec rake test TESTOPTS="-n /RelineDialogs/"`
 Expected: all RelineDialogs tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/baslash/reline_dialogs.rb test/test_reline_dialogs_baslash.rb
@@ -806,7 +806,7 @@ git commit -m "feat(hotkey): slash-menu dialog shows hotkey suffix"
 - Modify: `lib/baslash/default_commands.rb`
 - Modify: `test/test_default_commands_baslash.rb`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `test/test_default_commands_baslash.rb` (before the final `end`):
 
@@ -830,12 +830,12 @@ Append to `test/test_default_commands_baslash.rb` (before the final `end`):
   end
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `bundle exec rake test TESTOPTS="-n /test_help_includes_hotkey/"`
 Expected: fail (no suffix rendered).
 
-- [ ] **Step 3: Update implementation**
+- [x] **Step 3: Update implementation**
 
 Replace `lib/baslash/default_commands.rb` `register_help`:
 
@@ -867,12 +867,12 @@ Replace `lib/baslash/default_commands.rb` `register_help`:
     end
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bundle exec rake test TESTOPTS="-n /DefaultCommands/"`
 Expected: all DefaultCommands tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/baslash/default_commands.rb test/test_default_commands_baslash.rb
@@ -887,7 +887,7 @@ git commit -m "feat(hotkey): /help lists hotkey suffix per command"
 - Modify: `lib/baslash.rb`
 - Modify: `lib/baslash/runner.rb`
 
-- [ ] **Step 1: Update `lib/baslash.rb`**
+- [x] **Step 1: Update `lib/baslash.rb`**
 
 Insert `require_relative` lines for the new files. After the existing `require_relative "baslash/slash_dispatcher"` line, add:
 
@@ -917,7 +917,7 @@ require_relative "baslash/builder"
 require_relative "baslash/runner"
 ```
 
-- [ ] **Step 2: Update `lib/baslash/runner.rb`**
+- [x] **Step 2: Update `lib/baslash/runner.rb`**
 
 Add `require_relative "hotkey_installer"` near the top, then in `Runner.run` insert the installer call **after** `DefaultCommands.register_help(...)` and **before** the first `Display.append`:
 
@@ -929,16 +929,16 @@ Add `require_relative "hotkey_installer"` near the top, then in `Runner.run` ins
       Baslash::HotkeyInstaller.install(builder)
 ```
 
-- [ ] **Step 3: Run the full test suite to verify nothing regressed**
+- [x] **Step 3: Run the full test suite to verify nothing regressed**
 
 Delegate to a `general-purpose` subagent: "Run `bundle exec rake test` from `/Users/bash/dev/src/github.com/bash0C7/baslash` and report only pass/fail and the test count. If anything fails, also report the failing test names." Expected: all tests pass.
 
-- [ ] **Step 4: Smoke-check the echo example via pipe**
+- [x] **Step 4: Smoke-check the echo example via pipe**
 
 Run: `printf '/help\n/exit\n' | bundle exec ruby examples/echo_shell.rb`
 Expected: output contains `/help` and `/exit` lines (no crashes from the require chain).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/baslash.rb lib/baslash/runner.rb
@@ -952,7 +952,7 @@ git commit -m "feat(hotkey): wire HotkeyInstaller into Runner after default comm
 **Files:**
 - Modify: `examples/zsh_shell/zsh_shell.rb`
 
-- [ ] **Step 1: Add hotkey to the existing /reset slash**
+- [x] **Step 1: Add hotkey to the existing /reset slash**
 
 Locate the existing `shell.slash(:reset, ...)` block (around line 100) and add `hotkey: "C-g"`:
 
@@ -970,12 +970,12 @@ Also update the `shortcuts_hint` line near it to mention the binding so the user
   shell.shortcuts_hint "/help for commands · /exit · /pwd · /env · /reset (C-g)"
 ```
 
-- [ ] **Step 2: Smoke-check the example loads**
+- [x] **Step 2: Smoke-check the example loads**
 
 Run: `printf '/help\n/exit\n' | bundle exec ruby examples/zsh_shell/zsh_shell.rb 2>&1 | head -30`
 Expected: output includes `/reset` row and `(C-g)` suffix on it.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add examples/zsh_shell/zsh_shell.rb
@@ -989,7 +989,7 @@ git commit -m "feat(examples): bind C-g to /reset in zsh_shell to demo hotkeys"
 **Files:**
 - Modify: `examples/ptyblues_recording/04_tty_e2e.rb`
 
-- [ ] **Step 1: Add a hotkey scenario**
+- [x] **Step 1: Add a hotkey scenario**
 
 Add a new shell script constant near `SLOW_SHELL_SCRIPT`:
 
@@ -1048,7 +1048,7 @@ File.write(hotkey_shell_path, HOTKEY_SHELL_SCRIPT)
 
 (Note: `` is `C-g` = BEL byte 7.)
 
-- [ ] **Step 2: Verify SpecDSL `captured` API before relying on `count`**
+- [x] **Step 2: Verify SpecDSL `captured` API before relying on `count`**
 
 Read `examples/ptyblues_recording/03_spec_e2e.rb` and confirm what methods the SpecDSL `captured` object exposes (`contains?`, `count`, `exit_status`). If `count` is not available, use a `contains?`-based assertion only:
 
@@ -1060,12 +1060,12 @@ end
 
 Pick whichever assertion the SpecDSL actually supports before running.
 
-- [ ] **Step 3: Run the TTY E2E**
+- [x] **Step 3: Run the TTY E2E**
 
 Run: `bundle exec ruby examples/ptyblues_recording/04_tty_e2e.rb`
 Expected: all scenarios — including the new hotkey scenario — print `PASS` and the final line is `ALL TTY E2E PASS`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add examples/ptyblues_recording/04_tty_e2e.rb
@@ -1079,7 +1079,7 @@ git commit -m "test(ptyblues): TTY E2E for hotkey dispatch and buffer-empty gate
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Document the `hotkey:` kwarg**
+- [x] **Step 1: Document the `hotkey:` kwarg**
 
 Find the DSL table that documents `shell.slash`, `shell.btw`, `shell.shortcuts_hint`, etc. (around the `btw(&block)` row near line 80). Add `hotkey:` documentation in the same table.
 
@@ -1116,12 +1116,12 @@ space-separated chord such as `C-x C-r`. Case-insensitive.
 slash-menu dialog as a dim ` (C-g)` suffix.
 ```
 
-- [ ] **Step 2: Spot-check README rendering**
+- [x] **Step 2: Spot-check README rendering**
 
 Run: `grep -n "hotkey" README.md`
 Expected: at least 4-5 lines matching (DSL table row + sub-section heading + examples).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.md
@@ -1132,19 +1132,19 @@ git commit -m "docs(readme): document hotkey: kwarg and Hotkeys section"
 
 ## Task 12: Final full test sweep
 
-- [ ] **Step 1: Delegate `bundle exec rake test` to a general-purpose subagent**
+- [x] **Step 1: Delegate `bundle exec rake test` to a general-purpose subagent**
 
 Prompt: "From `/Users/bash/dev/src/github.com/bash0C7/baslash`, run `bundle exec rake test` and report only pass/fail and test count. If anything fails, also list failing test names."
 
 Expected: all tests pass; count is `prior_count + (~22 new tests)`.
 
-- [ ] **Step 2: Delegate TTY E2E to the same subagent pattern**
+- [x] **Step 2: Delegate TTY E2E to the same subagent pattern**
 
 Prompt: "Run `bundle exec ruby examples/ptyblues_recording/04_tty_e2e.rb`. Report PASS / FAIL summary lines only."
 
 Expected: `ALL TTY E2E PASS`.
 
-- [ ] **Step 3: Sanity-check the example shells one more time via pipe**
+- [x] **Step 3: Sanity-check the example shells one more time via pipe**
 
 ```bash
 printf '/help\n/exit\n' | bundle exec ruby examples/echo_shell.rb 2>&1 | tail -20
@@ -1153,21 +1153,21 @@ printf '/help\n/exit\n' | bundle exec ruby examples/zsh_shell/zsh_shell.rb 2>&1 
 
 Expected: /help output lists registered commands and the zsh_shell's /reset row shows `(C-g)`.
 
-- [ ] **Step 4: No commit needed** — this task only verifies. If any step fails, fix in a new task and re-run.
+- [x] **Step 4: No commit needed** — this task only verifies. If any step fails, fix in a new task and re-run.
 
 ---
 
 ## Acceptance checklist (matches spec)
 
-- [ ] `shell.slash(:foo, hotkey: "C-g")` with a block registers body + key
-- [ ] `shell.slash(:exit, hotkey: "C-d")` without a block updates an existing entry
-- [ ] No-block call on unknown name raises `Baslash::HotkeyError`
-- [ ] `C-c` / `C-m` / `C-j` / `C-i` / `C-h` raise at parse time
-- [ ] Invalid spec strings raise at `Builder#slash` time (fail-fast)
-- [ ] Pressing the hotkey on an empty prompt dispatches the command exactly once
-- [ ] Pressing the hotkey mid-typing or in a multi-line edit is a no-op
-- [ ] `/help` shows ` (C-g)` suffix for commands with a hotkey
-- [ ] Slash-menu dialog shows the same suffix
-- [ ] Duplicate hotkey across two commands emits a `logger.warn`
-- [ ] Default: no hotkeys bound; baseline behavior unchanged
-- [ ] `rake test` green; TTY E2E green; example shells smoke-test green
+- [x] `shell.slash(:foo, hotkey: "C-g")` with a block registers body + key
+- [x] `shell.slash(:exit, hotkey: "C-d")` without a block updates an existing entry
+- [x] No-block call on unknown name raises `Baslash::HotkeyError`
+- [x] `C-c` / `C-m` / `C-j` / `C-i` / `C-h` raise at parse time
+- [x] Invalid spec strings raise at `Builder#slash` time (fail-fast)
+- [x] Pressing the hotkey on an empty prompt dispatches the command exactly once
+- [x] Pressing the hotkey mid-typing or in a multi-line edit is a no-op
+- [x] `/help` shows ` (C-g)` suffix for commands with a hotkey
+- [x] Slash-menu dialog shows the same suffix
+- [x] Duplicate hotkey across two commands emits a `logger.warn`
+- [x] Default: no hotkeys bound; baseline behavior unchanged
+- [x] `rake test` green; TTY E2E green; example shells smoke-test green
