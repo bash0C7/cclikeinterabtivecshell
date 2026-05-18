@@ -54,4 +54,44 @@ class TestSlashRegistryBaslash < Test::Unit::TestCase
     snapshot = reg.all
     assert snapshot.frozen?
   end
+
+  def test_register_stores_hotkey
+    reg = Baslash::SlashRegistry.new
+    reg.register(:reset, proc {}, description: "reset", hotkey: "C-g")
+    entry = reg.lookup(:reset)
+    assert_equal "C-g", entry[:hotkey]
+  end
+
+  def test_register_defaults_hotkey_to_nil
+    reg = Baslash::SlashRegistry.new
+    reg.register(:reset, proc {}, description: "reset")
+    assert_nil reg.lookup(:reset)[:hotkey]
+  end
+
+  def test_slash_menu_items_include_hotkey
+    reg = Baslash::SlashRegistry.new
+    reg.register(:reset, proc {}, description: "reset", hotkey: "C-g")
+    reg.register(:plain, proc {}, description: "plain")
+    items = reg.slash_menu_items_starting_with("")
+    reset = items.find { |i| i[:name] == "/reset" }
+    plain = items.find { |i| i[:name] == "/plain" }
+    assert_equal "C-g", reset[:hotkey]
+    assert_nil   plain[:hotkey]
+  end
+
+  def test_update_hotkey_for_existing_entry
+    reg = Baslash::SlashRegistry.new
+    body = proc {}
+    reg.register(:exit, body, description: "exit")
+    reg.update_hotkey(:exit, "C-d")
+    entry = reg.lookup(:exit)
+    assert_equal "C-d", entry[:hotkey]
+    assert_same body, entry[:body]
+    assert_equal "exit", entry[:description]
+  end
+
+  def test_update_hotkey_on_unknown_name_raises
+    reg = Baslash::SlashRegistry.new
+    assert_raise(KeyError) { reg.update_hotkey(:nope, "C-g") }
+  end
 end

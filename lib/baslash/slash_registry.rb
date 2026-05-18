@@ -6,10 +6,21 @@ module Baslash
       @entries = {}
     end
 
-    def register(name, body, description: nil)
+    def register(name, body, description: nil, hotkey: nil)
       @entries[name.to_sym] = {
         body:        body,
-        description: description.to_s.freeze
+        description: description.to_s.freeze,
+        hotkey:      hotkey ? hotkey.to_s.freeze : nil
+      }.freeze
+    end
+
+    def update_hotkey(name, hotkey)
+      sym = name.to_sym
+      entry = @entries[sym] or raise KeyError, "no slash command registered: /#{sym}"
+      @entries[sym] = {
+        body:        entry[:body],
+        description: entry[:description],
+        hotkey:      hotkey ? hotkey.to_s.freeze : nil
       }.freeze
     end
 
@@ -38,7 +49,11 @@ module Baslash
       @entries.each do |name, entry|
         name_str = name.to_s
         next unless name_str.start_with?(prefix_str)
-        result << { name: "/#{name_str}", description: entry[:description] }
+        result << {
+          name:        "/#{name_str}",
+          description: entry[:description],
+          hotkey:      entry[:hotkey]
+        }
       end
       result
     end
