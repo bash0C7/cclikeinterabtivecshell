@@ -85,7 +85,6 @@ Everything is called on the `shell` object yielded by `Baslash.run`.
 | `prompt_prefix(&block)` | Dynamic text rendered to the left of `> `, re-evaluated every prompt render. | `(main_ctx)` | `String` (or `nil` to omit) |
 | `shortcuts_hint("text")` | One-line hint printed near the prompt at startup. | — | — |
 | `header { \|h\| ... }` | Banner block: `h.logo`, `h.title`, `h.version`, `h.subtitle`, `h.note`. | yields a builder | — |
-| `enable_debug_commands` | Register the built-in `/debug-*` slashes. | — | — |
 | `define_style(name, **opts)` | **Deprecated.** No-op stub for back-compat with curses-era apps. Use the built-in semantic style names instead. | — | — |
 
 ## Handler context (`ctx`)
