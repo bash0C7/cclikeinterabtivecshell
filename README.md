@@ -76,7 +76,7 @@ Everything is called on the `shell` object yielded by `Baslash.run`.
 | `on_quit(&block)` | Runs once right before teardown. | `(ctx)` (currently `nil`) | ignored |
 | `on_submit(&block)` | Fires on Enter when the line is **not** a slash command. | `(args, ctx)` where `args == [line].freeze` | ignored |
 | `on_tab(&block)` | Override the default Reline completion proc. | `(buffer, pos)` | `Array<String>` or `nil` |
-| `slash(name, description:, &block)` | Register `/name`. | `(args, ctx)` where `args` is the parsed rest of the line | ignored |
+| `slash(name, description: nil, hotkey: nil, &block)` | Register `/name`. Optional `hotkey:` (e.g. `"C-g"`, `"M-d"`, `"C-x C-r"`) dispatches the command from an empty prompt. Calling without a block + `hotkey:` updates an existing command's hotkey only (e.g. for built-ins like `/exit`). See [Hotkeys](#hotkeys). | `(args, ctx)` where `args` is the parsed rest of the line | ignored |
 | `btw(&block)` | Register `/btw <question>` shortcut. | `(question, ctx)` | string appended to display |
 | `info(name, order: N, &block)` | One segment of the info bar (rendered in the title bar). | `(ctx)` | `String` |
 | `status_row(name, &block)` | One row in the title-bar status. Use `row.icon`, `row.text`, `row.link(text:, state:)`, `row.bar(percent:, width:)`. | `(row, ctx)` | ignored |
@@ -142,6 +142,33 @@ a multi-line edit buffer; continuation rows get an empty prefix so the
 arrow doesn't repeat. `prompt_prefix` lets you inject dynamic text (e.g.
 the current working directory) to the left of the arrow; it is
 re-evaluated every iteration of the main loop.
+
+### Hotkeys
+
+A slash command can be assigned a single-key or chord hotkey via the
+`hotkey:` keyword on `shell.slash`. The hotkey fires only when the prompt
+buffer is empty; pressing it mid-typing or in a multi-line edit is a
+no-op so it never stomps on what you're typing.
+
+```ruby
+shell.slash(:reset, description: "reset state", hotkey: "C-g") do |_, ctx|
+  ctx.state[:cwd].reset
+end
+
+# Attach to a built-in command without redefining the body:
+shell.slash(:exit, hotkey: "C-d")
+```
+
+**Spec grammar:** `C-<letter>`, `M-<letter>`, `M-<digit>`, or a
+space-separated chord such as `C-x C-r`. Case-insensitive.
+
+**Reserved (binding raises):** `C-c` (SIGINT), `C-m` / `C-j` (Enter / LF),
+`C-i` (Tab), `C-h` (Backspace).
+
+**Default:** no hotkey is assigned. Hotkeys are fully opt-in.
+
+**Visibility:** registered hotkeys show as a dim ` (C-g)` suffix in
+`/help` rows and in the slash-menu dialog.
 
 ## Examples
 
