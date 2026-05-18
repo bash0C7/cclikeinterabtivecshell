@@ -67,4 +67,9 @@ class TestDisplay < Test::Unit::TestCase
     assert_match(/│ world/, out)
     assert_match(/└─+┘/, out)
   end
+
+  def test_raw_emit_writes_bytes_verbatim
+    Baslash::Display.raw_emit("ABC\e[31mred\e[0m")
+    assert_includes $stdout.string, "ABC\e[31mred\e[0m"
+  end
 end

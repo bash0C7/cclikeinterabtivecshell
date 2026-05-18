@@ -63,6 +63,11 @@ module Baslash
         append("└#{"─" * width}┘", style: :dim)
       end
 
+      def raw_emit(bytes)
+        $stdout.write(bytes)
+        $stdout.flush
+      end
+
       def reset_for_test
         @next_sid = 0
         @live_open.clear

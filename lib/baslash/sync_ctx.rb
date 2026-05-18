@@ -52,6 +52,10 @@ module Baslash
       def dialog(content, style: nil)
         Baslash::Display.dialog(content, style: style)
       end
+
+      def raw_emit(bytes)
+        Baslash::Display.raw_emit(bytes)
+      end
     end
 
     class LiveSlot

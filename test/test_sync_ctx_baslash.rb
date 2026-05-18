@@ -58,4 +58,9 @@ class TestSyncCtxBaslash < Test::Unit::TestCase
     assert Baslash::Context.quit?
   end
 
+  def test_display_raw_emit_writes_bytes_to_stdout
+    @ctx.display.raw_emit("\e]0;hello\a")
+    assert_includes $stdout.string, "\e]0;hello\a"
+  end
+
 end
